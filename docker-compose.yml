@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  runner-token-service:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./runner_service.db
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_APP_INSTALLATION_ID=${GITHUB_APP_INSTALLATION_ID}
+      - GITHUB_APP_PRIVATE_KEY_PATH=/app/github-app-private-key.pem
+      - GITHUB_ORG=${GITHUB_ORG}
+      - OIDC_ISSUER=${OIDC_ISSUER}
+      - OIDC_AUDIENCE=${OIDC_AUDIENCE}
+      - OIDC_JWKS_URL=${OIDC_JWKS_URL}
+      - ENABLE_OIDC_AUTH=${ENABLE_OIDC_AUTH:-true}
+    volumes:
+      - ./github-app-private-key.pem:/app/github-app-private-key.pem:ro
+      - ./data:/app/data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
