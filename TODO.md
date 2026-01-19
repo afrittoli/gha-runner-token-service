@@ -1,25 +1,66 @@
 # Open TODOs and Known Issues
 
+## Completed
 - [x] (Claude) DEVELOPMENT.md: get user credentials from the M2M auth0 application
 - [x] (Claude) DEVELOPMENT.md: Env variable names are the same for different accounts which leads to confusion
 - [x] (Claude) Add a linter workflow to the repo that uses a self-hosted runner
-- [ ] Test E2E provisioning with runner removal after job has been run
+- [x] Test E2E provisioning with runner removal after job has been run
 - [x] Test adding, listing, removing runners with different users
-- [ ] Test label policy mgmt
-- [ ] Trim the dashboard design
 - [x] (Claude) Implement basic dashboard
-- [x] (Claude) Refactor API to use runner_id instead of runner_name as the primary identifier
-  - API endpoints now use UUID `runner_id` for GET/DELETE/refresh operations
-  - Fixes issue where multiple runners with the same name caused ambiguity
-  - Breaking change: clients must use `runner_id` from provision response
-- [ ] Implement admin role checking for /api/v1/admin endpoints
-  - Currently all authenticated users have admin access (see app/api/v1/admin.py:41-44)
-  - Options: ADMIN_IDENTITIES env var, OIDC claim check, or DB-based role management
-- [ ] (Claude) The OIDC provider is only used for authentication purposes. There should be an authorization table on the app side. If a user is not provisioned there, we shall not even attempt authentication. This can be connected to the admin role implementation
-- [ ] (Claude) The "Refresh" button on the dashboard doesn't do anything. This cannot be fixed until auth is avaialble for the dashboard
-- [x] (Claude) Runners remain in pending state until a sync is triggered manually. Fixed via documentation.
-- [ ] (Claude) When trying to delete another user's runner, the response body is ok but the HTTP response code is 500 instead of 404
-- [x] (Claude) Runners do not pick up queued jobs
-  - Root cause: GitHub org setting restricts self-hosted runners to private repos by default
-  - Fix: Enable "Allow public repositories" flag in org Actions settings
+- [x] (Claude) Refactor API to use runner_id instead of runner_name
+- [x] (Claude) Runners remain in pending state until sync - fixed via documentation
+- [x] (Claude) Runners do not pick up queued jobs - fixed via org settings docs
 - [x] (Claude) Streamline docs, remove duplicates
+- [x] (Claude) Fix delete runner returns 500 instead of 404 for wrong user
+- [x] (Claude) Review updated docs (Haiku changes)
+- [x] (Claude) Trim dashboard design doc
+- [x] (Claude) Implement admin role checking via ADMIN_IDENTITIES env var
+
+## Open
+
+- [ ] P1, bug, Deletion of runners via API returns unauthorized, [details](#deletion-unauthorized)
+- [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
+- [ ] P2, feature, Add unit test workflow
+- [ ] P2, feature, Add coverage check workflow
+- [ ] P2, feature, Add precommit configuration for linting and unit tests
+- [ ] P3, feature, Design GitHub sync mechanism, [details](#github-sync)
+- [ ] P3, test, Catch up on missing tests, [details](#missing-tests)
+- [ ] P3, test, Test label policy management
+- [ ] P4, feature, Dashboard authentication and refresh button
+
+---
+
+## Details
+
+### Deletion Unauthorized
+Deletion of runners via API always returns unauthorized. Need to investigate if this is an identity mismatch issue - check if `provisioned_by` stored value matches current `user.identity`.
+
+### User Authorization Table
+OIDC should only be for authentication. Authorization should use an app-side user table.
+- Create User model: id, email, display_name, oidc_sub, is_admin, is_active, created_at
+- Add admin API endpoints for user CRUD
+- Modify auth flow to check user exists in DB before allowing access
+- Store display_name for dashboard (fixes "shows OIDC sub instead of email")
+- Replace ADMIN_IDENTITIES env var with is_admin from User table
+
+### GitHub Sync
+Keep runner status in sync with GitHub. Options:
+1. GitHub webhooks for runner events
+2. Periodic polling job
+
+### Missing Tests
+Current test coverage is minimal. Areas needing tests:
+- API endpoints (runners, admin)
+- Runner service (provisioning, deprovision, status sync)
+- Label policy service
+- OIDC validation
+- GitHub client
+- Admin role checking
+
+---
+
+## Rules
+
+When implementing:
+- **Bug fixes**: Must include a regression test
+- **Features**: Must include new tests and document any untestable areas

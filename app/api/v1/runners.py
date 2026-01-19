@@ -220,14 +220,14 @@ async def deprovision_runner(
     """
     service = RunnerService(settings, db)
 
-    try:
-        runner = await service.get_runner_by_id(runner_id, user)
-        if not runner:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Runner with ID '{runner_id}' not found or not owned by you",
-            )
+    runner = await service.get_runner_by_id(runner_id, user)
+    if not runner:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Runner with ID '{runner_id}' not found or not owned by you",
+        )
 
+    try:
         await service.deprovision_runner(runner_id, user)
 
         return DeprovisionResponse(
