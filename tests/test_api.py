@@ -1,6 +1,7 @@
 """Tests for basic API endpoints (health, root, docs)."""
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.main import app
 
@@ -85,8 +86,15 @@ class TestAuthenticationRequired:
 class TestDashboard:
     """Tests for dashboard endpoint."""
 
-    def test_dashboard_accessible(self):
-        """Test that dashboard is accessible without authentication."""
+    def test_dashboard_accessible(
+        self,
+        client: TestClient,
+        test_db: Session,  # noqa: ARG002
+    ):
+        """Test that dashboard is accessible without authentication.
+
+        Uses test_db fixture because dashboard queries the database.
+        """
         response = client.get("/dashboard")
         assert response.status_code == 200
         # Should return HTML
