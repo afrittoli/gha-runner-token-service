@@ -145,7 +145,8 @@ class LabelPolicyService:
 
         def is_user_label(label: str) -> bool:
             """Check if label is user-defined (not system-generated)."""
-            return not any(label.startswith(prefix) for prefix in system_label_prefixes)
+            label_lower = label.lower()
+            return not any(label_lower.startswith(prefix) for prefix in system_label_prefixes)
 
         expected_set = {label for label in expected_labels if is_user_label(label)}
         actual_set = {label for label in actual_labels if is_user_label(label)}
