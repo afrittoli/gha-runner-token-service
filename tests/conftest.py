@@ -7,14 +7,85 @@ from typing import Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.auth.dependencies import AuthenticatedUser
-from app.database import Base, get_db
-from app.main import app
+
+# Create a temporary private key file BEFORE importing app modules
+# This is necessary because app.config validates the key path on import
+_TEST_PRIVATE_KEY = """-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy0AHB7AFPBDM8MBx8v9IKV
+sHPQoWXCaJz8F/hGe2A/K1DKdP1r9LqJrfKvvl1MslU4mYh+HZy5C7Z3xJKZfT1L
+hV7C/sT1j/EkQGG9mB2xLPNbNvSoV3rvDH3WLnH7RkVUQeO/FZk7C6CZdVvRlVmY
+FmCu5BQZR9WQfzFj3Q9Y8pPCf9hF7kH7NKkZ3SX7fLoVewxvz/8Lj4CjQgvYK7M1
+sHOTcP3cQM6gcD3h/K9K1YiuQfvWYvvL+WmRmyE7VgHvJ/rH5PRTB3JFNvSn8tKM
+eCxEYpYKZxPrKQIDAQABAoIBADf/0Q0fJfP3AxPonKXhqu3AOHX1MCnNfNKvqxkI
+wJa/K+bD2F7dNvYJAC8l2B3YmPRXeyYT8J7+heEW2bQqFvGgVvRom9z3HfhaO3Pq
+L7rX0CFM/M10Y66PAKz7C8BSr57iN0bVOYe9Wf3yjEnxCmCmEXyMdC/jqSHC/Bmj
+kd6FNkI/mYOGK2uPPOAfErNgqprF3VNmUXXQ+nStStTt7ENZAV0Bz8n7HnbNfLBD
+8H4v8Q8SuN3S5u+P/TAMNaK7V6pSe/R7LqgOYQFCBwSRfHOmVmaLbSP8nVOmP/d5
+SqB5P/0ECwYm7SMX5HHN7U0mNQNRx7a7ICy8MRELfEkCgYEA7AAGhj2m1w1f3B7F
+Gf2g0VFCfPT0UMFQ0f9aP/I6sTOwOLFbHUu8JP9r3QVq1mDJrqCX6H/JUFX0rr8g
+I/xvf1U00GVCny3T5FMhvHhdklPnaD9yPbNqkN/7k0SD/i5JNmJYU7zb3nF8svYB
+QD9qzjqbW4RYLqvAeOLwPVb7IUUCgYEA5B3xF/v/jF1qYqJXPD0gb6H+h4MJIef1
+f0bQN5S3X7f9Bk0xa1d4fZ1XC7fb2fLQD3gLJNH1l4S2+EzKB9Z+2SPRLL/RH6n2
+j8PbPNhYH81F3qXD9wZ3TKF8MdO7P8bevbLzQl0dLnfe+rW/WAPFcj5qlPxiuNkJ
+MJkXvTaH5g0CgYEAqV5SCwP0M3AbTwBP7M5J4MdO4hZb9LGz/CnMdvJHNpTbJdmK
+XP/qi4D0wg2FVw+h/h/TXI+hVWPoF9g2H+cPfMIJBFnQ8YmMqyYQV1Rwu3N7L3kL
+E0Q1JAwPvfXdJFZf7hDuP/5FVrYMwYlGXCxEMqRmxE0YbWUP1ckJfnvT+R0CgYBD
+jUQcXQSUINv8n/h7/Tt0vJJMn7lGMV9l3AffSXQ9fL+lQZX3XGff0RSlCYK+jhWe
+sS+AvW1DDgMsvVJNYqPiO7j4kS1yDJKptvmhY/8+kCdqm7VW0y1M9GKsHvtBKzVl
+RNv4Mzf2GNAFNC4/M2CfHnAdb1k9Jg/R8a1fKqPVaQKBgH/E3P1NLv7BZfD2GSSY
+PWqRz6OC5VdPWCVVNCRTDu2hfJW3xZN7p5M/K5qPw9nOKsaZNqFkBBVXjpL7LVXL
+JHk8XLNK6dD0F5m2TOdK1QVKBA2Y79QD+mp/16akN9kP7KOCaV8S3kciNabAcPMD
+mWJkVcmXvqNpEfPo9pZxBwGp
+-----END RSA PRIVATE KEY-----"""
+
+
+def _setup_test_environment():
+    """Set up test environment variables before app import."""
+    # Create temporary key file
+    key_file = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".pem", delete=False, prefix="test_github_key_"
+    )
+    key_file.write(_TEST_PRIVATE_KEY)
+    key_file.flush()
+    key_file.close()
+
+    # Set environment variables for testing
+    os.environ.setdefault("GITHUB_APP_ID", "123456")
+    os.environ.setdefault("GITHUB_APP_INSTALLATION_ID", "12345678")
+    os.environ.setdefault("GITHUB_APP_PRIVATE_KEY_PATH", key_file.name)
+    os.environ.setdefault("GITHUB_ORG", "test-org")
+    os.environ.setdefault("OIDC_ISSUER", "https://test-issuer.example.com/")
+    os.environ.setdefault("OIDC_AUDIENCE", "test-audience")
+    os.environ.setdefault(
+        "OIDC_JWKS_URL", "https://test-issuer.example.com/.well-known/jwks.json"
+    )
+    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+    os.environ.setdefault("ENABLE_OIDC_AUTH", "true")
+
+    return key_file.name
+
+
+# Set up environment before any app imports
+_temp_key_path = _setup_test_environment()
+
+
+# Now we can safely import app modules
+from app.auth.dependencies import AuthenticatedUser  # noqa: E402
+from app.database import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
+
+
+def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001
+    """Clean up temporary files after test session."""
+    try:
+        if _temp_key_path and os.path.exists(_temp_key_path):
+            os.unlink(_temp_key_path)
+    except Exception:
+        pass
 
 
 # Test database setup
@@ -41,8 +112,9 @@ def test_db() -> Generator[Session, None, None]:
 
 
 @pytest.fixture(scope="function")
-def client(test_db: Session) -> Generator[TestClient, None, None]:
+def client(test_db: Session) -> Generator:
     """Create a test client with test database."""
+    from fastapi.testclient import TestClient
 
     def override_get_db():
         try:
@@ -187,42 +259,3 @@ def no_auth_override(mock_settings):
     app.dependency_overrides[get_settings] = override_get_settings
     yield mock_settings
     app.dependency_overrides.pop(get_settings, None)
-
-
-# GitHub private key fixture for integration tests
-@pytest.fixture
-def mock_github_private_key():
-    """Create a temporary mock GitHub private key file."""
-    # This is a test-only RSA key, NOT a real secret
-    test_key = """-----BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy0AHB7AFPBDM8MBx8v9IKV
-sHPQoWXCaJz8F/hGe2A/K1DKdP1r9LqJrfKvvl1MslU4mYh+HZy5C7Z3xJKZfT1L
-hV7C/sT1j/EkQGG9mB2xLPNbNvSoV3rvDH3WLnH7RkVUQeO/FZk7C6CZdVvRlVmY
-FmCu5BQZR9WQfzFj3Q9Y8pPCf9hF7kH7NKkZ3SX7fLoVewxvz/8Lj4CjQgvYK7M1
-sHOTcP3cQM6gcD3h/K9K1YiuQfvWYvvL+WmRmyE7VgHvJ/rH5PRTB3JFNvSn8tKM
-eCxEYpYKZxPrKQIDAQABAoIBADf/0Q0fJfP3AxPonKXhqu3AOHX1MCnNfNKvqxkI
-wJa/K+bD2F7dNvYJAC8l2B3YmPRXeyYT8J7+heEW2bQqFvGgVvRom9z3HfhaO3Pq
-L7rX0CFM/M10Y66PAKz7C8BSr57iN0bVOYe9Wf3yjEnxCmCmEXyMdC/jqSHC/Bmj
-kd6FNkI/mYOGK2uPPOAfErNgqprF3VNmUXXQ+nStStTt7ENZAV0Bz8n7HnbNfLBD
-8H4v8Q8SuN3S5u+P/TAMNaK7V6pSe/R7LqgOYQFCBwSRfHOmVmaLbSP8nVOmP/d5
-SqB5P/0ECwYm7SMX5HHN7U0mNQNRx7a7ICy8MRELfEkCgYEA7AAGhj2m1w1f3B7F
-Gf2g0VFCfPT0UMFQ0f9aP/I6sTOwOLFbHUu8JP9r3QVq1mDJrqCX6H/JUFX0rr8g
-I/xvf1U00GVCny3T5FMhvHhdklPnaD9yPbNqkN/7k0SD/i5JNmJYU7zb3nF8svYB
-QD9qzjqbW4RYLqvAeOLwPVb7IUUCgYEA5B3xF/v/jF1qYqJXPD0gb6H+h4MJIef1
-f0bQN5S3X7f9Bk0xa1d4fZ1XC7fb2fLQD3gLJNH1l4S2+EzKB9Z+2SPRLL/RH6n2
-j8PbPNhYH81F3qXD9wZ3TKF8MdO7P8bevbLzQl0dLnfe+rW/WAPFcj5qlPxiuNkJ
-MJkXvTaH5g0CgYEAqV5SCwP0M3AbTwBP7M5J4MdO4hZb9LGz/CnMdvJHNpTbJdmK
-XP/qi4D0wg2FVw+h/h/TXI+hVWPoF9g2H+cPfMIJBFnQ8YmMqyYQV1Rwu3N7L3kL
-E0Q1JAwPvfXdJFZf7hDuP/5FVrYMwYlGXCxEMqRmxE0YbWUP1ckJfnvT+R0CgYBD
-jUQcXQSUINv8n/h7/Tt0vJJMn7lGMV9l3AffSXQ9fL+lQZX3XGff0RSlCYK+jhWe
-sS+AvW1DDgMsvVJNYqPiO7j4kS1yDJKptvmhY/8+kCdqm7VW0y1M9GKsHvtBKzVl
-RNv4Mzf2GNAFNC4/M2CfHnAdb1k9Jg/R8a1fKqPVaQKBgH/E3P1NLv7BZfD2GSSY
-PWqRz6OC5VdPWCVVNCRTDu2hfJW3xZN7p5M/K5qPw9nOKsaZNqFkBBVXjpL7LVXL
-JHk8XLNK6dD0F5m2TOdK1QVKBA2Y79QD+mp/16akN9kP7KOCaV8S3kciNabAcPMD
-mWJkVcmXvqNpEfPo9pZxBwGp
------END RSA PRIVATE KEY-----"""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
-        f.write(test_key)
-        f.flush()
-        yield f.name
-    os.unlink(f.name)
