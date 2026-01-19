@@ -82,9 +82,9 @@ runner-token-service/
 | GET | `/health` | Health check | No |
 | POST | `/api/v1/runners/provision` | Provision new runner | OIDC |
 | GET | `/api/v1/runners` | List user's runners | OIDC |
-| GET | `/api/v1/runners/{name}` | Get runner status | OIDC |
-| POST | `/api/v1/runners/{name}/refresh` | Sync with GitHub | OIDC |
-| DELETE | `/api/v1/runners/{name}` | Delete runner | OIDC |
+| GET | `/api/v1/runners/{runner_id}` | Get runner status by ID | OIDC |
+| POST | `/api/v1/runners/{runner_id}/refresh` | Sync with GitHub | OIDC |
+| DELETE | `/api/v1/runners/{runner_id}` | Delete runner by ID | OIDC |
 
 ### Label Policy Administration
 

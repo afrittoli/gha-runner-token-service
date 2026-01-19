@@ -176,10 +176,10 @@ curl -s http://localhost:8000/api/v1/runners \
 
 ```bash
 OIDC_TOKEN="your-token"
-RUNNER_NAME="gpu-worker-001"
+RUNNER_ID="uuid-from-provision-response"
 
 # Sync status with GitHub
-curl -X POST http://localhost:8000/api/v1/runners/$RUNNER_NAME/refresh \
+curl -X POST http://localhost:8000/api/v1/runners/$RUNNER_ID/refresh \
   -H "Authorization: Bearer $OIDC_TOKEN" | jq .
 ```
 
@@ -187,9 +187,9 @@ curl -X POST http://localhost:8000/api/v1/runners/$RUNNER_NAME/refresh \
 
 ```bash
 OIDC_TOKEN="your-token"
-RUNNER_NAME="gpu-worker-001"
+RUNNER_ID="uuid-from-provision-response"
 
-curl -X DELETE http://localhost:8000/api/v1/runners/$RUNNER_NAME \
+curl -X DELETE http://localhost:8000/api/v1/runners/$RUNNER_ID \
   -H "Authorization: Bearer $OIDC_TOKEN" | jq .
 ```
 

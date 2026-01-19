@@ -1,18 +1,22 @@
 """Main FastAPI application."""
 
+import json
 from datetime import datetime, timezone
-from typing import Optional
+from pathlib import Path
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
 import structlog
 
 from app import __version__
 from app.api.v1 import runners
 from app.config import get_settings
-from app.database import init_db
+from app.database import get_db, init_db
+from app.models import Runner, SecurityEvent
 from app.schemas import ErrorResponse, HealthResponse
 
 # Configure structured logging
@@ -56,6 +60,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Setup Jinja2 templates
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 # Request logging middleware
@@ -169,6 +176,51 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
+
+
+# Dashboard endpoint
+@app.get("/dashboard", response_class=HTMLResponse, tags=["System"])
+async def dashboard(request: Request, db: Session = Depends(get_db)):
+    """
+    Dashboard showing runner status and statistics.
+    """
+    # Get all runners (excluding deleted for stats)
+    runners = db.query(Runner).filter(Runner.status != "deleted").all()
+
+    # Calculate stats
+    stats = {
+        "total": len(runners),
+        "active": sum(1 for r in runners if r.status == "active"),
+        "offline": sum(1 for r in runners if r.status == "offline"),
+        "pending": sum(1 for r in runners if r.status == "pending"),
+    }
+
+    # Parse labels for display
+    for runner in runners:
+        try:
+            runner.labels_list = json.loads(runner.labels) if runner.labels else []
+        except json.JSONDecodeError:
+            runner.labels_list = []
+
+    # Get recent security events
+    security_events = (
+        db.query(SecurityEvent)
+        .order_by(SecurityEvent.timestamp.desc())
+        .limit(10)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "version": __version__,
+            "stats": stats,
+            "runners": runners,
+            "security_events": security_events,
+            "year": datetime.now().year,
+        },
+    )
 
 
 # Include API routers

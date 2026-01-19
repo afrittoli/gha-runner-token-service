@@ -147,14 +147,16 @@ curl http://localhost:8000/api/v1/runners \
 ### Get Runner Status
 
 ```bash
-curl http://localhost:8000/api/v1/runners/ci-worker-001 \
+# Use the runner_id from the provision response
+curl http://localhost:8000/api/v1/runners/{runner_id} \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Deprovision a Runner
 
 ```bash
-curl -X DELETE http://localhost:8000/api/v1/runners/ci-worker-001 \
+# Use the runner_id from the provision response
+curl -X DELETE http://localhost:8000/api/v1/runners/{runner_id} \
   -H "Authorization: Bearer $TOKEN"
 ```
 

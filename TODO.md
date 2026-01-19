@@ -1,0 +1,21 @@
+# Open TODOs and Known Issues
+
+- [x] (Claude) DEVELOPMENT.md: get user credentials from the M2M auth0 application
+- [x] (Claude) DEVELOPMENT.md: Env variable names are the same for different accounts which leads to confusion
+- [x] (Claude) Add a linter workflow to the repo that uses a self-hosted runner
+- [ ] Test E2E provisioning with runner removal after job has been run
+- [x] Test adding, listing, removing runners with different users
+- [ ] Test label policy mgmt
+- [ ] Trim the dashboard design
+- [x] (Claude) Implement basic dashboard
+- [x] (Claude) Refactor API to use runner_id instead of runner_name as the primary identifier
+  - API endpoints now use UUID `runner_id` for GET/DELETE/refresh operations
+  - Fixes issue where multiple runners with the same name caused ambiguity
+  - Breaking change: clients must use `runner_id` from provision response
+- [ ] Implement admin role checking for /api/v1/admin endpoints
+  - Currently all authenticated users have admin access (see app/api/v1/admin.py:41-44)
+  - Options: ADMIN_IDENTITIES env var, OIDC claim check, or DB-based role management
+- [ ] (Claude) The OIDC provider is only used for authentication purposes. There should be an authorization table on the app side. If a user is not provisioned there, we shall not even attempt authentication. This can be connected to the admin role implementation
+- [ ] (Claude) The "Refresh" button on the dashboard doesn't do anything
+- [ ] (Claude) Runners remain in pending state until a sync is triggered manually
+- [ ] (Claude) When trying to delete another user's runner, the response body is ok but the HTTP response code is 500 instead of 404

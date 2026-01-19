@@ -258,9 +258,29 @@ class RunnerService:
             configuration_command=config_cmd
         )
 
-    async def get_runner(self, runner_name: str, user: AuthenticatedUser) -> Optional[Runner]:
+    async def get_runner_by_id(self, runner_id: str, user: AuthenticatedUser) -> Optional[Runner]:
+        """
+        Get runner by ID (only if owned by user).
+
+        Args:
+            runner_id: Runner UUID
+            user: Authenticated user
+
+        Returns:
+            Runner if found and owned by user, None otherwise
+        """
+        runner = self.db.query(Runner).filter(
+            Runner.id == runner_id,
+            Runner.provisioned_by == user.identity
+        ).first()
+
+        return runner
+
+    async def get_runner_by_name(self, runner_name: str, user: AuthenticatedUser) -> Optional[Runner]:
         """
         Get runner by name (only if owned by user).
+
+        Note: If multiple runners with the same name exist, returns the most recent non-deleted one.
 
         Args:
             runner_name: Runner name
@@ -271,8 +291,9 @@ class RunnerService:
         """
         runner = self.db.query(Runner).filter(
             Runner.runner_name == runner_name,
-            Runner.provisioned_by == user.identity
-        ).first()
+            Runner.provisioned_by == user.identity,
+            Runner.status != "deleted"
+        ).order_by(Runner.created_at.desc()).first()
 
         return runner
 
@@ -295,26 +316,32 @@ class RunnerService:
 
     async def update_runner_status(
         self,
-        runner_name: str,
+        runner_id: str,
         user: AuthenticatedUser
     ) -> Optional[Runner]:
         """
         Update runner status from GitHub API.
 
         Args:
-            runner_name: Runner name
+            runner_id: Runner UUID
             user: Authenticated user
 
         Returns:
             Updated runner or None if not found
         """
-        runner = await self.get_runner(runner_name, user)
+        runner = await self.get_runner_by_id(runner_id, user)
         if not runner:
             return None
 
         # Fetch status from GitHub
         try:
-            github_runner = await self.github.get_runner_by_name(runner_name)
+            github_runner = await self.github.get_runner_by_name(runner.runner_name)
+            logger.debug(
+                "fetched_github_runner",
+                runner_id=runner.id,
+                github_runner_id=github_runner.id if github_runner else None,
+                status=github_runner.status if github_runner else None
+            )
 
             if github_runner:
                 # Runner exists in GitHub
@@ -356,14 +383,14 @@ class RunnerService:
 
     async def deprovision_runner(
         self,
-        runner_name: str,
+        runner_id: str,
         user: AuthenticatedUser
     ) -> bool:
         """
         Deprovision a runner.
 
         Args:
-            runner_name: Runner name
+            runner_id: Runner UUID
             user: Authenticated user
 
         Returns:
@@ -372,12 +399,12 @@ class RunnerService:
         Raises:
             ValueError: If runner not found or not owned by user
         """
-        runner = await self.get_runner(runner_name, user)
+        runner = await self.get_runner_by_id(runner_id, user)
         if not runner:
-            raise ValueError(f"Runner '{runner_name}' not found or not owned by you")
+            raise ValueError(f"Runner with ID '{runner_id}' not found or not owned by you")
 
         if runner.status == "deleted":
-            raise ValueError(f"Runner '{runner_name}' is already deleted")
+            raise ValueError(f"Runner '{runner.runner_name}' is already deleted")
 
         # Delete from GitHub if it has a GitHub ID
         if runner.github_runner_id:

@@ -25,3 +25,6 @@ python-dateutil==2.8.2
 
 # Logging
 structlog==24.1.0
+
+# Dashboard
+jinja2==3.1.2
