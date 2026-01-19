@@ -182,6 +182,18 @@ $CONFIG_CMD
 ./run.sh
 ```
 
+### Sync Runner Status with GitHub
+
+**Important:** After starting the runner, it will appear in a "pending" state in the service until you sync with GitHub. Run the sync command to update the runner status to "active" or "offline".
+
+```bash
+# Sync all runners with GitHub API
+# This checks which runners have been registered and updates their status
+python -m app.cli sync-github
+```
+
+After syncing, the runner status should change from "pending" to "active".
+
 ### Check Runner Status
 
 ```bash

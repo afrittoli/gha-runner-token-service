@@ -128,7 +128,11 @@ cd actions-runner
 # 5. Start the runner
 ./run.sh
 
-# 6. Check status
+# 6. Sync runner status with GitHub
+# Note: After starting the runner, it will be in "pending" state until synced
+python -m app.cli sync-github
+
+# 7. Check status (should now be "active" or "offline" depending on availability)
 curl http://localhost:8000/api/v1/runners/gpu-worker-001 \
   -H "Authorization: Bearer $OIDC_TOKEN" | jq .
 ```

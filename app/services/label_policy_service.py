@@ -33,15 +33,13 @@ class LabelPolicyService:
         Returns:
             LabelPolicy if exists, None otherwise
         """
-        return self.db.query(LabelPolicy).filter(
-            LabelPolicy.user_identity == user_identity
-        ).first()
+        return (
+            self.db.query(LabelPolicy)
+            .filter(LabelPolicy.user_identity == user_identity)
+            .first()
+        )
 
-    def validate_labels(
-        self,
-        user_identity: str,
-        requested_labels: List[str]
-    ) -> None:
+    def validate_labels(self, user_identity: str, requested_labels: List[str]) -> None:
         """
         Validate requested labels against user's policy.
 
@@ -100,7 +98,7 @@ class LabelPolicyService:
                 f"Labels {invalid_labels} not permitted by policy. "
                 f"Allowed labels: {allowed_labels}. "
                 f"Allowed patterns: {label_patterns}",
-                invalid_labels=invalid_labels
+                invalid_labels=invalid_labels,
             )
 
     def check_runner_quota(self, user_identity: str, current_count: int) -> None:
@@ -124,9 +122,7 @@ class LabelPolicyService:
                 )
 
     def verify_labels_match(
-        self,
-        expected_labels: List[str],
-        actual_labels: List[str]
+        self, expected_labels: List[str], actual_labels: List[str]
     ) -> Set[str]:
         """
         Verify that actual labels match expected labels.
@@ -141,12 +137,21 @@ class LabelPolicyService:
             Set of labels that are missing or don't match
         """
         # Filter out system-generated labels
-        system_label_prefixes = ["self-hosted", "linux", "macos", "windows", "x64", "arm64"]
+        system_label_prefixes = [
+            "self-hosted",
+            "linux",
+            "macos",
+            "windows",
+            "x64",
+            "arm64",
+        ]
 
         def is_user_label(label: str) -> bool:
             """Check if label is user-defined (not system-generated)."""
             label_lower = label.lower()
-            return not any(label_lower.startswith(prefix) for prefix in system_label_prefixes)
+            return not any(
+                label_lower.startswith(prefix) for prefix in system_label_prefixes
+            )
 
         expected_set = {label for label in expected_labels if is_user_label(label)}
         actual_set = {label for label in actual_labels if is_user_label(label)}
@@ -169,7 +174,7 @@ class LabelPolicyService:
         violation_data: dict,
         action_taken: Optional[str] = None,
         oidc_sub: Optional[str] = None,
-        github_runner_id: Optional[int] = None
+        github_runner_id: Optional[int] = None,
     ) -> SecurityEvent:
         """
         Log a security event for monitoring and alerting.
@@ -197,7 +202,7 @@ class LabelPolicyService:
             runner_name=runner_name,
             github_runner_id=github_runner_id,
             violation_data=json.dumps(violation_data),
-            action_taken=action_taken
+            action_taken=action_taken,
         )
 
         self.db.add(event)
@@ -214,7 +219,7 @@ class LabelPolicyService:
         max_runners: Optional[int] = None,
         require_approval: bool = False,
         description: Optional[str] = None,
-        created_by: Optional[str] = None
+        created_by: Optional[str] = None,
     ) -> LabelPolicy:
         """
         Create or update label policy for a user.
@@ -237,7 +242,9 @@ class LabelPolicyService:
         if existing:
             # Update existing policy
             existing.allowed_labels = json.dumps(allowed_labels)
-            existing.label_patterns = json.dumps(label_patterns) if label_patterns else None
+            existing.label_patterns = (
+                json.dumps(label_patterns) if label_patterns else None
+            )
             existing.max_runners = max_runners
             existing.require_approval = require_approval
             existing.description = description
@@ -251,7 +258,7 @@ class LabelPolicyService:
                 max_runners=max_runners,
                 require_approval=require_approval,
                 description=description,
-                created_by=created_by
+                created_by=created_by,
             )
             self.db.add(policy)
 
@@ -279,11 +286,7 @@ class LabelPolicyService:
 
         return False
 
-    def list_policies(
-        self,
-        limit: int = 100,
-        offset: int = 0
-    ) -> List[LabelPolicy]:
+    def list_policies(self, limit: int = 100, offset: int = 0) -> List[LabelPolicy]:
         """
         List all label policies.
 
@@ -294,6 +297,10 @@ class LabelPolicyService:
         Returns:
             List of LabelPolicy objects
         """
-        return self.db.query(LabelPolicy).order_by(
-            LabelPolicy.created_at.desc()
-        ).limit(limit).offset(offset).all()
+        return (
+            self.db.query(LabelPolicy)
+            .order_by(LabelPolicy.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )

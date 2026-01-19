@@ -16,6 +16,10 @@
   - Currently all authenticated users have admin access (see app/api/v1/admin.py:41-44)
   - Options: ADMIN_IDENTITIES env var, OIDC claim check, or DB-based role management
 - [ ] (Claude) The OIDC provider is only used for authentication purposes. There should be an authorization table on the app side. If a user is not provisioned there, we shall not even attempt authentication. This can be connected to the admin role implementation
-- [ ] (Claude) The "Refresh" button on the dashboard doesn't do anything
-- [ ] (Claude) Runners remain in pending state until a sync is triggered manually
+- [ ] (Claude) The "Refresh" button on the dashboard doesn't do anything. This cannot be fixed until auth is avaialble for the dashboard
+- [x] (Claude) Runners remain in pending state until a sync is triggered manually. Fixed via documentation.
 - [ ] (Claude) When trying to delete another user's runner, the response body is ok but the HTTP response code is 500 instead of 404
+- [x] (Claude) Runners do not pick up queued jobs
+  - Root cause: GitHub org setting restricts self-hosted runners to private repos by default
+  - Fix: Enable "Allow public repositories" flag in org Actions settings
+- [x] (Claude) Streamline docs, remove duplicates

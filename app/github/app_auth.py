@@ -37,7 +37,7 @@ class GitHubAppAuth:
         payload = {
             "iat": now - 60,  # Issued 60 seconds in the past to allow for clock drift
             "exp": expiration,
-            "iss": str(self.app_id)
+            "iss": str(self.app_id),
         }
 
         # Sign the JWT with the private key
@@ -60,7 +60,9 @@ class GitHubAppAuth:
         # Return cached token if still valid
         if not force_refresh and self._installation_token and self._token_expires_at:
             # Refresh if token expires in less than 5 minutes
-            if datetime.now(timezone.utc) < self._token_expires_at - timedelta(minutes=5):
+            if datetime.now(timezone.utc) < self._token_expires_at - timedelta(
+                minutes=5
+            ):
                 return self._installation_token
 
         # Generate new installation token
@@ -70,7 +72,7 @@ class GitHubAppAuth:
         headers = {
             "Authorization": f"Bearer {jwt_token}",
             "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28"
+            "X-GitHub-Api-Version": "2022-11-28",
         }
 
         async with httpx.AsyncClient() as client:
@@ -96,5 +98,5 @@ class GitHubAppAuth:
         return {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28"
+            "X-GitHub-Api-Version": "2022-11-28",
         }
