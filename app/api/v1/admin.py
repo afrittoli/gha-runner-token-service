@@ -24,15 +24,17 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 def require_admin(
     user: AuthenticatedUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> AuthenticatedUser:
     """
     Require admin privileges.
 
-    In a real implementation, this would check the user's role/permissions.
-    For this prototype, we simply pass through the authenticated user.
+    Checks if the user's identity is in the ADMIN_IDENTITIES environment variable.
+    If ADMIN_IDENTITIES is empty, all authenticated users have admin access (dev mode).
 
     Args:
         user: Authenticated user
+        settings: Application settings
 
     Returns:
         Authenticated user if admin
@@ -40,10 +42,24 @@ def require_admin(
     Raises:
         HTTPException: If user is not admin
     """
-    # TODO: Implement actual admin role checking
-    # For now, all authenticated users have admin access
-    # In production, check user.claims for admin role or maintain admin list in DB
-    return user
+    admin_list = [
+        identity.strip()
+        for identity in settings.admin_identities.split(",")
+        if identity.strip()
+    ]
+
+    # If no admin list configured, allow all authenticated users (dev mode)
+    if not admin_list:
+        return user
+
+    # Check if user identity or sub is in admin list
+    if user.identity in admin_list or (user.sub and user.sub in admin_list):
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin privileges required",
+    )
 
 
 @router.post(

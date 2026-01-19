@@ -165,6 +165,11 @@ ENABLE_OIDC_AUTH=true
 OIDC_ISSUER=https://your-tenant.auth0.com/
 OIDC_AUDIENCE=runner-token-service
 OIDC_JWKS_URL=https://your-tenant.auth0.com/.well-known/jwks.json
+
+# Admin access control (optional)
+# Comma-separated list of admin identities (email or OIDC sub)
+# If empty, all authenticated users have admin access (dev mode)
+ADMIN_IDENTITIES=admin@example.com,auth0|abc123
 ```
 
 ## 3. Database Setup
