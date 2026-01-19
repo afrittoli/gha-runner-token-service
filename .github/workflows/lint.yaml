@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    runs-on: self-hosted
+    runs-on: dev
     steps:
       - uses: actions/checkout@v4
 

@@ -165,7 +165,51 @@
         .refresh-btn:hover {
             background: #0256b9;
         }
+        .refresh-btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        .refresh-btn.loading::after {
+            content: " ⟳";
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
+    <script>
+        async function refreshRunners() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                // Get the list of runners
+                const response = await fetch('/api/v1/runners');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch runners');
+                }
+                
+                const data = await response.json();
+                
+                // Refresh each runner's status
+                const refreshPromises = data.runners.map(runner =>
+                    fetch(`/api/v1/runners/${runner.runner_id}/refresh`, { method: 'POST' })
+                        .catch(err => console.error(`Failed to refresh runner ${runner.runner_id}:`, err))
+                );
+                
+                await Promise.all(refreshPromises);
+                
+                // Reload the page to show updated data
+                location.reload();
+            } catch (error) {
+                console.error('Error refreshing runners:', error);
+                alert('Failed to refresh runners. Check the console for details.');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="header">
@@ -196,7 +240,7 @@
         <div class="section">
             <div class="section-header">
                 <h2>Runners</h2>
-                <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+                <button class="refresh-btn" onclick="refreshRunners()">Refresh</button>
             </div>
             {% if runners %}
             <table>
