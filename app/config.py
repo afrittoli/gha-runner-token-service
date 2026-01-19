@@ -63,6 +63,17 @@ class Settings(BaseSettings):
         default=24, description="Hours before considering a runner stale"
     )
 
+    # Sync Configuration
+    sync_enabled: bool = Field(
+        default=True, description="Enable background runner sync with GitHub"
+    )
+    sync_interval_seconds: int = Field(
+        default=300, description="Seconds between sync cycles (default: 5 min)"
+    )
+    sync_on_startup: bool = Field(
+        default=True, description="Run sync immediately on startup"
+    )
+
     @field_validator("github_app_private_key_path")
     @classmethod
     def validate_private_key_path(cls, v: Path) -> Path:
