@@ -1,7 +1,6 @@
 """Runner management API endpoints."""
 
 import json
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -21,12 +20,16 @@ from app.services.runner_service import RunnerService
 router = APIRouter(prefix="/runners", tags=["Runners"])
 
 
-@router.post("/provision", response_model=ProvisionRunnerResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/provision",
+    response_model=ProvisionRunnerResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def provision_runner(
     request: ProvisionRunnerRequest,
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ):
     """
     Provision a new self-hosted runner.
@@ -53,14 +56,11 @@ async def provision_runner(
         response = await service.provision_runner(request, user)
         return response
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to provision runner: {str(e)}"
+            detail=f"Failed to provision runner: {str(e)}",
         )
 
 
@@ -68,7 +68,7 @@ async def provision_runner(
 async def list_runners(
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ):
     """
     List all runners provisioned by the authenticated user.
@@ -86,25 +86,24 @@ async def list_runners(
     # Convert to response schema
     runner_statuses = []
     for runner in runners:
-        runner_statuses.append(RunnerStatus(
-            runner_id=runner.id,
-            runner_name=runner.runner_name,
-            status=runner.status,
-            github_runner_id=runner.github_runner_id,
-            runner_group_id=runner.runner_group_id,
-            labels=json.loads(runner.labels),
-            ephemeral=runner.ephemeral,
-            provisioned_by=runner.provisioned_by,
-            created_at=runner.created_at,
-            updated_at=runner.updated_at,
-            registered_at=runner.registered_at,
-            deleted_at=runner.deleted_at
-        ))
+        runner_statuses.append(
+            RunnerStatus(
+                runner_id=runner.id,
+                runner_name=runner.runner_name,
+                status=runner.status,
+                github_runner_id=runner.github_runner_id,
+                runner_group_id=runner.runner_group_id,
+                labels=json.loads(runner.labels),
+                ephemeral=runner.ephemeral,
+                provisioned_by=runner.provisioned_by,
+                created_at=runner.created_at,
+                updated_at=runner.updated_at,
+                registered_at=runner.registered_at,
+                deleted_at=runner.deleted_at,
+            )
+        )
 
-    return RunnerListResponse(
-        runners=runner_statuses,
-        total=len(runner_statuses)
-    )
+    return RunnerListResponse(runners=runner_statuses, total=len(runner_statuses))
 
 
 @router.get("/{runner_id}", response_model=RunnerStatus)
@@ -112,7 +111,7 @@ async def get_runner(
     runner_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ):
     """
     Get status of a specific runner by ID.
@@ -130,7 +129,7 @@ async def get_runner(
     if not runner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Runner with ID '{runner_id}' not found or not owned by you"
+            detail=f"Runner with ID '{runner_id}' not found or not owned by you",
         )
 
     return RunnerStatus(
@@ -145,7 +144,7 @@ async def get_runner(
         created_at=runner.created_at,
         updated_at=runner.updated_at,
         registered_at=runner.registered_at,
-        deleted_at=runner.deleted_at
+        deleted_at=runner.deleted_at,
     )
 
 
@@ -154,7 +153,7 @@ async def refresh_runner_status(
     runner_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ):
     """
     Refresh runner status from GitHub API.
@@ -175,7 +174,7 @@ async def refresh_runner_status(
     if not runner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Runner with ID '{runner_id}' not found or not owned by you"
+            detail=f"Runner with ID '{runner_id}' not found or not owned by you",
         )
 
     return RunnerStatus(
@@ -190,7 +189,7 @@ async def refresh_runner_status(
         created_at=runner.created_at,
         updated_at=runner.updated_at,
         registered_at=runner.registered_at,
-        deleted_at=runner.deleted_at
+        deleted_at=runner.deleted_at,
     )
 
 
@@ -199,7 +198,7 @@ async def deprovision_runner(
     runner_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ):
     """
     Deprovision a runner by ID.
@@ -226,7 +225,7 @@ async def deprovision_runner(
         if not runner:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Runner with ID '{runner_id}' not found or not owned by you"
+                detail=f"Runner with ID '{runner_id}' not found or not owned by you",
             )
 
         await service.deprovision_runner(runner_id, user)
@@ -235,15 +234,12 @@ async def deprovision_runner(
             runner_id=runner.id,
             runner_name=runner.runner_name,
             success=True,
-            message=f"Runner '{runner.runner_name}' successfully deprovisioned"
+            message=f"Runner '{runner.runner_name}' successfully deprovisioned",
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to deprovision runner: {str(e)}"
+            detail=f"Failed to deprovision runner: {str(e)}",
         )

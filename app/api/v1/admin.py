@@ -22,7 +22,9 @@ from app.services.label_policy_service import LabelPolicyService
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
-def require_admin(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+def require_admin(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
     """
     Require admin privileges.
 
@@ -44,12 +46,16 @@ def require_admin(user: AuthenticatedUser = Depends(get_current_user)) -> Authen
     return user
 
 
-@router.post("/label-policies", response_model=LabelPolicyResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/label-policies",
+    response_model=LabelPolicyResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_label_policy(
     policy: LabelPolicyCreate,
     admin: AuthenticatedUser = Depends(require_admin),
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ):
     """
     Create or update a label policy for a user.
@@ -90,25 +96,27 @@ async def create_label_policy(
             max_runners=policy.max_runners,
             require_approval=policy.require_approval,
             description=policy.description,
-            created_by=admin.identity
+            created_by=admin.identity,
         )
 
         return LabelPolicyResponse(
             user_identity=db_policy.user_identity,
             allowed_labels=json.loads(db_policy.allowed_labels),
-            label_patterns=json.loads(db_policy.label_patterns) if db_policy.label_patterns else None,
+            label_patterns=json.loads(db_policy.label_patterns)
+            if db_policy.label_patterns
+            else None,
             max_runners=db_policy.max_runners,
             require_approval=db_policy.require_approval,
             description=db_policy.description,
             created_by=db_policy.created_by,
             created_at=db_policy.created_at,
-            updated_at=db_policy.updated_at
+            updated_at=db_policy.updated_at,
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create policy: {str(e)}"
+            detail=f"Failed to create policy: {str(e)}",
         )
 
 
@@ -117,7 +125,7 @@ async def list_label_policies(
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     admin: AuthenticatedUser = Depends(require_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List all label policies.
@@ -136,31 +144,32 @@ async def list_label_policies(
 
     policy_responses = []
     for policy in policies:
-        policy_responses.append(LabelPolicyResponse(
-            user_identity=policy.user_identity,
-            allowed_labels=json.loads(policy.allowed_labels),
-            label_patterns=json.loads(policy.label_patterns) if policy.label_patterns else None,
-            max_runners=policy.max_runners,
-            require_approval=policy.require_approval,
-            description=policy.description,
-            created_by=policy.created_by,
-            created_at=policy.created_at,
-            updated_at=policy.updated_at
-        ))
+        policy_responses.append(
+            LabelPolicyResponse(
+                user_identity=policy.user_identity,
+                allowed_labels=json.loads(policy.allowed_labels),
+                label_patterns=json.loads(policy.label_patterns)
+                if policy.label_patterns
+                else None,
+                max_runners=policy.max_runners,
+                require_approval=policy.require_approval,
+                description=policy.description,
+                created_by=policy.created_by,
+                created_at=policy.created_at,
+                updated_at=policy.updated_at,
+            )
+        )
 
     total = db.query(LabelPolicy).count()
 
-    return LabelPolicyListResponse(
-        policies=policy_responses,
-        total=total
-    )
+    return LabelPolicyListResponse(policies=policy_responses, total=total)
 
 
 @router.get("/label-policies/{user_identity}", response_model=LabelPolicyResponse)
 async def get_label_policy(
     user_identity: str,
     admin: AuthenticatedUser = Depends(require_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get label policy for a specific user.
@@ -182,27 +191,31 @@ async def get_label_policy(
     if not policy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No policy found for user: {user_identity}"
+            detail=f"No policy found for user: {user_identity}",
         )
 
     return LabelPolicyResponse(
         user_identity=policy.user_identity,
         allowed_labels=json.loads(policy.allowed_labels),
-        label_patterns=json.loads(policy.label_patterns) if policy.label_patterns else None,
+        label_patterns=json.loads(policy.label_patterns)
+        if policy.label_patterns
+        else None,
         max_runners=policy.max_runners,
         require_approval=policy.require_approval,
         description=policy.description,
         created_by=policy.created_by,
         created_at=policy.created_at,
-        updated_at=policy.updated_at
+        updated_at=policy.updated_at,
     )
 
 
-@router.delete("/label-policies/{user_identity}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/label-policies/{user_identity}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_label_policy(
     user_identity: str,
     admin: AuthenticatedUser = Depends(require_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Delete label policy for a user.
@@ -224,7 +237,7 @@ async def delete_label_policy(
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No policy found for user: {user_identity}"
+            detail=f"No policy found for user: {user_identity}",
         )
 
 
@@ -236,7 +249,7 @@ async def list_security_events(
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     admin: AuthenticatedUser = Depends(require_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List security events for monitoring and alerting.
@@ -273,24 +286,26 @@ async def list_security_events(
     if user_identity:
         query = query.filter(SecurityEvent.user_identity == user_identity)
 
-    events = query.order_by(
-        SecurityEvent.timestamp.desc()
-    ).limit(limit).offset(offset).all()
+    events = (
+        query.order_by(SecurityEvent.timestamp.desc()).limit(limit).offset(offset).all()
+    )
 
     event_responses = []
     for event in events:
-        event_responses.append(SecurityEventResponse(
-            id=event.id,
-            event_type=event.event_type,
-            severity=event.severity,
-            runner_id=event.runner_id,
-            runner_name=event.runner_name,
-            github_runner_id=event.github_runner_id,
-            user_identity=event.user_identity,
-            violation_data=json.loads(event.violation_data),
-            action_taken=event.action_taken,
-            timestamp=event.timestamp
-        ))
+        event_responses.append(
+            SecurityEventResponse(
+                id=event.id,
+                event_type=event.event_type,
+                severity=event.severity,
+                runner_id=event.runner_id,
+                runner_name=event.runner_name,
+                github_runner_id=event.github_runner_id,
+                user_identity=event.user_identity,
+                violation_data=json.loads(event.violation_data),
+                action_taken=event.action_taken,
+                timestamp=event.timestamp,
+            )
+        )
 
     # Get total count with same filters
     total_query = db.query(SecurityEvent)
@@ -303,7 +318,4 @@ async def list_security_events(
 
     total = total_query.count()
 
-    return SecurityEventListResponse(
-        events=event_responses,
-        total=total
-    )
+    return SecurityEventListResponse(events=event_responses, total=total)

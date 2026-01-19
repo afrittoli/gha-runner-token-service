@@ -32,7 +32,9 @@ def init_db_cmd():
 
 @cli.command()
 @click.option("--hours", default=24, help="Hours before considering runner stale")
-@click.option("--dry-run", is_flag=True, help="Show what would be deleted without deleting")
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be deleted without deleting"
+)
 def cleanup_stale_runners(hours: int, dry_run: bool):
     """Cleanup stale offline runners."""
     settings = get_settings()
@@ -42,10 +44,14 @@ def cleanup_stale_runners(hours: int, dry_run: bool):
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         # Find stale runners
-        stale_runners = db.query(Runner).filter(
-            Runner.status.in_(["pending", "offline"]),
-            Runner.created_at < cutoff_time
-        ).all()
+        stale_runners = (
+            db.query(Runner)
+            .filter(
+                Runner.status.in_(["pending", "offline"]),
+                Runner.created_at < cutoff_time,
+            )
+            .all()
+        )
 
         if not stale_runners:
             click.echo("No stale runners found")
@@ -56,17 +62,23 @@ def cleanup_stale_runners(hours: int, dry_run: bool):
         github = GitHubClient(settings)
 
         for runner in stale_runners:
-            age_hours = (datetime.now(timezone.utc) - runner.created_at).total_seconds() / 3600
+            age_hours = (
+                datetime.now(timezone.utc) - runner.created_at
+            ).total_seconds() / 3600
 
-            click.echo(f"  - {runner.runner_name} (status: {runner.status}, age: {age_hours:.1f}h)")
+            click.echo(
+                f"  - {runner.runner_name} (status: {runner.status}, age: {age_hours:.1f}h)"
+            )
 
             if not dry_run:
                 # Delete from GitHub if exists
                 if runner.github_runner_id:
                     try:
-                        deleted = asyncio.run(github.delete_runner(runner.github_runner_id))
+                        deleted = asyncio.run(
+                            github.delete_runner(runner.github_runner_id)
+                        )
                         if deleted:
-                            click.echo(f"    ✓ Deleted from GitHub")
+                            click.echo("    ✓ Deleted from GitHub")
                     except Exception as e:
                         click.echo(f"    ✗ Failed to delete from GitHub: {e}", err=True)
 
@@ -76,7 +88,7 @@ def cleanup_stale_runners(hours: int, dry_run: bool):
                 runner.registration_token = None
                 db.commit()
 
-                click.echo(f"    ✓ Marked as deleted in database")
+                click.echo("    ✓ Marked as deleted in database")
 
         if dry_run:
             click.echo("\n(Dry run - no changes made)")
@@ -150,7 +162,9 @@ def export_audit_log(since: str, event_type: str, user: str, limit: int, output:
         query = db.query(AuditLog)
 
         if since:
-            since_date = datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            since_date = datetime.strptime(since, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            )
             query = query.filter(AuditLog.timestamp >= since_date)
         if event_type:
             query = query.filter(AuditLog.event_type == event_type)
@@ -166,16 +180,20 @@ def export_audit_log(since: str, event_type: str, user: str, limit: int, output:
         # Convert to dict
         audit_data = []
         for event in events:
-            audit_data.append({
-                "id": event.id,
-                "timestamp": event.timestamp.isoformat(),
-                "event_type": event.event_type,
-                "runner_name": event.runner_name,
-                "user_identity": event.user_identity,
-                "success": event.success,
-                "error_message": event.error_message,
-                "event_data": json.loads(event.event_data) if event.event_data else None
-            })
+            audit_data.append(
+                {
+                    "id": event.id,
+                    "timestamp": event.timestamp.isoformat(),
+                    "event_type": event.event_type,
+                    "runner_name": event.runner_name,
+                    "user_identity": event.user_identity,
+                    "success": event.success,
+                    "error_message": event.error_message,
+                    "event_data": json.loads(event.event_data)
+                    if event.event_data
+                    else None,
+                }
+            )
 
         if output:
             # Write to file
@@ -198,9 +216,7 @@ def sync_github():
 
     try:
         # Get all non-deleted runners from database
-        local_runners = db.query(Runner).filter(
-            Runner.status != "deleted"
-        ).all()
+        local_runners = db.query(Runner).filter(Runner.status != "deleted").all()
 
         if not local_runners:
             click.echo("No runners to sync")
@@ -229,7 +245,9 @@ def sync_github():
                     runner.registered_at = datetime.now(timezone.utc)
 
                 if old_status != runner.status:
-                    click.echo(f"✓ {runner.runner_name}: {old_status} → {runner.status}")
+                    click.echo(
+                        f"✓ {runner.runner_name}: {old_status} → {runner.status}"
+                    )
                     updates += 1
 
                 # Clear registration token after successful registration

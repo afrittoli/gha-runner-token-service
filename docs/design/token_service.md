@@ -1,4 +1,4 @@
-# Architecture Documentation
+# Token Service Architecture
 
 ## System Overview
 
@@ -162,6 +162,11 @@ The Runner Token Service is a secure intermediary that enables third parties to 
 - Deprovision runner (delete from GitHub and DB)
 - Audit logging
 
+**LabelPolicyService:**
+- Validate labels against policy
+- Verify labels post-registration
+- Detect tampering attempts
+
 ### Data Layer (`app/models.py`, `app/database.py`)
 
 **Models:**
@@ -180,10 +185,6 @@ The Runner Token Service is a secure intermediary that enables third parties to 
 - Context: request_ip, user_agent
 - Result: success, error_message
 - Data: event_data (JSON)
-
-**GitHubRunnerCache:**
-- Cached GitHub API data
-- Used for status syncing
 
 ## Data Flow
 
@@ -345,54 +346,6 @@ All operations logged with:
 - IP address (optional)
 - Event data (sanitized)
 
-### Rate Limiting
-
-GitHub API rate limits:
-- 60 requests/hour per installation (authentication endpoint)
-- 5000 requests/hour per installation (general API)
-
-Service should implement:
-- Token caching (installation tokens)
-- Backoff on rate limit errors
-- Queue for bulk operations
-
-## Scalability
-
-### Current Architecture (SQLite)
-
-**Suitable for:**
-- Small to medium deployments (< 1000 runners)
-- Single instance deployment
-- Development and testing
-
-**Limitations:**
-- No horizontal scaling (single writer)
-- Local file storage
-
-### Production Architecture (PostgreSQL)
-
-**Recommended:**
-```
-DATABASE_URL=postgresql://user:pass@host:5432/runners
-```
-
-**Benefits:**
-- Horizontal scaling (multiple API instances)
-- Connection pooling
-- Better concurrent write performance
-- Backup and replication support
-
-### Caching
-
-**Installation Token Cache:**
-- In-memory cache per instance
-- 1-hour TTL (refreshed 5 min before expiry)
-- Reduces GitHub API calls
-
-**Future Enhancements:**
-- Redis for shared cache across instances
-- Runner status cache (reduce GitHub API queries)
-
 ## Deployment Patterns
 
 ### Single Instance (Development)
@@ -484,6 +437,5 @@ All logs in JSON format:
 3. **Runner Pools**: Group management
 4. **Auto-scaling**: Dynamic runner provisioning based on job queue
 5. **Multi-org Support**: Manage runners across multiple organizations
-6. **UI Dashboard**: Web interface for runner management
-7. **Metrics Export**: Prometheus endpoint
-8. **Runner Templates**: Pre-configured runner profiles
+6. **Metrics Export**: Prometheus endpoint
+7. **Runner Templates**: Pre-configured runner profiles

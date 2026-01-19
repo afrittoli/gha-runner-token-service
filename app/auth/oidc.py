@@ -42,7 +42,7 @@ class OIDCValidator:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Failed to fetch JWKS: {str(e)}"
+                detail=f"Failed to fetch JWKS: {str(e)}",
             )
 
     def _get_signing_key(self, token: str, jwks: dict) -> Key:
@@ -66,7 +66,7 @@ class OIDCValidator:
             if not kid:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token header missing 'kid'"
+                    detail="Token header missing 'kid'",
                 )
 
             # Find the matching key
@@ -76,12 +76,12 @@ class OIDCValidator:
 
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Unable to find matching key in JWKS"
+                detail="Unable to find matching key in JWKS",
             )
         except JWTError as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid token header: {str(e)}"
+                detail=f"Invalid token header: {str(e)}",
             )
 
     async def validate_token(self, token: str) -> dict:
@@ -115,8 +115,8 @@ class OIDCValidator:
                     "verify_signature": True,
                     "verify_aud": True,
                     "verify_iss": True,
-                    "verify_exp": True
-                }
+                    "verify_exp": True,
+                },
             )
 
             return payload
@@ -125,13 +125,13 @@ class OIDCValidator:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Token validation failed: {str(e)}",
-                headers={"WWW-Authenticate": "Bearer"}
+                headers={"WWW-Authenticate": "Bearer"},
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Authentication failed: {str(e)}",
-                headers={"WWW-Authenticate": "Bearer"}
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
     def get_user_identity(self, payload: dict) -> str:

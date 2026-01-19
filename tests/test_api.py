@@ -1,6 +1,5 @@
 """Tests for API endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -33,10 +32,7 @@ def test_provision_runner_no_auth():
     """Test provisioning without authentication."""
     response = client.post(
         "/api/v1/runners/provision",
-        json={
-            "runner_name": "test-runner",
-            "labels": ["test"]
-        }
+        json={"runner_name": "test-runner", "labels": ["test"]},
     )
 
     # Should require authentication
