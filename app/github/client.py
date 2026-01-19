@@ -109,6 +109,9 @@ class GitHubClient:
         """
         Get a runner by name.
 
+        Note: GitHub API does not support filtering by name, so we fetch all
+        runners and filter client-side.
+
         Args:
             name: Runner name
 
@@ -118,20 +121,11 @@ class GitHubClient:
         Raises:
             httpx.HTTPError: If API call fails
         """
-        url = f"{self.api_url}/orgs/{self.org}/actions/runners"
-        headers = await self.auth.get_authenticated_headers()
-        params = {"name": name}
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, params=params)
-            response.raise_for_status()
-
-            data = response.json()
-            runners = data.get("runners", [])
-
-            if runners:
-                return GitHubRunnerInfo(runners[0])
-            return None
+        runners = await self.list_runners()
+        for runner in runners:
+            if runner.name == name:
+                return runner
+        return None
 
     async def get_runner_by_id(self, runner_id: int) -> Optional[GitHubRunnerInfo]:
         """

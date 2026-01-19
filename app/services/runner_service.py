@@ -504,23 +504,31 @@ class RunnerService:
 
                 # Delete runner from GitHub
                 try:
-                    await self.github.delete_runner(github_runner.id)
-                    logger.info(
-                        "violating_runner_deleted",
-                        runner_id=runner_id,
-                        github_runner_id=github_runner.id
-                    )
+                    deleted = await self.github.delete_runner(github_runner.id)
+                    if deleted:
+                        logger.info(
+                            "violating_runner_deleted",
+                            runner_id=runner_id,
+                            github_runner_id=github_runner.id
+                        )
+                        # Update local state only if GitHub deletion succeeded
+                        runner.status = "deleted"
+                        runner.deleted_at = datetime.utcnow()
+                        self.db.commit()
+                    else:
+                        logger.error(
+                            "failed_to_delete_violating_runner",
+                            runner_id=runner_id,
+                            github_runner_id=github_runner.id,
+                            error="Runner not found in GitHub (404)"
+                        )
                 except Exception as delete_error:
                     logger.error(
                         "failed_to_delete_violating_runner",
                         runner_id=runner_id,
+                        github_runner_id=github_runner.id,
                         error=str(delete_error)
                     )
-
-                # Update local state
-                runner.status = "deleted"
-                runner.deleted_at = datetime.utcnow()
-                self.db.commit()
 
             else:
                 # Labels match - verification successful
