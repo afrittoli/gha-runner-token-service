@@ -212,10 +212,10 @@ The service is now available at:
 Use the Machine-to-Machine application to get a token:
 
 ```bash
-# Set your Auth0 credentials
+# Set your Auth0 M2M credentials
 AUTH0_DOMAIN="your-tenant.auth0.com"
-AUTH0_CLIENT_ID="your-m2m-client-id"
-AUTH0_CLIENT_SECRET="your-m2m-client-secret"
+AUTH0_M2M_CLIENT_ID="your-m2m-client-id"
+AUTH0_M2M_CLIENT_SECRET="your-m2m-client-secret"
 AUTH0_AUDIENCE="runner-token-service"
 
 # Get access token
@@ -223,8 +223,8 @@ TOKEN_RESPONSE=$(curl -s --request POST \
   --url "https://${AUTH0_DOMAIN}/oauth/token" \
   --header 'content-type: application/json' \
   --data "{
-    \"client_id\": \"${AUTH0_CLIENT_ID}\",
-    \"client_secret\": \"${AUTH0_CLIENT_SECRET}\",
+    \"client_id\": \"${AUTH0_M2M_CLIENT_ID}\",
+    \"client_secret\": \"${AUTH0_M2M_CLIENT_SECRET}\",
     \"audience\": \"${AUTH0_AUDIENCE}\",
     \"grant_type\": \"client_credentials\"
   }")
@@ -243,15 +243,20 @@ For testing with user credentials (enable "Password" grant in Auth0 first):
 4. Save
 
 ```bash
+# Set your Auth0 Web App credentials (different from M2M!)
+AUTH0_WEB_CLIENT_ID="your-web-client-id"
+AUTH0_WEB_CLIENT_SECRET="your-web-client-secret"
+
 # Get user access token
 TOKEN_RESPONSE=$(curl -s --request POST \
   --url "https://${AUTH0_DOMAIN}/oauth/token" \
   --header 'content-type: application/json' \
   --data "{
-    \"client_id\": \"${AUTH0_CLIENT_ID}\",
-    \"client_secret\": \"${AUTH0_CLIENT_SECRET}\",
+    \"client_id\": \"${AUTH0_WEB_CLIENT_ID}\",
+    \"client_secret\": \"${AUTH0_WEB_CLIENT_SECRET}\",
     \"audience\": \"${AUTH0_AUDIENCE}\",
-    \"grant_type\": \"password\",
+    \"grant_type\": \"http://auth0.com/oauth/grant-type/password-realm\",
+    \"realm\": \"Username-Password-Authentication\",
     \"username\": \"developer@example.com\",
     \"password\": \"your-password\"
   }")

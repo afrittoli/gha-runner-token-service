@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runner Token Service - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .header {
+            background: #24292e;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .version {
+            font-size: 0.875rem;
+            opacity: 0.7;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        .stat-card .value.active { color: #28a745; }
+        .stat-card .value.offline { color: #6c757d; }
+        .stat-card .value.pending { color: #ffc107; }
+        .stat-card .value.deleted { color: #dc3545; }
+        .section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .section-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.75rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #666;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover {
+            background: #f9f9f9;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-offline {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-deleted {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .labels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .label {
+            background: #e1e4e8;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+        .empty-state {
+            padding: 3rem;
+            text-align: center;
+            color: #666;
+        }
+        .timestamp {
+            font-size: 0.875rem;
+            color: #666;
+        }
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+            font-size: 0.875rem;
+        }
+        .refresh-btn {
+            background: #0366d6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .refresh-btn:hover {
+            background: #0256b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>GitHub Runner Token Service</h1>
+        <span class="version">v{{ version }}</span>
+    </div>
+
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Runners</h3>
+                <div class="value">{{ stats.total }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active</h3>
+                <div class="value active">{{ stats.active }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Offline</h3>
+                <div class="value offline">{{ stats.offline }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pending</h3>
+                <div class="value pending">{{ stats.pending }}</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2>Runners</h2>
+                <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+            </div>
+            {% if runners %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Labels</th>
+                        <th>Provisioned By</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for runner in runners %}
+                    <tr>
+                        <td><strong>{{ runner.runner_name }}</strong></td>
+                        <td>
+                            <span class="status-badge status-{{ runner.status }}">
+                                {{ runner.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="labels">
+                                {% for label in runner.labels_list %}
+                                <span class="label">{{ label }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="timestamp">{{ runner.provisioned_by }}</td>
+                        <td class="timestamp">{{ runner.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No runners registered yet.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2>Recent Security Events</h2>
+            </div>
+            {% if security_events %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Severity</th>
+                        <th>Runner</th>
+                        <th>User</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in security_events %}
+                    <tr>
+                        <td class="timestamp">{{ event.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td>
+                            <span class="status-badge status-{% if event.severity == 'critical' %}deleted{% elif event.severity == 'high' %}pending{% else %}offline{% endif %}">
+                                {{ event.severity }}
+                            </span>
+                        </td>
+                        <td>{{ event.runner_name or '-' }}</td>
+                        <td class="timestamp">{{ event.user_identity }}</td>
+                        <td>{{ event.action_taken or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No security events recorded.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Runner Token Service &copy; {{ year }} | <a href="/docs">API Docs</a> | <a href="/health">Health Check</a></p>
+    </div>
+</body>
+</html>

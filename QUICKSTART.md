@@ -147,6 +147,7 @@ Extract the values needed for the following steps:
 
 ```bash
 CONFIG_CMD=$(echo "$RESPONSE" | jq -r '.configuration_command')
+RUNNER_ID=$(echo "$RESPONSE" | jq -r '.runner_id')
 RUNNER_NAME=$(echo "$RESPONSE" | jq -r '.runner_name')
 ```
 
@@ -187,17 +188,17 @@ $CONFIG_CMD
 # List all runners
 curl http://localhost:8000/api/v1/runners | jq .
 
-# Get specific runner
-curl http://localhost:8000/api/v1/runners/$RUNNER_NAME | jq .
+# Get specific runner by ID
+curl http://localhost:8000/api/v1/runners/$RUNNER_ID | jq .
 
 # Refresh status from GitHub
-curl -X POST http://localhost:8000/api/v1/runners/$RUNNER_NAME/refresh | jq .
+curl -X POST http://localhost:8000/api/v1/runners/$RUNNER_ID/refresh | jq .
 ```
 
 ### Delete Runner
 
 ```bash
-curl -X DELETE http://localhost:8000/api/v1/runners/$RUNNER_NAME | jq .
+curl -X DELETE http://localhost:8000/api/v1/runners/$RUNNER_ID | jq .
 ```
 
 ## Verify in GitHub

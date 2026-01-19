@@ -121,9 +121,9 @@ The Runner Token Service is a secure intermediary that enables third parties to 
 **Endpoints:**
 - `POST /api/v1/runners/provision` - Generate registration token
 - `GET /api/v1/runners` - List user's runners
-- `GET /api/v1/runners/{name}` - Get runner status
-- `POST /api/v1/runners/{name}/refresh` - Sync with GitHub
-- `DELETE /api/v1/runners/{name}` - Delete runner
+- `GET /api/v1/runners/{runner_id}` - Get runner status by ID
+- `POST /api/v1/runners/{runner_id}/refresh` - Sync with GitHub
+- `DELETE /api/v1/runners/{runner_id}` - Delete runner by ID
 
 ### Authentication Layer (`app/auth/`)
 

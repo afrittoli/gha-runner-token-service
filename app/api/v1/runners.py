@@ -107,15 +107,15 @@ async def list_runners(
     )
 
 
-@router.get("/{runner_name}", response_model=RunnerStatus)
+@router.get("/{runner_id}", response_model=RunnerStatus)
 async def get_runner(
-    runner_name: str,
+    runner_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings)
 ):
     """
-    Get status of a specific runner.
+    Get status of a specific runner by ID.
 
     **Required Authentication:** OIDC Bearer token
 
@@ -126,11 +126,11 @@ async def get_runner(
     """
     service = RunnerService(settings, db)
 
-    runner = await service.get_runner(runner_name, user)
+    runner = await service.get_runner_by_id(runner_id, user)
     if not runner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Runner '{runner_name}' not found or not owned by you"
+            detail=f"Runner with ID '{runner_id}' not found or not owned by you"
         )
 
     return RunnerStatus(
@@ -149,9 +149,9 @@ async def get_runner(
     )
 
 
-@router.post("/{runner_name}/refresh", response_model=RunnerStatus)
+@router.post("/{runner_id}/refresh", response_model=RunnerStatus)
 async def refresh_runner_status(
-    runner_name: str,
+    runner_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings)
@@ -171,11 +171,11 @@ async def refresh_runner_status(
     """
     service = RunnerService(settings, db)
 
-    runner = await service.update_runner_status(runner_name, user)
+    runner = await service.update_runner_status(runner_id, user)
     if not runner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Runner '{runner_name}' not found or not owned by you"
+            detail=f"Runner with ID '{runner_id}' not found or not owned by you"
         )
 
     return RunnerStatus(
@@ -194,15 +194,15 @@ async def refresh_runner_status(
     )
 
 
-@router.delete("/{runner_name}", response_model=DeprovisionResponse)
+@router.delete("/{runner_id}", response_model=DeprovisionResponse)
 async def deprovision_runner(
-    runner_name: str,
+    runner_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings)
 ):
     """
-    Deprovision a runner.
+    Deprovision a runner by ID.
 
     **Required Authentication:** OIDC Bearer token
 
@@ -222,20 +222,20 @@ async def deprovision_runner(
     service = RunnerService(settings, db)
 
     try:
-        runner = await service.get_runner(runner_name, user)
+        runner = await service.get_runner_by_id(runner_id, user)
         if not runner:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Runner '{runner_name}' not found or not owned by you"
+                detail=f"Runner with ID '{runner_id}' not found or not owned by you"
             )
 
-        await service.deprovision_runner(runner_name, user)
+        await service.deprovision_runner(runner_id, user)
 
         return DeprovisionResponse(
             runner_id=runner.id,
-            runner_name=runner_name,
+            runner_name=runner.runner_name,
             success=True,
-            message=f"Runner '{runner_name}' successfully deprovisioned"
+            message=f"Runner '{runner.runner_name}' successfully deprovisioned"
         )
     except ValueError as e:
         raise HTTPException(
