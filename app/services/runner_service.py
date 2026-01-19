@@ -50,16 +50,15 @@ class RunnerService:
         Returns:
             True if runner with this name exists and is not deleted
         """
-        existing = self.db.query(Runner).filter(
-            Runner.runner_name == runner_name,
-            Runner.status != "deleted"
-        ).first()
+        existing = (
+            self.db.query(Runner)
+            .filter(Runner.runner_name == runner_name, Runner.status != "deleted")
+            .first()
+        )
         return existing is not None
 
     async def provision_runner(
-        self,
-        request: ProvisionRunnerRequest,
-        user: AuthenticatedUser
+        self, request: ProvisionRunnerRequest, user: AuthenticatedUser
     ) -> ProvisionRunnerResponse:
         """
         Provision a new runner with label policy enforcement.
@@ -118,9 +117,9 @@ class RunnerService:
                 runner_name=runner_name,
                 violation_data={
                     "requested_labels": request.labels,
-                    "invalid_labels": list(e.invalid_labels)
+                    "invalid_labels": list(e.invalid_labels),
                 },
-                action_taken="rejected"
+                action_taken="rejected",
             )
 
             self._log_audit(
@@ -128,21 +127,22 @@ class RunnerService:
                 runner_name=runner_name,
                 user=user,
                 success=False,
-                error_message=str(e)
+                error_message=str(e),
             )
             raise
 
         # Check runner quota
-        active_runner_count = self.db.query(Runner).filter(
-            Runner.provisioned_by == user.identity,
-            Runner.status.in_(["pending", "active", "offline"])
-        ).count()
+        active_runner_count = (
+            self.db.query(Runner)
+            .filter(
+                Runner.provisioned_by == user.identity,
+                Runner.status.in_(["pending", "active", "offline"]),
+            )
+            .count()
+        )
 
         try:
-            label_policy_service.check_runner_quota(
-                user.identity,
-                active_runner_count
-            )
+            label_policy_service.check_runner_quota(user.identity, active_runner_count)
         except ValueError as e:
             # Log security event
             label_policy_service.log_security_event(
@@ -152,10 +152,8 @@ class RunnerService:
                 oidc_sub=user.sub,
                 runner_id=None,
                 runner_name=runner_name,
-                violation_data={
-                    "current_count": active_runner_count
-                },
-                action_taken="rejected"
+                violation_data={"current_count": active_runner_count},
+                action_taken="rejected",
             )
 
             self._log_audit(
@@ -163,7 +161,7 @@ class RunnerService:
                 runner_name=runner_name,
                 user=user,
                 success=False,
-                error_message=str(e)
+                error_message=str(e),
             )
             raise
 
@@ -177,7 +175,7 @@ class RunnerService:
                 user=user,
                 success=False,
                 error_message=f"Failed to generate GitHub token: {str(e)}",
-                event_data=request.model_dump()
+                event_data=request.model_dump(),
             )
             raise
 
@@ -198,7 +196,7 @@ class RunnerService:
             status="pending",
             registration_token=token,  # Store temporarily
             registration_token_expires_at=expires_at,
-            github_url=f"https://github.com/{self.settings.github_org}"
+            github_url=f"https://github.com/{self.settings.github_org}",
         )
 
         self.db.add(runner)
@@ -215,8 +213,8 @@ class RunnerService:
             event_data={
                 "runner_group_id": runner_group_id,
                 "labels": request.labels,
-                "ephemeral": request.ephemeral
-            }
+                "ephemeral": request.ephemeral,
+            },
         )
 
         # Schedule post-registration verification (Phase 2: Detection)
@@ -226,7 +224,7 @@ class RunnerService:
                 expected_labels=request.labels,
                 user_identity=user.identity,
                 oidc_sub=user.sub,
-                delay=60
+                delay=60,
             )
         )
 
@@ -255,10 +253,12 @@ class RunnerService:
             runner_group_id=runner_group_id,
             ephemeral=request.ephemeral,
             labels=request.labels,
-            configuration_command=config_cmd
+            configuration_command=config_cmd,
         )
 
-    async def get_runner_by_id(self, runner_id: str, user: AuthenticatedUser) -> Optional[Runner]:
+    async def get_runner_by_id(
+        self, runner_id: str, user: AuthenticatedUser
+    ) -> Optional[Runner]:
         """
         Get runner by ID (only if owned by user).
 
@@ -269,14 +269,17 @@ class RunnerService:
         Returns:
             Runner if found and owned by user, None otherwise
         """
-        runner = self.db.query(Runner).filter(
-            Runner.id == runner_id,
-            Runner.provisioned_by == user.identity
-        ).first()
+        runner = (
+            self.db.query(Runner)
+            .filter(Runner.id == runner_id, Runner.provisioned_by == user.identity)
+            .first()
+        )
 
         return runner
 
-    async def get_runner_by_name(self, runner_name: str, user: AuthenticatedUser) -> Optional[Runner]:
+    async def get_runner_by_name(
+        self, runner_name: str, user: AuthenticatedUser
+    ) -> Optional[Runner]:
         """
         Get runner by name (only if owned by user).
 
@@ -289,11 +292,16 @@ class RunnerService:
         Returns:
             Runner if found and owned by user, None otherwise
         """
-        runner = self.db.query(Runner).filter(
-            Runner.runner_name == runner_name,
-            Runner.provisioned_by == user.identity,
-            Runner.status != "deleted"
-        ).order_by(Runner.created_at.desc()).first()
+        runner = (
+            self.db.query(Runner)
+            .filter(
+                Runner.runner_name == runner_name,
+                Runner.provisioned_by == user.identity,
+                Runner.status != "deleted",
+            )
+            .order_by(Runner.created_at.desc())
+            .first()
+        )
 
         return runner
 
@@ -307,17 +315,17 @@ class RunnerService:
         Returns:
             List of runners
         """
-        runners = self.db.query(Runner).filter(
-            Runner.provisioned_by == user.identity,
-            Runner.status != "deleted"
-        ).order_by(Runner.created_at.desc()).all()
+        runners = (
+            self.db.query(Runner)
+            .filter(Runner.provisioned_by == user.identity, Runner.status != "deleted")
+            .order_by(Runner.created_at.desc())
+            .all()
+        )
 
         return runners
 
     async def update_runner_status(
-        self,
-        runner_id: str,
-        user: AuthenticatedUser
+        self, runner_id: str, user: AuthenticatedUser
     ) -> Optional[Runner]:
         """
         Update runner status from GitHub API.
@@ -340,7 +348,7 @@ class RunnerService:
                 "fetched_github_runner",
                 runner_id=runner.id,
                 github_runner_id=github_runner.id if github_runner else None,
-                status=github_runner.status if github_runner else None
+                status=github_runner.status if github_runner else None,
             )
 
             if github_runner:
@@ -376,16 +384,12 @@ class RunnerService:
                 runner_name=runner.runner_name,
                 user=user,
                 success=False,
-                error_message=str(e)
+                error_message=str(e),
             )
 
         return runner
 
-    async def deprovision_runner(
-        self,
-        runner_id: str,
-        user: AuthenticatedUser
-    ) -> bool:
+    async def deprovision_runner(self, runner_id: str, user: AuthenticatedUser) -> bool:
         """
         Deprovision a runner.
 
@@ -401,7 +405,9 @@ class RunnerService:
         """
         runner = await self.get_runner_by_id(runner_id, user)
         if not runner:
-            raise ValueError(f"Runner with ID '{runner_id}' not found or not owned by you")
+            raise ValueError(
+                f"Runner with ID '{runner_id}' not found or not owned by you"
+            )
 
         if runner.status == "deleted":
             raise ValueError(f"Runner '{runner.runner_name}' is already deleted")
@@ -420,7 +426,7 @@ class RunnerService:
                     runner_name=runner.runner_name,
                     user=user,
                     success=False,
-                    error_message=f"Failed to delete from GitHub: {str(e)}"
+                    error_message=f"Failed to delete from GitHub: {str(e)}",
                 )
                 raise
 
@@ -440,7 +446,7 @@ class RunnerService:
             runner_id=runner.id,
             runner_name=runner.runner_name,
             user=user,
-            success=True
+            success=True,
         )
 
         return True
@@ -451,7 +457,7 @@ class RunnerService:
         expected_labels: List[str],
         user_identity: str,
         oidc_sub: Optional[str],
-        delay: int = 60
+        delay: int = 60,
     ):
         """
         Verify runner labels after registration (Phase 2: Detection).
@@ -482,22 +488,23 @@ class RunnerService:
                 # Runner not yet registered, check by name
                 github_runner = await self.github.get_runner_by_name(runner.runner_name)
             else:
-                github_runner = await self.github.get_runner_by_id(runner.github_runner_id)
+                github_runner = await self.github.get_runner_by_id(
+                    runner.github_runner_id
+                )
 
             if not github_runner:
                 # Runner not found in GitHub (may still be registering)
                 logger.info(
                     "label_verification_skipped",
                     runner_id=runner_id,
-                    reason="runner_not_found_in_github"
+                    reason="runner_not_found_in_github",
                 )
                 return
 
             # Verify labels match
             label_policy_service = LabelPolicyService(self.db)
             mismatched_labels = label_policy_service.verify_labels_match(
-                expected_labels=expected_labels,
-                actual_labels=github_runner.labels
+                expected_labels=expected_labels, actual_labels=github_runner.labels
             )
 
             if mismatched_labels:
@@ -508,7 +515,7 @@ class RunnerService:
                     runner_name=runner.runner_name,
                     expected_labels=expected_labels,
                     actual_labels=github_runner.labels,
-                    mismatched=list(mismatched_labels)
+                    mismatched=list(mismatched_labels),
                 )
 
                 # Log security event
@@ -524,9 +531,9 @@ class RunnerService:
                         "expected_labels": expected_labels,
                         "actual_labels": github_runner.labels,
                         "mismatched_labels": list(mismatched_labels),
-                        "verification_method": "post_registration"
+                        "verification_method": "post_registration",
                     },
-                    action_taken="runner_deleted"
+                    action_taken="runner_deleted",
                 )
 
                 # Delete runner from GitHub
@@ -536,7 +543,7 @@ class RunnerService:
                         logger.info(
                             "violating_runner_deleted",
                             runner_id=runner_id,
-                            github_runner_id=github_runner.id
+                            github_runner_id=github_runner.id,
                         )
                         # Update local state only if GitHub deletion succeeded
                         runner.status = "deleted"
@@ -547,14 +554,14 @@ class RunnerService:
                             "failed_to_delete_violating_runner",
                             runner_id=runner_id,
                             github_runner_id=github_runner.id,
-                            error="Runner not found in GitHub (404)"
+                            error="Runner not found in GitHub (404)",
                         )
                 except Exception as delete_error:
                     logger.error(
                         "failed_to_delete_violating_runner",
                         runner_id=runner_id,
                         github_runner_id=github_runner.id,
-                        error=str(delete_error)
+                        error=str(delete_error),
                     )
 
             else:
@@ -562,14 +569,12 @@ class RunnerService:
                 logger.info(
                     "label_verification_passed",
                     runner_id=runner_id,
-                    runner_name=runner.runner_name
+                    runner_name=runner.runner_name,
                 )
 
         except Exception as e:
             logger.exception(
-                "label_verification_error",
-                runner_id=runner_id,
-                error=str(e)
+                "label_verification_error", runner_id=runner_id, error=str(e)
             )
 
     def _log_audit(
@@ -580,7 +585,7 @@ class RunnerService:
         runner_id: Optional[str] = None,
         runner_name: Optional[str] = None,
         error_message: Optional[str] = None,
-        event_data: Optional[dict] = None
+        event_data: Optional[dict] = None,
     ):
         """Log an audit event."""
         audit = AuditLog(
@@ -591,7 +596,7 @@ class RunnerService:
             oidc_sub=user.sub,
             success=success,
             error_message=error_message,
-            event_data=json.dumps(event_data) if event_data else None
+            event_data=json.dumps(event_data) if event_data else None,
         )
 
         self.db.add(audit)

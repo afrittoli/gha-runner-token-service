@@ -321,6 +321,23 @@ python -m app.cli cleanup-stale-runners --hours 24
 python -m app.cli export-audit-log --output audit.json
 ```
 
+### Understanding the Sync Command
+
+After provisioning and starting runners, they will appear in the service with a **"pending"** status. This is because the service doesn't know yet if the runner has successfully registered with GitHub. To update the status, run:
+
+```bash
+python -m app.cli sync-github
+```
+
+This command:
+1. Fetches all runners from the GitHub API for your organization
+2. Matches them with runners in the local database
+3. Updates their status: `pending` → `active` or `offline`
+4. Clears registration tokens after successful registration
+5. Marks runners as `deleted` if they no longer exist in GitHub
+
+**Note:** For production deployments, consider running this periodically via a cron job or scheduled task to keep runner statuses in sync.
+
 ## 8. Running Tests
 
 ```bash

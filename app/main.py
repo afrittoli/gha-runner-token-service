@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 import structlog
 
 from app import __version__
+from app.api.v1 import admin
 from app.api.v1 import runners
 from app.config import get_settings
 from app.database import get_db, init_db
@@ -30,7 +31,7 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
+        structlog.processors.JSONRenderer(),
     ],
     wrapper_class=structlog.stdlib.BoundLogger,
     logger_factory=structlog.stdlib.LoggerFactory(),
@@ -49,7 +50,7 @@ app = FastAPI(
     version=__version__,
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
 )
 
 # Add CORS middleware
@@ -72,7 +73,7 @@ async def log_requests(request: Request, call_next):
     log = logger.bind(
         method=request.method,
         path=request.url.path,
-        client=request.client.host if request.client else None
+        client=request.client.host if request.client else None,
     )
 
     log.info("request_started")
@@ -91,34 +92,24 @@ async def log_requests(request: Request, call_next):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle validation errors."""
-    logger.warning(
-        "validation_error",
-        path=request.url.path,
-        errors=exc.errors()
-    )
+    logger.warning("validation_error", path=request.url.path, errors=exc.errors())
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=ErrorResponse(
-            detail="Validation error",
-            error_code="VALIDATION_ERROR"
-        ).model_dump()
+            detail="Validation error", error_code="VALIDATION_ERROR"
+        ).model_dump(),
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle general exceptions."""
-    logger.exception(
-        "unhandled_exception",
-        path=request.url.path,
-        error=str(exc)
-    )
+    logger.exception("unhandled_exception", path=request.url.path, error=str(exc))
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=ErrorResponse(
-            detail="Internal server error",
-            error_code="INTERNAL_ERROR"
-        ).model_dump()
+            detail="Internal server error", error_code="INTERNAL_ERROR"
+        ).model_dump(),
     )
 
 
@@ -127,9 +118,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def startup_event():
     """Initialize application on startup."""
     logger.info(
-        "application_starting",
-        version=__version__,
-        github_org=settings.github_org
+        "application_starting", version=__version__, github_org=settings.github_org
     )
 
     # Initialize database
@@ -158,9 +147,7 @@ async def health_check():
     No authentication required.
     """
     return HealthResponse(
-        status="healthy",
-        version=__version__,
-        timestamp=datetime.now(timezone.utc)
+        status="healthy", version=__version__, timestamp=datetime.now(timezone.utc)
     )
 
 
@@ -174,7 +161,7 @@ async def root():
         "service": "GitHub Runner Token Service",
         "version": __version__,
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
 
 
@@ -204,10 +191,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 
     # Get recent security events
     security_events = (
-        db.query(SecurityEvent)
-        .order_by(SecurityEvent.timestamp.desc())
-        .limit(10)
-        .all()
+        db.query(SecurityEvent).order_by(SecurityEvent.timestamp.desc()).limit(10).all()
     )
 
     return templates.TemplateResponse(
@@ -223,9 +207,6 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
 
-# Include API routers
-from app.api.v1 import admin
-
 app.include_router(runners.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 
@@ -238,5 +219,5 @@ if __name__ == "__main__":
         host=settings.service_host,
         port=settings.service_port,
         reload=True,
-        log_level=settings.log_level.lower()
+        log_level=settings.log_level.lower(),
     )

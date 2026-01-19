@@ -2,10 +2,8 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, Index
-from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base
 
@@ -24,8 +22,12 @@ class Runner(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Runner information
-    runner_name = Column(String, nullable=False, index=True)  # Not unique - allows reuse after deletion
-    github_runner_id = Column(Integer, nullable=True, index=True)  # Set after registration
+    runner_name = Column(
+        String, nullable=False, index=True
+    )  # Not unique - allows reuse after deletion
+    github_runner_id = Column(
+        Integer, nullable=True, index=True
+    )  # Set after registration
     runner_group_id = Column(Integer, nullable=False)
     labels = Column(Text, nullable=False)  # JSON array stored as text
     ephemeral = Column(Boolean, default=False, nullable=False)
@@ -37,10 +39,7 @@ class Runner(Base):
 
     # State
     status = Column(
-        String,
-        nullable=False,
-        default="pending",
-        index=True
+        String, nullable=False, default="pending", index=True
     )  # pending, active, offline, deleted
 
     # Tokens (masked in logs)
@@ -72,7 +71,9 @@ class AuditLog(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # Event information
-    event_type = Column(String, nullable=False, index=True)  # provision, deprovision, update, etc.
+    event_type = Column(
+        String, nullable=False, index=True
+    )  # provision, deprovision, update, etc.
     runner_id = Column(String, nullable=True, index=True)
     runner_name = Column(String, nullable=True, index=True)
 
@@ -116,9 +117,7 @@ class GitHubRunnerCache(Base):
     cached_at = Column(DateTime, nullable=False, default=utcnow)
     last_seen_at = Column(DateTime, nullable=True)
 
-    __table_args__ = (
-        Index("ix_cache_name_status", "runner_name", "status"),
-    )
+    __table_args__ = (Index("ix_cache_name_status", "runner_name", "status"),)
 
 
 class LabelPolicy(Base):
@@ -135,7 +134,9 @@ class LabelPolicy(Base):
 
     # Additional constraints
     max_runners = Column(Integer, nullable=True)  # Maximum concurrent runners
-    require_approval = Column(Boolean, default=False, nullable=False)  # Require admin approval
+    require_approval = Column(
+        Boolean, default=False, nullable=False
+    )  # Require admin approval
 
     # Metadata
     description = Column(Text, nullable=True)  # Policy description
@@ -155,7 +156,9 @@ class SecurityEvent(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # Event classification
-    event_type = Column(String, nullable=False, index=True)  # label_violation, quota_exceeded, etc.
+    event_type = Column(
+        String, nullable=False, index=True
+    )  # label_violation, quota_exceeded, etc.
     severity = Column(String, nullable=False, index=True)  # low, medium, high, critical
 
     # Runner information

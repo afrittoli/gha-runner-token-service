@@ -28,7 +28,7 @@ class AuthenticatedUser:
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ) -> AuthenticatedUser:
     """
     Validate OIDC token and return authenticated user.
@@ -47,7 +47,7 @@ async def get_current_user(
         # For testing/development: return a mock user
         return AuthenticatedUser(
             identity="dev-user@example.com",
-            claims={"sub": "dev-user", "email": "dev-user@example.com"}
+            claims={"sub": "dev-user", "email": "dev-user@example.com"},
         )
 
     # OIDC is enabled - require credentials
@@ -74,7 +74,7 @@ async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(
         HTTPBearer(auto_error=False)
     ),
-    settings: Settings = Depends(get_settings)
+    settings: Settings = Depends(get_settings),
 ) -> Optional[AuthenticatedUser]:
     """
     Optionally validate OIDC token.
