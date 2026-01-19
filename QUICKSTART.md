@@ -44,8 +44,8 @@ Get the Runner Token Service up and running in 5 minutes.
 cd runner-token-service
 
 # Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -95,23 +95,37 @@ uvicorn app.main:app --reload
 
 ### Provision a Runner
 
-You can provision a runner using either an exact name or a name prefix:
+You can provision a runner using either a name prefix or an exact name:
 
 **Option 1: Using a name prefix (recommended)**
 
 The service generates a unique name by appending a random suffix to your prefix:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/runners/provision \
+RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/provision \
   -H "Content-Type: application/json" \
   -d '{
     "runner_name_prefix": "test-runner",
     "labels": ["test", "linux"],
     "ephemeral": true
-  }' | jq .
+  }')
+echo "$RESPONSE" | jq .
 ```
 
-Response:
+**Option 2: Using an exact name**
+
+```bash
+RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/provision \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name": "my-specific-runner",
+    "labels": ["test", "linux"],
+    "ephemeral": true
+  }')
+echo "$RESPONSE" | jq .
+```
+
+Example response:
 ```json
 {
   "runner_id": "abc123...",
@@ -122,44 +136,30 @@ Response:
   "runner_group_id": 1,
   "ephemeral": true,
   "labels": ["test", "linux"],
-  "configuration_command": "./config.sh --url ... --token ... --name test-runner-a1b2c3 ..."
+  "configuration_command": "./config.sh --url https://github.com/your-org --token AABBCCDD... --name test-runner-a1b2c3 --unattended --labels test,linux --ephemeral"
 }
-```
-
-**Option 2: Using an exact name**
-
-```bash
-curl -X POST http://localhost:8000/api/v1/runners/provision \
-  -H "Content-Type: application/json" \
-  -d '{
-    "runner_name": "my-specific-runner",
-    "labels": ["test", "linux"],
-    "ephemeral": true
-  }' | jq .
 ```
 
 **Note:** When using exact names, you cannot reuse a name that's currently active.
 Once a runner is deleted (or an ephemeral runner completes), the name can be reused.
 
-### Configure & Run the Runner
+Extract the values needed for the following steps:
 
-#### Option A: Run in Podman Container (macOS/Linux)
+```bash
+CONFIG_CMD=$(echo "$RESPONSE" | jq -r '.configuration_command')
+RUNNER_NAME=$(echo "$RESPONSE" | jq -r '.runner_name')
+```
+
+### Start the Runner
+
+#### Option A: Podman Container (macOS/Linux)
 
 This is the recommended approach for local testing on macOS since the GitHub runner binary is Linux-only.
 
 ```bash
-# 1. Save the registration token from the API response
-TOKEN="AABBCCDD..."  # Replace with your actual token
-
-# 2. Run the runner in a container
-#    Use host.containers.internal to reach the token service on your Mac
 podman run -it --rm \
-  -e RUNNER_NAME=test-runner-001 \
-  -e RUNNER_TOKEN="$TOKEN" \
-  -e RUNNER_URL=https://github.com/your-org \
-  -e RUNNER_LABELS=test,linux,container \
-  -e RUNNER_EPHEMERAL=true \
-  ghcr.io/actions/actions-runner:latest
+  ghcr.io/actions/actions-runner:latest \
+  bash -c "$CONFIG_CMD && ./run.sh"
 ```
 
 **Notes for macOS with Podman:**
@@ -167,42 +167,17 @@ podman run -it --rm \
 - To access the token service from inside the container, use `host.containers.internal:8000` instead of `localhost:8000`
 - Make sure `podman machine` is running: `podman machine start`
 
-**One-liner to provision and run:**
+#### Option B: Directly on Linux
 
 ```bash
-# Provision runner and start container in one command
-# Uses runner_name_prefix so each run gets a unique name
-RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/provision \
-  -H "Content-Type: application/json" \
-  -d '{"runner_name_prefix": "podman-runner", "labels": ["test", "linux", "container"], "ephemeral": true}') && \
-TOKEN=$(echo "$RESPONSE" | jq -r '.registration_token') && \
-RUNNER_NAME=$(echo "$RESPONSE" | jq -r '.runner_name') && \
-echo "Starting runner: $RUNNER_NAME" && \
-podman run -it --rm \
-  ghcr.io/actions/actions-runner:latest \
-  bash -c "./config.sh --url https://github.com/your-org --token $TOKEN --name $RUNNER_NAME --labels test,linux,container --ephemeral --unattended && ./run.sh"
-```
-
-#### Option B: Run Directly on Linux
-
-```bash
-# On a Linux machine where you want to run the runner:
-
 # 1. Download runner
 mkdir actions-runner && cd actions-runner
 curl -o actions-runner-linux-x64-2.331.0.tar.gz -L \
   https://github.com/actions/runner/releases/download/v2.331.0/actions-runner-linux-x64-2.331.0.tar.gz
 tar xzf ./actions-runner-linux-x64-2.331.0.tar.gz
 
-# 2. Configure with the token from API response
-./config.sh \
-  --url https://github.com/your-org \
-  --token AABBCCDD... \
-  --name test-runner-001 \
-  --labels test,linux \
-  --ephemeral
-
-# 3. Run
+# 2. Configure and start
+$CONFIG_CMD
 ./run.sh
 ```
 
@@ -213,23 +188,23 @@ tar xzf ./actions-runner-linux-x64-2.331.0.tar.gz
 curl http://localhost:8000/api/v1/runners | jq .
 
 # Get specific runner
-curl http://localhost:8000/api/v1/runners/test-runner-001 | jq .
+curl http://localhost:8000/api/v1/runners/$RUNNER_NAME | jq .
 
 # Refresh status from GitHub
-curl -X POST http://localhost:8000/api/v1/runners/test-runner-001/refresh | jq .
+curl -X POST http://localhost:8000/api/v1/runners/$RUNNER_NAME/refresh | jq .
 ```
 
 ### Delete Runner
 
 ```bash
-curl -X DELETE http://localhost:8000/api/v1/runners/test-runner-001 | jq .
+curl -X DELETE http://localhost:8000/api/v1/runners/$RUNNER_NAME | jq .
 ```
 
 ## Verify in GitHub
 
 1. Go to your GitHub organization
 2. Settings → Actions → Runners
-3. You should see "test-runner-001" in the list
+3. You should see your runner (`$RUNNER_NAME`) in the list
 
 ## Next Steps
 

@@ -236,7 +236,8 @@ class RunnerService:
             f"./config.sh "
             f"--url {runner.github_url} "
             f"--token {token} "
-            f"--name {runner.runner_name}"
+            f"--name {runner.runner_name} "
+            f"--unattended"
         )
         if labels_str:
             config_cmd += f" --labels {labels_str}"
