@@ -7,6 +7,7 @@ This folder contains detailed design and architecture documentation.
 - **[token_service.md](token_service.md)** - System architecture, components, data flow, and technical design decisions
 - **[dashboard.md](dashboard.md)** - Web dashboard design specifications, requirements, UI/UX, and implementation details
 - **[label_policy.md](label_policy.md)** - Label policy enforcement system design and implementation details
+- **[github_sync.md](github_sync.md)** - GitHub runner state synchronization mechanism design
 
 ## Overview
 
