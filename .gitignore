@@ -217,6 +217,7 @@ __marimo__/
 
 # Other files
 *.db
+runner_service.db.*
 *.pem
 .claude
 audit.json
