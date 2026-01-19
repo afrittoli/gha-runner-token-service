@@ -47,6 +47,10 @@ class Settings(BaseSettings):
 
     # Security
     api_key_header: str = Field(default="X-API-Key", description="API key header name")
+    admin_identities: str = Field(
+        default="",
+        description="Comma-separated list of admin user identities (email or OIDC sub)",
+    )
 
     # Runner Configuration Defaults
     default_runner_group_id: int = Field(
