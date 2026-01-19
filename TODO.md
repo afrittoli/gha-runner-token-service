@@ -15,16 +15,16 @@
 - [x] (Claude) Review updated docs (Haiku changes)
 - [x] (Claude) Trim dashboard design doc
 - [x] (Claude) Implement admin role checking via ADMIN_IDENTITIES env var
+- [x] (Claude) Catch up on missing tests (55 tests added)
+- [x] (Claude) Add unit test workflow
+- [x] (Claude) Add precommit configuration for linting and unit tests
 
 ## Open
 
 - [ ] P1, bug, Deletion of runners via API returns unauthorized, [details](#deletion-unauthorized)
 - [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
-- [ ] P2, feature, Add unit test workflow
 - [ ] P2, feature, Add coverage check workflow
-- [ ] P2, feature, Add precommit configuration for linting and unit tests
 - [ ] P3, feature, Design GitHub sync mechanism, [details](#github-sync)
-- [ ] P3, test, Catch up on missing tests, [details](#missing-tests)
 - [ ] P3, test, Test label policy management
 - [ ] P4, feature, Dashboard authentication and refresh button
 
@@ -47,15 +47,6 @@ OIDC should only be for authentication. Authorization should use an app-side use
 Keep runner status in sync with GitHub. Options:
 1. GitHub webhooks for runner events
 2. Periodic polling job
-
-### Missing Tests
-Current test coverage is minimal. Areas needing tests:
-- API endpoints (runners, admin)
-- Runner service (provisioning, deprovision, status sync)
-- Label policy service
-- OIDC validation
-- GitHub client
-- Admin role checking
 
 ---
 
