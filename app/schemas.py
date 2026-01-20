@@ -114,6 +114,38 @@ class RunnerStatus(BaseModel):
     deleted_at: Optional[datetime] = None
 
 
+class AuditEvent(BaseModel):
+    """Audit trail event for runner activity."""
+
+    id: int
+    event_type: str
+    severity: str
+    user_identity: str
+    action_taken: Optional[str] = None
+    timestamp: datetime
+
+
+class RunnerDetailResponse(BaseModel):
+    """Detailed runner information including audit trail."""
+
+    runner_id: str
+    runner_name: str
+    status: str
+    github_runner_id: Optional[int] = None
+    runner_group_id: int
+    labels: List[str]
+    ephemeral: bool
+    provisioned_by: str
+    created_at: datetime
+    updated_at: datetime
+    registered_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    audit_trail: List[AuditEvent] = Field(
+        default_factory=list,
+        description="Recent activity and security events for this runner",
+    )
+
+
 class RunnerListResponse(BaseModel):
     """List of runners."""
 
