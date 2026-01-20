@@ -1,5 +1,6 @@
 """GitHub API client for runner operations."""
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
@@ -7,6 +8,17 @@ import httpx
 
 from app.config import Settings
 from app.github.app_auth import GitHubAppAuth
+
+
+@dataclass
+class JitConfigResponse:
+    """Response from GitHub JIT config generation API."""
+
+    runner_id: int
+    runner_name: str
+    encoded_jit_config: str
+    os: Optional[str] = None
+    labels: Optional[List[str]] = None
 
 
 class GitHubRunnerInfo:
@@ -228,3 +240,56 @@ class GitHubClient:
                 if e.response.status_code == 404:
                     return False
                 raise
+
+    async def generate_jit_config(
+        self,
+        name: str,
+        runner_group_id: int,
+        labels: List[str],
+        work_folder: str = "_work",
+    ) -> JitConfigResponse:
+        """
+        Generate JIT configuration for a runner.
+
+        Creates a runner registration with pre-configured labels and ephemeral mode.
+        The returned config is passed to `./run.sh --jitconfig <config>`.
+
+        Args:
+            name: Runner name (1-64 characters)
+            runner_group_id: ID of the runner group to add the runner to
+            labels: List of custom labels (1-100 labels, system labels added automatically)
+            work_folder: Relative path to the work directory (default: "_work")
+
+        Returns:
+            JitConfigResponse with encoded config and runner details
+
+        Raises:
+            httpx.HTTPStatusError: If API call fails
+                - 404: Runner group not found
+                - 409: Runner name already exists
+                - 422: Invalid parameters (e.g., too many labels)
+        """
+        url = f"{self.api_url}/orgs/{self.org}/actions/runners/generate-jitconfig"
+        headers = await self.auth.get_authenticated_headers()
+
+        payload = {
+            "name": name,
+            "runner_group_id": runner_group_id,
+            "labels": labels,
+            "work_folder": work_folder,
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+
+            data = response.json()
+            runner_data = data.get("runner", {})
+
+            return JitConfigResponse(
+                runner_id=runner_data.get("id"),
+                runner_name=runner_data.get("name", name),
+                encoded_jit_config=data.get("encoded_jit_config"),
+                os=runner_data.get("os"),
+                labels=[label["name"] for label in runner_data.get("labels", [])],
+            )

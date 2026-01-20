@@ -10,11 +10,14 @@ from app.config import Settings, get_settings
 from app.database import get_db
 from app.schemas import (
     DeprovisionResponse,
+    JitProvisionRequest,
+    JitProvisionResponse,
     ProvisionRunnerRequest,
     ProvisionRunnerResponse,
     RunnerListResponse,
     RunnerStatus,
 )
+from app.services.label_policy_service import LabelPolicyViolation
 from app.services.runner_service import RunnerService
 
 router = APIRouter(prefix="/runners", tags=["Runners"])
@@ -61,6 +64,58 @@ async def provision_runner(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to provision runner: {str(e)}",
+        )
+
+
+@router.post(
+    "/jit",
+    response_model=JitProvisionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def provision_runner_jit(
+    request: JitProvisionRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Provision a new self-hosted runner using JIT (Just-In-Time) configuration.
+
+    JIT provisioning offers stronger security guarantees compared to registration tokens:
+    - **Labels enforced server-side**: Labels are pre-configured and cannot be overridden by the client
+    - **Ephemeral mode always enabled**: Runners auto-delete after completing one job
+    - **No config step needed**: Client runs `./run.sh --jitconfig <config>` directly
+
+    **Required Authentication:** OIDC Bearer token
+
+    **Workflow:**
+    1. Third party authenticates with OIDC token
+    2. Service validates labels against policy
+    3. Service calls GitHub to generate JIT config (runner is pre-registered)
+    4. Third party uses config with `./run.sh --jitconfig <encoded_config>`
+    5. Runner starts and accepts jobs
+
+    **Returns:**
+    - Encoded JIT config (valid for ~1 hour)
+    - Run command for the runner
+    - Full label list (including system labels)
+    """
+    service = RunnerService(settings, db)
+
+    try:
+        response = await service.provision_runner_jit(request, user)
+        return response
+    except LabelPolicyViolation as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to provision JIT runner: {str(e)}",
         )
 
 

@@ -297,10 +297,32 @@ app.include_router(webhooks.router, prefix="/api/v1")
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "app.main:app",
-        host=settings.service_host,
-        port=settings.service_port,
-        reload=True,
-        log_level=settings.log_level.lower(),
-    )
+    # Build uvicorn config
+    uvicorn_config = {
+        "app": "app.main:app",
+        "host": settings.service_host,
+        "port": settings.service_port,
+        "reload": True,
+        "log_level": settings.log_level.lower(),
+    }
+
+    # Add HTTPS configuration if enabled
+    if settings.https_enabled:
+        if not settings.https_cert_file or not settings.https_key_file:
+            logger.error(
+                "https_config_error",
+                message="HTTPS enabled but cert_file or key_file not configured",
+            )
+            raise ValueError(
+                "HTTPS_CERT_FILE and HTTPS_KEY_FILE are required when HTTPS_ENABLED=true"
+            )
+
+        uvicorn_config["ssl_certfile"] = str(settings.https_cert_file)
+        uvicorn_config["ssl_keyfile"] = str(settings.https_key_file)
+        logger.info(
+            "https_enabled",
+            cert_file=str(settings.https_cert_file),
+            key_file=str(settings.https_key_file),
+        )
+
+    uvicorn.run(**uvicorn_config)

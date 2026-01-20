@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -83,6 +84,26 @@ class Settings(BaseSettings):
     label_policy_enforcement: str = Field(
         default="audit",
         description="Label policy enforcement mode: 'audit' (log only) or 'enforce' (cancel workflow)",
+    )
+
+    # JIT Label Drift Enforcement
+    label_drift_delete_busy_runners: bool = Field(
+        default=False,
+        description="Delete runners with label drift even if currently running a job",
+    )
+
+    # HTTPS Configuration
+    https_enabled: bool = Field(
+        default=False,
+        description="Enable HTTPS (recommended for production)",
+    )
+    https_cert_file: Optional[Path] = Field(
+        default=None,
+        description="Path to SSL certificate file (required if https_enabled=true)",
+    )
+    https_key_file: Optional[Path] = Field(
+        default=None,
+        description="Path to SSL private key file (required if https_enabled=true)",
     )
 
     @field_validator("github_app_private_key_path")
