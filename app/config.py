@@ -85,6 +85,12 @@ class Settings(BaseSettings):
         description="Label policy enforcement mode: 'audit' (log only) or 'enforce' (cancel workflow)",
     )
 
+    # Dashboard Features
+    enable_new_dashboard: bool = Field(
+        default=False,
+        description="Enable new React-based dashboard at /app path",
+    )
+
     @field_validator("github_app_private_key_path")
     @classmethod
     def validate_private_key_path(cls, v: Path) -> Path:
