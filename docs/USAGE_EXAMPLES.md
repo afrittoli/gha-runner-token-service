@@ -6,6 +6,7 @@ This document provides practical examples for using the Runner Token Service.
 
 - [Setup](#setup)
 - [Basic Workflow](#basic-workflow)
+- [JIT Provisioning](#jit-provisioning)
 - [API Examples](#api-examples)
 - [CLI Examples](#cli-examples)
 - [Integration Examples](#integration-examples)
@@ -136,6 +137,80 @@ python -m app.cli sync-github
 curl http://localhost:8000/api/v1/runners/gpu-worker-001 \
   -H "Authorization: Bearer $OIDC_TOKEN" | jq .
 ```
+
+## JIT Provisioning
+
+JIT (Just-In-Time) provisioning offers stronger security guarantees than registration tokens:
+- **Labels enforced server-side**: Labels cannot be modified by the client
+- **Ephemeral mode always enabled**: Runners auto-delete after one job
+- **No config step**: Run directly with `./run.sh --jitconfig <config>`
+
+### JIT Provisioning Flow
+
+```bash
+# 1. Get OIDC token
+OIDC_TOKEN="your-oidc-token-here"
+
+# 2. Provision runner using JIT endpoint
+curl -X POST http://localhost:8000/api/v1/runners/jit \
+  -H "Authorization: Bearer $OIDC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name": "secure-worker-001",
+    "labels": ["gpu", "ubuntu-22.04"],
+    "runner_group_id": 1,
+    "work_folder": "_work"
+  }' | jq .
+
+# Response:
+# {
+#   "runner_id": "abc123...",
+#   "runner_name": "secure-worker-001",
+#   "encoded_jit_config": "eyJhbGciOiJIUzI1NiIsInR5...",
+#   "labels": ["self-hosted", "linux", "x64", "gpu", "ubuntu-22.04"],
+#   "expires_at": "2026-01-16T16:30:00Z",
+#   "run_command": "./run.sh --jitconfig eyJhbGciOiJIUzI1NiIsInR5..."
+# }
+
+# 3. Extract the JIT config
+JIT_CONFIG=$(curl -s -X POST http://localhost:8000/api/v1/runners/jit \
+  -H "Authorization: Bearer $OIDC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name": "secure-worker-001",
+    "labels": ["gpu"]
+  }' | jq -r .encoded_jit_config)
+
+# 4. Start the runner directly (no config.sh needed!)
+# (Third party runs this on their infrastructure)
+cd actions-runner
+./run.sh --jitconfig $JIT_CONFIG
+```
+
+### JIT with Name Prefix
+
+```bash
+# Use runner_name_prefix to auto-generate unique names
+curl -X POST http://localhost:8000/api/v1/runners/jit \
+  -H "Authorization: Bearer $OIDC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name_prefix": "gpu-worker",
+    "labels": ["gpu", "cuda-12"]
+  }' | jq .
+
+# Response will have a generated name like "gpu-worker-a1b2c3"
+```
+
+### JIT vs Registration Token Comparison
+
+| Feature | Registration Token | JIT Configuration |
+|---------|-------------------|-------------------|
+| Endpoint | POST /api/v1/runners/provision | POST /api/v1/runners/jit |
+| Client runs | `./config.sh` then `./run.sh` | `./run.sh --jitconfig` only |
+| Label enforcement | Client can ignore | Server-side enforced |
+| Ephemeral mode | Client choice | Always enabled |
+| Use case | Legacy, full control | Production, security |
 
 ## API Examples
 

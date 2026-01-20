@@ -1,5 +1,6 @@
 """GitHub runner synchronization service."""
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
@@ -8,7 +9,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.github.client import GitHubClient
+from app.github.client import GitHubClient, GitHubRunnerInfo
 from app.models import Runner
 from app.services.label_policy_service import LabelPolicyService, LabelPolicyViolation
 
@@ -24,6 +25,7 @@ class SyncResult:
     unchanged: int = 0
     errors: int = 0
     policy_violations: int = 0
+    label_drifts: int = 0  # JIT runners with labels changed after provisioning
 
     def to_dict(self) -> dict:
         """Convert to dictionary for logging/API response."""
@@ -33,6 +35,7 @@ class SyncResult:
             "unchanged": self.unchanged,
             "errors": self.errors,
             "policy_violations": self.policy_violations,
+            "label_drifts": self.label_drifts,
             "total": self.updated + self.deleted + self.unchanged + self.errors,
         }
 
@@ -124,10 +127,18 @@ class SyncService:
                         )
                         result.policy_violations += 1
                         result.deleted += 1
-                    elif self._update_runner_from_github(runner, github_runner):
-                        result.updated += 1
                     else:
-                        result.unchanged += 1
+                        # Check for label drift on JIT runners
+                        drift_handled = await self._check_label_drift(
+                            runner, github_runner
+                        )
+                        if drift_handled:
+                            result.label_drifts += 1
+                            result.deleted += 1
+                        elif self._update_runner_from_github(runner, github_runner):
+                            result.updated += 1
+                        else:
+                            result.unchanged += 1
                 else:
                     # Runner not found in GitHub
                     if runner.status == "pending":
@@ -377,3 +388,139 @@ class SyncService:
 
         # Mark runner as deleted in local DB
         self._mark_deleted(runner, reason="label_policy_violation")
+
+    async def _check_label_drift(
+        self, runner: Runner, github_runner: GitHubRunnerInfo
+    ) -> bool:
+        """
+        Check for label drift on JIT-provisioned runners.
+
+        Label drift occurs when a JIT runner's labels have been modified
+        after provisioning. This is a security concern because JIT provisioning
+        is supposed to enforce labels server-side.
+
+        Args:
+            runner: Local runner record
+            github_runner: GitHub runner info with current labels
+
+        Returns:
+            True if drift was detected and handled (runner deleted), False otherwise
+        """
+        # Only check JIT-provisioned runners
+        if runner.provisioning_method != "jit":
+            return False
+
+        # Skip if no provisioned_labels stored
+        if not runner.provisioned_labels:
+            return False
+
+        # Parse original labels
+        try:
+            original_labels = set(json.loads(runner.provisioned_labels))
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(
+                "invalid_provisioned_labels",
+                runner_id=runner.id,
+                runner_name=runner.runner_name,
+            )
+            return False
+
+        # Compare with current labels
+        current_labels = set(github_runner.labels)
+
+        # Check for drift (labels added or removed)
+        added_labels = current_labels - original_labels
+        removed_labels = original_labels - current_labels
+
+        if not added_labels and not removed_labels:
+            # No drift detected
+            return False
+
+        # LABEL DRIFT DETECTED
+        logger.error(
+            "label_drift_detected",
+            runner_id=runner.id,
+            runner_name=runner.runner_name,
+            github_runner_id=github_runner.id,
+            provisioning_method="jit",
+            original_labels=list(original_labels),
+            current_labels=list(current_labels),
+            added_labels=list(added_labels),
+            removed_labels=list(removed_labels),
+            runner_busy=github_runner.busy,
+        )
+
+        # Check if runner is busy and we should skip deletion
+        if github_runner.busy and not self.settings.label_drift_delete_busy_runners:
+            logger.warning(
+                "label_drift_skipped_busy_runner",
+                runner_id=runner.id,
+                runner_name=runner.runner_name,
+                github_runner_id=github_runner.id,
+            )
+            # Log security event but don't delete
+            self.label_policy_service.log_security_event(
+                event_type="label_drift_detected",
+                severity="high",
+                user_identity=runner.provisioned_by,
+                runner_id=str(runner.id),
+                runner_name=runner.runner_name,
+                github_runner_id=github_runner.id,
+                violation_data={
+                    "original_labels": list(original_labels),
+                    "current_labels": list(current_labels),
+                    "added_labels": list(added_labels),
+                    "removed_labels": list(removed_labels),
+                    "runner_busy": True,
+                    "provisioning_method": "jit",
+                },
+                action_taken="logged_only",
+            )
+            return False
+
+        # Delete the runner from GitHub
+        try:
+            deleted = await self.github.delete_runner(github_runner.id)
+            if deleted:
+                logger.info(
+                    "runner_deleted_for_label_drift",
+                    runner_id=runner.id,
+                    runner_name=runner.runner_name,
+                    github_runner_id=github_runner.id,
+                )
+            else:
+                logger.warning(
+                    "runner_not_found_for_deletion",
+                    runner_id=runner.id,
+                    github_runner_id=github_runner.id,
+                )
+        except Exception as e:
+            logger.error(
+                "failed_to_delete_drifted_runner",
+                runner_id=runner.id,
+                github_runner_id=github_runner.id,
+                error=str(e),
+            )
+
+        # Log security event
+        self.label_policy_service.log_security_event(
+            event_type="label_drift_detected",
+            severity="high",
+            user_identity=runner.provisioned_by,
+            runner_id=str(runner.id),
+            runner_name=runner.runner_name,
+            github_runner_id=github_runner.id,
+            violation_data={
+                "original_labels": list(original_labels),
+                "current_labels": list(current_labels),
+                "added_labels": list(added_labels),
+                "removed_labels": list(removed_labels),
+                "runner_busy": github_runner.busy,
+                "provisioning_method": "jit",
+            },
+            action_taken="runner_deleted",
+        )
+
+        # Mark runner as deleted in local DB
+        self._mark_deleted(runner, reason="label_drift")
+        return True

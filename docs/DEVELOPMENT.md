@@ -426,10 +426,105 @@ The Auth0 free tier includes:
 
 This is more than sufficient for development and small-scale testing.
 
-## 12. Security Notes for Development
+## 12. HTTPS Configuration
+
+For production deployments, HTTPS is strongly recommended. The service supports HTTPS natively.
+
+### With Self-Signed Certificates (Development)
+
+```bash
+# Generate self-signed certificate
+openssl req -x509 -newkey rsa:4096 \
+  -keyout key.pem -out cert.pem \
+  -days 365 -nodes \
+  -subj "/CN=localhost"
+
+# Update .env
+HTTPS_ENABLED=true
+HTTPS_CERT_FILE=./cert.pem
+HTTPS_KEY_FILE=./key.pem
+
+# Run the service
+python -m app.main
+
+# Access at https://localhost:8000 (browser will warn about self-signed cert)
+```
+
+### Without HTTPS (Development Only)
+
+```bash
+# In .env
+HTTPS_ENABLED=false
+
+# Run normally
+uvicorn app.main:app --reload
+```
+
+### With Let's Encrypt (Production)
+
+```bash
+# Obtain certificates using certbot
+certbot certonly --standalone -d your-domain.com
+
+# Update .env
+HTTPS_ENABLED=true
+HTTPS_CERT_FILE=/etc/letsencrypt/live/your-domain.com/fullchain.pem
+HTTPS_KEY_FILE=/etc/letsencrypt/live/your-domain.com/privkey.pem
+```
+
+## 13. JIT Provisioning
+
+JIT (Just-In-Time) provisioning offers enhanced security by enforcing labels and ephemeral mode server-side.
+
+### Using JIT API
+
+```bash
+# Provision a runner using JIT
+curl -X POST http://localhost:8000/api/v1/runners/jit \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name": "secure-runner-001",
+    "labels": ["production", "linux"],
+    "runner_group_id": 1,
+    "work_folder": "_work"
+  }' | jq .
+
+# The response includes encoded_jit_config
+# Start runner directly with:
+./run.sh --jitconfig <encoded_jit_config>
+```
+
+### JIT vs Registration Token
+
+| Feature | Registration Token | JIT |
+|---------|-------------------|-----|
+| Label enforcement | Client-side (can be bypassed) | Server-side (enforced) |
+| Ephemeral mode | Optional | Always enabled |
+| Configuration step | Required (config.sh) | Not needed |
+| Use case | Legacy/full control | Production/security |
+
+### Label Drift Detection
+
+The sync service automatically detects when JIT runner labels have been modified after provisioning:
+
+```bash
+# Configure drift handling for busy runners (optional)
+# In .env:
+LABEL_DRIFT_DELETE_BUSY_RUNNERS=false  # Default: don't delete busy runners with drift
+```
+
+When drift is detected:
+1. A security event is logged
+2. Idle runners are deleted from GitHub
+3. Busy runners are logged but not deleted (unless `LABEL_DRIFT_DELETE_BUSY_RUNNERS=true`)
+
+## 14. Security Notes for Development
 
 - Never commit `.env` or private keys to version control
 - Use different Auth0 tenants for development and production
 - Rotate secrets regularly
 - The SQLite database stores sensitive tokens temporarily - don't share it
 - When `ENABLE_OIDC_AUTH=false`, anyone can access the API
+- For production, always enable HTTPS (`HTTPS_ENABLED=true`)
+- Use JIT provisioning for enhanced security in production environments

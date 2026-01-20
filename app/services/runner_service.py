@@ -4,7 +4,7 @@ import asyncio
 import json
 import secrets
 import structlog
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -13,7 +13,12 @@ from app.auth.dependencies import AuthenticatedUser
 from app.config import Settings
 from app.github.client import GitHubClient
 from app.models import AuditLog, Runner
-from app.schemas import ProvisionRunnerRequest, ProvisionRunnerResponse
+from app.schemas import (
+    JitProvisionRequest,
+    JitProvisionResponse,
+    ProvisionRunnerRequest,
+    ProvisionRunnerResponse,
+)
 from app.services.label_policy_service import LabelPolicyService, LabelPolicyViolation
 
 logger = structlog.get_logger()
@@ -254,6 +259,193 @@ class RunnerService:
             ephemeral=request.ephemeral,
             labels=request.labels,
             configuration_command=config_cmd,
+        )
+
+    async def provision_runner_jit(
+        self, request: JitProvisionRequest, user: AuthenticatedUser
+    ) -> JitProvisionResponse:
+        """
+        Provision a runner using JIT configuration.
+
+        JIT provisioning offers stronger security guarantees:
+        - Labels are enforced server-side and cannot be overridden
+        - Ephemeral mode is always enabled
+        - No separate config step needed (direct run.sh)
+
+        Args:
+            request: JIT provisioning request
+            user: Authenticated user
+
+        Returns:
+            JIT provisioning response with encoded config
+
+        Raises:
+            ValueError: If runner name already active or quota exceeded
+            LabelPolicyViolation: If labels violate policy
+        """
+        # Determine runner name
+        if request.runner_name_prefix:
+            runner_name = self._generate_unique_runner_name(request.runner_name_prefix)
+            max_attempts = 5
+            for _ in range(max_attempts):
+                if not self._is_runner_name_active(runner_name):
+                    break
+                runner_name = self._generate_unique_runner_name(
+                    request.runner_name_prefix
+                )
+            else:
+                raise ValueError(
+                    f"Failed to generate unique name for prefix "
+                    f"'{request.runner_name_prefix}' after {max_attempts} attempts"
+                )
+        else:
+            runner_name = request.runner_name
+            if self._is_runner_name_active(runner_name):
+                raise ValueError(
+                    f"Runner with name '{runner_name}' is currently active. "
+                    f"Use a different name or wait until it's deleted."
+                )
+
+        # Initialize label policy service
+        label_policy_service = LabelPolicyService(self.db)
+
+        # Validate labels against policy
+        try:
+            label_policy_service.validate_labels(user.identity, request.labels)
+        except LabelPolicyViolation as e:
+            label_policy_service.log_security_event(
+                event_type="label_policy_violation",
+                severity="medium",
+                user_identity=user.identity,
+                oidc_sub=user.sub,
+                runner_id=None,
+                runner_name=runner_name,
+                violation_data={
+                    "requested_labels": request.labels,
+                    "invalid_labels": list(e.invalid_labels),
+                    "provisioning_method": "jit",
+                },
+                action_taken="rejected",
+            )
+
+            self._log_audit(
+                event_type="provision_jit_failed",
+                runner_name=runner_name,
+                user=user,
+                success=False,
+                error_message=str(e),
+            )
+            raise
+
+        # Check runner quota
+        active_runner_count = (
+            self.db.query(Runner)
+            .filter(
+                Runner.provisioned_by == user.identity,
+                Runner.status.in_(["pending", "active", "offline"]),
+            )
+            .count()
+        )
+
+        try:
+            label_policy_service.check_runner_quota(user.identity, active_runner_count)
+        except ValueError as e:
+            label_policy_service.log_security_event(
+                event_type="quota_exceeded",
+                severity="low",
+                user_identity=user.identity,
+                oidc_sub=user.sub,
+                runner_id=None,
+                runner_name=runner_name,
+                violation_data={
+                    "current_count": active_runner_count,
+                    "provisioning_method": "jit",
+                },
+                action_taken="rejected",
+            )
+
+            self._log_audit(
+                event_type="provision_jit_failed",
+                runner_name=runner_name,
+                user=user,
+                success=False,
+                error_message=str(e),
+            )
+            raise
+
+        # Determine runner group
+        runner_group_id = (
+            request.runner_group_id or self.settings.default_runner_group_id
+        )
+
+        # Generate JIT config from GitHub
+        try:
+            jit_response = await self.github.generate_jit_config(
+                name=runner_name,
+                runner_group_id=runner_group_id,
+                labels=request.labels,
+                work_folder=request.work_folder,
+            )
+        except Exception as e:
+            self._log_audit(
+                event_type="provision_jit_failed",
+                runner_name=runner_name,
+                user=user,
+                success=False,
+                error_message=f"Failed to generate JIT config: {str(e)}",
+                event_data=request.model_dump(),
+            )
+            raise
+
+        # Create runner record
+        # Note: JIT runners are always ephemeral
+        runner = Runner(
+            runner_name=runner_name,
+            runner_group_id=runner_group_id,
+            labels=json.dumps(jit_response.labels or request.labels),
+            ephemeral=True,  # JIT enforces ephemeral
+            disable_update=False,
+            provisioned_by=user.identity,
+            oidc_sub=user.sub,
+            status="pending",
+            provisioning_method="jit",
+            provisioned_labels=json.dumps(jit_response.labels or request.labels),
+            github_runner_id=jit_response.runner_id,  # Set immediately for JIT
+            github_url=f"https://github.com/{self.settings.github_org}",
+        )
+
+        self.db.add(runner)
+        self.db.commit()
+        self.db.refresh(runner)
+
+        # Log audit event
+        self._log_audit(
+            event_type="provision_jit",
+            runner_id=runner.id,
+            runner_name=runner.runner_name,
+            user=user,
+            success=True,
+            event_data={
+                "runner_group_id": runner_group_id,
+                "labels": jit_response.labels or request.labels,
+                "github_runner_id": jit_response.runner_id,
+                "provisioning_method": "jit",
+            },
+        )
+
+        # Build run command
+        run_cmd = f"./run.sh --jitconfig {jit_response.encoded_jit_config}"
+
+        # JIT config expires in 1 hour (GitHub's default)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+
+        return JitProvisionResponse(
+            runner_id=runner.id,
+            runner_name=runner.runner_name,
+            encoded_jit_config=jit_response.encoded_jit_config,
+            labels=jit_response.labels or request.labels,
+            expires_at=expires_at,
+            run_command=run_cmd,
         )
 
     async def get_runner_by_id(
