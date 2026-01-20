@@ -221,3 +221,4 @@ runner_service.db.*
 *.pem
 .claude
 audit.json
+.cli.env

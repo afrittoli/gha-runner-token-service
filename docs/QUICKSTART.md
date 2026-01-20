@@ -7,6 +7,7 @@ Get the Runner Token Service up and running in 5 minutes.
 - Python 3.11+
 - A GitHub organization
 - GitHub App with "Self-hosted runners: Read & Write" permission
+- Podman or Docker (for running runners on macOS)
 
 ## Step 1: Create GitHub App (5 minutes)
 
@@ -91,36 +92,19 @@ uvicorn app.main:app --reload
 # API docs at http://localhost:8000/docs
 ```
 
-## Step 4: Test It (2 minutes)
+## Step 4: Provision a Runner with JIT (Recommended)
 
-### Provision a Runner
+JIT (Just-In-Time) provisioning is the recommended approach because it enforces labels and ephemeral mode server-side, preventing clients from bypassing security policies.
 
-You can provision a runner using either a name prefix or an exact name:
-
-**Option 1: Using a name prefix (recommended)**
-
-The service generates a unique name by appending a random suffix to your prefix:
+### Provision using JIT API
 
 ```bash
-RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/provision \
+RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/jit \
   -H "Content-Type: application/json" \
   -d '{
     "runner_name_prefix": "test-runner",
     "labels": ["test", "linux"],
-    "ephemeral": true
-  }')
-echo "$RESPONSE" | jq .
-```
-
-**Option 2: Using an exact name**
-
-```bash
-RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/provision \
-  -H "Content-Type: application/json" \
-  -d '{
-    "runner_name": "my-specific-runner",
-    "labels": ["test", "linux"],
-    "ephemeral": true
+    "runner_group_id": 1
   }')
 echo "$RESPONSE" | jq .
 ```
@@ -130,42 +114,33 @@ Example response:
 {
   "runner_id": "abc123...",
   "runner_name": "test-runner-a1b2c3",
-  "registration_token": "AABBCCDD...",
-  "expires_at": "2026-01-16T15:30:00Z",
-  "github_url": "https://github.com/your-org",
-  "runner_group_id": 1,
-  "ephemeral": true,
-  "labels": ["test", "linux"],
-  "configuration_command": "./config.sh --url https://github.com/your-org --token AABBCCDD... --name test-runner-a1b2c3 --unattended --labels test,linux --ephemeral"
+  "encoded_jit_config": "eyJydW5uZXIiOi...(base64 encoded)...",
+  "labels": ["self-hosted", "Linux", "X64", "test", "linux"],
+  "expires_at": "2026-01-21T15:30:00Z",
+  "run_command": "./run.sh --jitconfig <encoded_jit_config>"
 }
 ```
 
-**Note:** When using exact names, you cannot reuse a name that's currently active.
-Once a runner is deleted (or an ephemeral runner completes), the name can be reused.
-
-Extract the values needed for the following steps:
+Extract values for the next steps:
 
 ```bash
-CONFIG_CMD=$(echo "$RESPONSE" | jq -r '.configuration_command')
+JIT_CONFIG=$(echo "$RESPONSE" | jq -r '.encoded_jit_config')
 RUNNER_ID=$(echo "$RESPONSE" | jq -r '.runner_id')
 RUNNER_NAME=$(echo "$RESPONSE" | jq -r '.runner_name')
 ```
 
 ### Start the Runner
 
-#### Option A: Podman Container (macOS/Linux)
-
-This is the recommended approach for local testing on macOS since the GitHub runner binary is Linux-only.
+#### Option A: Podman Container (macOS/Linux) - Recommended
 
 ```bash
 podman run -it --rm \
   ghcr.io/actions/actions-runner:latest \
-  bash -c "$CONFIG_CMD && ./run.sh"
+  ./run.sh --jitconfig "$JIT_CONFIG"
 ```
 
 **Notes for macOS with Podman:**
 - The container runs a Linux VM under the hood via `podman machine`
-- To access the token service from inside the container, use `host.containers.internal:8000` instead of `localhost:8000`
 - Make sure `podman machine` is running: `podman machine start`
 
 #### Option B: Directly on Linux
@@ -173,26 +148,22 @@ podman run -it --rm \
 ```bash
 # 1. Download runner
 mkdir actions-runner && cd actions-runner
-curl -o actions-runner-linux-x64-2.331.0.tar.gz -L \
-  https://github.com/actions/runner/releases/download/v2.331.0/actions-runner-linux-x64-2.331.0.tar.gz
-tar xzf ./actions-runner-linux-x64-2.331.0.tar.gz
+curl -o actions-runner-linux-x64-2.321.0.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v2.321.0/actions-runner-linux-x64-2.321.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.321.0.tar.gz
 
-# 2. Configure and start
-$CONFIG_CMD
-./run.sh
+# 2. Start directly with JIT config (no config.sh needed!)
+./run.sh --jitconfig "$JIT_CONFIG"
 ```
 
-### Sync Runner Status with GitHub
+### JIT Benefits
 
-**Important:** After starting the runner, it will appear in a "pending" state in the service until you sync with GitHub. Run the sync command to update the runner status to "active" or "offline".
-
-```bash
-# Sync all runners with GitHub API
-# This checks which runners have been registered and updates their status
-python -m app.cli sync-github
-```
-
-After syncing, the runner status should change from "pending" to "active".
+| Feature | Registration Token | JIT |
+|---------|-------------------|-----|
+| Label enforcement | Client-side (can be bypassed) | **Server-side (enforced)** |
+| Ephemeral mode | Optional | **Always enabled** |
+| Configuration step | Required (`config.sh`) | **Not needed** |
+| Security | Token can be misused | **Config is single-use, pre-bound** |
 
 ### Check Runner Status
 
@@ -202,10 +173,9 @@ curl http://localhost:8000/api/v1/runners | jq .
 
 # Get specific runner by ID
 curl http://localhost:8000/api/v1/runners/$RUNNER_ID | jq .
-
-# Refresh status from GitHub
-curl -X POST http://localhost:8000/api/v1/runners/$RUNNER_ID/refresh | jq .
 ```
+
+**Note:** JIT runners are immediately registered with GitHub. The periodic sync service (runs every 5 minutes) will update runner status automatically. No manual sync is required.
 
 ### Delete Runner
 
@@ -237,7 +207,7 @@ OIDC_JWKS_URL=https://your-oidc-provider.com/.well-known/jwks.json
 
 Then include OIDC token in requests:
 ```bash
-curl -X POST http://localhost:8000/api/v1/runners/provision \
+curl -X POST http://localhost:8000/api/v1/runners/jit \
   -H "Authorization: Bearer YOUR_OIDC_TOKEN" \
   -H "Content-Type: application/json" \
   -d '...'
@@ -253,7 +223,7 @@ Visit http://localhost:8000/docs for interactive API documentation (Swagger UI).
 # List all runners
 python -m app.cli list-runners
 
-# Sync with GitHub
+# Sync with GitHub (usually automatic via periodic sync)
 python -m app.cli sync-github
 
 # Cleanup stale runners
@@ -271,6 +241,12 @@ See [README.md](README.md) for:
 - Production configuration
 - Security best practices
 
+## Alternative: Registration Token API
+
+For cases where you need more control over the runner configuration, the registration token API is available. See [DEVELOPMENT.md](DEVELOPMENT.md#alternative-registration-token-api) for details.
+
+**Note:** The registration token API allows clients to potentially bypass label and ephemeral settings. Use JIT for production environments.
+
 ## Troubleshooting
 
 ### "Failed to generate GitHub token"
@@ -283,19 +259,26 @@ See [README.md](README.md) for:
 
 ### "Runner not appearing in GitHub"
 
-- Wait 30 seconds after provisioning
-- Check token hasn't expired (1 hour limit)
-- Verify runner name is unique
-- Check runner was configured with correct token
+- JIT runners should appear immediately after provisioning
+- Verify the JIT config hasn't expired (~1 hour validity)
+- Check the runner started successfully: `podman logs <container>`
 
 ### API returns 404
 
-- Ensure you're using the correct endpoint: `/api/v1/runners/provision`
+- For JIT: use `/api/v1/runners/jit`
+- For registration tokens: use `/api/v1/runners/provision`
 - Service should be running on port 8000
 - Check logs: `uvicorn app.main:app --log-level debug`
+
+### Runner shows "offline" status
+
+- The runner process may have exited
+- For ephemeral runners: this is expected after completing one job
+- Check runner logs for errors
 
 ## Support
 
 - Full documentation: [README.md](README.md)
+- JIT design: [JIT Provisioning Design](design/jit_provisioning.md)
 - Usage examples: [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md)
 - API docs: http://localhost:8000/docs (when running)

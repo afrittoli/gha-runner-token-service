@@ -10,39 +10,44 @@ The **Runner Token Service** is a secure central service that enables third part
 - Your GitHub PAT (too much access)
 - Direct access to GitHub App credentials (security risk)
 - Ability to provision runners for other users (isolation concern)
+- Ability to bypass label policies or ephemeral settings
 
-**Solution**: This service acts as a secure intermediary:
+**Solution**: This service acts as a secure intermediary using JIT (Just-In-Time) provisioning:
 1. Third party authenticates with OIDC (their identity provider)
-2. Service validates OIDC token and generates GitHub registration token
-3. Third party uses token to configure runner (expires in 1 hour)
-4. Service tracks all runners and maintains audit trail
+2. Service validates OIDC token and enforces label policies
+3. Service generates JIT config with pre-bound labels and ephemeral mode
+4. Third party starts runner directly (no config step, no way to bypass settings)
+5. Service monitors runners and detects label drift
 
 ## Key Features
 
+✅ **JIT Provisioning** - Server-side label and ephemeral enforcement (recommended)
 ✅ **OIDC Authentication** - Third parties authenticate with their own identity provider
 ✅ **GitHub App Integration** - Service uses GitHub App with minimal required permissions
 ✅ **Label Policy Enforcement** - Fine-grained control over permitted runner labels
-✅ **Time-Limited Tokens** - Registration tokens expire in 1 hour (single-use)
+✅ **Label Drift Detection** - Automatic detection and remediation of modified labels
 ✅ **User Isolation** - Users can only see/manage their own runners
-✅ **Ephemeral Support** - Runners auto-delete after one job (recommended)
+✅ **Ephemeral Runners** - Always enabled with JIT, runners auto-delete after one job
 ✅ **Audit Trail** - All operations logged with user identity
 ✅ **Security Events** - Dedicated logging for policy violations
-✅ **Status Tracking** - Sync runner status with GitHub API
+✅ **Periodic Sync** - Automatic status synchronization with GitHub API
 ✅ **RESTful API** - Clean, documented API with OpenAPI/Swagger
 ✅ **CLI Tools** - Admin commands for maintenance and monitoring
-✅ **Well Structured** - Structured logging, error handling, Docker support
+✅ **Dashboard** - Web UI for monitoring runners and viewing audit logs
 
 ## Documentation Index
 
 ### Getting Started
-- [Quick Start Guide](QUICKSTART.md) - Get up and running in 5 minutes
+- [Quick Start Guide](QUICKSTART.md) - Get up and running in 5 minutes with JIT provisioning
 - [Usage Examples](USAGE_EXAMPLES.md) - Practical examples and workflows
 
 ### Development
 - [Development Guide](DEVELOPMENT.md) - Setting up development environment, OIDC configuration
 
 ### Design & Architecture
+- [JIT Provisioning Design](design/jit_provisioning.md) - JIT architecture and security benefits
 - [Architecture](design/token_service.md) - System design and technical architecture
+- [GitHub Sync Design](design/github_sync.md) - Periodic sync and label drift detection
 - [Dashboard Design](design/dashboard.md) - Web dashboard specifications and design
 - [Design Overview](design/README.md) - Overview of design documents
 
@@ -89,20 +94,25 @@ Runners progress through these states:
 
 ### Sync Process
 
-After starting a runner, it remains in "pending" state until synced with GitHub:
+The service includes automatic periodic sync (every 5 minutes by default) that:
+- Updates runner statuses to match GitHub's actual state
+- Detects label drift for JIT-provisioned runners
+- Removes runners that no longer exist in GitHub
+
+For JIT runners, sync happens immediately at provisioning time. Manual sync is available via CLI:
 ```bash
 python -m app.cli sync-github
 ```
 
-This command updates runner statuses to match GitHub's actual state.
-
 ### Ephemeral Runners
 
-Ephemeral runners are recommended for security. They:
+Ephemeral runners are the default with JIT provisioning. They:
 - Execute a single job
 - Automatically terminate
 - Clean up their own state
 - Ideal for untrusted/third-party code
+
+**Note:** With JIT, ephemeral mode is always enforced server-side and cannot be disabled by clients.
 
 ### Label Policies
 
@@ -125,12 +135,17 @@ Label policies provide fine-grained access control:
 
 See [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) for detailed API examples.
 
-Core endpoints:
-- `POST /api/v1/runners/provision` - Generate registration token
+### JIT Provisioning (Recommended)
+- `POST /api/v1/runners/jit` - Provision runner with JIT config (server-enforced labels/ephemeral)
+
+### Runner Management
 - `GET /api/v1/runners` - List user's runners
 - `GET /api/v1/runners/{runner_id}` - Get runner details
 - `POST /api/v1/runners/{runner_id}/refresh` - Sync status from GitHub
 - `DELETE /api/v1/runners/{runner_id}` - Deprovision runner
+
+### Alternative (Legacy)
+- `POST /api/v1/runners/provision` - Generate registration token (client-side configuration)
 
 ## CLI Commands
 

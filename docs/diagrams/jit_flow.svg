@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" font-family="Arial, sans-serif">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="actorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90D9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E5C8A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="serviceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#50C878;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E8B57;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="githubGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6e5494;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4a3660;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="securityGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C44D4D;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dashboardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFB347;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#CC8A30;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="oidcGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9B59B6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6C3483;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Arrow markers -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+    <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2E8B57" />
+    </marker>
+    <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#C44D4D" />
+    </marker>
+    <marker id="arrowhead-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6e5494" />
+    </marker>
+    <marker id="arrowhead-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#CC8A30" />
+    </marker>
+
+    <!-- Shield icon -->
+    <symbol id="shield" viewBox="0 0 24 24">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+
+    <!-- Lock icon -->
+    <symbol id="lock" viewBox="0 0 24 24">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+
+    <!-- Key icon -->
+    <symbol id="key" viewBox="0 0 24 24">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" fill="none" stroke="currentColor" stroke-width="2"/>
+    </symbol>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="750" fill="#f8f9fa"/>
+
+  <!-- Title -->
+  <text x="600" y="35" text-anchor="middle" font-size="24" font-weight="bold" fill="#333">
+    JIT Runner Provisioning Flow
+  </text>
+  <text x="600" y="55" text-anchor="middle" font-size="14" fill="#666">
+    Secure runner provisioning with server-side label enforcement
+  </text>
+
+  <!-- Legend - top left -->
+  <g transform="translate(30, 75)">
+    <rect x="0" y="0" width="200" height="130" rx="8" fill="white" stroke="#ddd" stroke-width="1"/>
+    <text x="100" y="18" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">Legend</text>
+
+    <rect x="15" y="30" width="20" height="12" fill="url(#securityGrad)" rx="2"/>
+    <text x="45" y="40" font-size="10" fill="#333">Sensitive Data / Token</text>
+
+    <rect x="15" y="48" width="20" height="12" fill="url(#serviceGrad)" rx="2"/>
+    <text x="45" y="58" font-size="10" fill="#333">Security Enforcement</text>
+
+    <line x1="15" y1="73" x2="35" y2="73" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <text x="45" y="77" font-size="10" fill="#333">Request Flow</text>
+
+    <line x1="15" y1="91" x2="35" y2="91" stroke="#2E8B57" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowhead-green)"/>
+    <text x="45" y="95" font-size="10" fill="#333">Secure (HTTPS)</text>
+
+    <use href="#shield" x="15" y="103" width="16" height="16" style="color:#2E8B57"/>
+    <text x="45" y="116" font-size="10" fill="#333">Security Benefit</text>
+  </g>
+
+  <!-- ==================== DASHBOARD - TOP ==================== -->
+  <g transform="translate(830, 75)">
+    <rect x="0" y="0" width="320" height="130" rx="10" fill="url(#dashboardGrad)" stroke="#CC8A30" stroke-width="2"/>
+    <text x="160" y="22" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Admin Dashboard</text>
+
+    <rect x="10" y="32" width="145" height="45" rx="5" fill="rgba(255,255,255,0.25)"/>
+    <text x="82" y="48" text-anchor="middle" font-size="10" font-weight="bold" fill="white">Monitoring</text>
+    <text x="82" y="62" text-anchor="middle" font-size="9" fill="#FFF5E0">• Runner status &amp; health</text>
+    <text x="82" y="74" text-anchor="middle" font-size="9" fill="#FFF5E0">• Audit log viewer</text>
+
+    <rect x="165" y="32" width="145" height="45" rx="5" fill="rgba(255,255,255,0.25)"/>
+    <text x="237" y="48" text-anchor="middle" font-size="10" font-weight="bold" fill="white">Admin Functions</text>
+    <text x="237" y="62" text-anchor="middle" font-size="9" fill="#FFF5E0">• Label policy management</text>
+    <text x="237" y="74" text-anchor="middle" font-size="9" fill="#FFF5E0">• User authorization*</text>
+
+    <rect x="10" y="82" width="300" height="40" rx="5" fill="rgba(255,255,255,0.15)"/>
+    <text x="160" y="98" text-anchor="middle" font-size="9" fill="white">• Security event alerts • Runner quota management</text>
+    <text x="160" y="112" text-anchor="middle" font-size="8" fill="#FFE0B0">* User authorization table planned for future release</text>
+  </g>
+
+  <!-- ==================== ACTORS ==================== -->
+
+  <!-- OIDC Provider - top center -->
+  <g transform="translate(280, 100)">
+    <rect x="0" y="0" width="180" height="80" rx="10" fill="url(#oidcGrad)" stroke="#6C3483" stroke-width="2"/>
+    <text x="90" y="25" text-anchor="middle" font-size="13" font-weight="bold" fill="white">OIDC Provider</text>
+    <text x="90" y="42" text-anchor="middle" font-size="10" fill="#E0E0E0">(Auth0, Okta, Keycloak)</text>
+    <text x="90" y="58" text-anchor="middle" font-size="10" fill="#E0E0E0">Issues &amp; signs JWT tokens</text>
+    <text x="90" y="72" text-anchor="middle" font-size="9" fill="#D4A5FF">Publishes JWKS for validation</text>
+  </g>
+
+  <!-- Third Party / Client - left side -->
+  <g transform="translate(80, 270)">
+    <rect x="0" y="0" width="180" height="100" rx="10" fill="url(#actorGrad)" stroke="#2E5C8A" stroke-width="2"/>
+    <text x="90" y="25" text-anchor="middle" font-size="13" font-weight="bold" fill="white">Third Party</text>
+    <text x="90" y="42" text-anchor="middle" font-size="10" fill="#E0E0E0">(Runner Operator)</text>
+    <text x="90" y="62" text-anchor="middle" font-size="9" fill="#E0E0E0">Authenticates via OIDC</text>
+    <text x="90" y="78" text-anchor="middle" font-size="9" fill="#E0E0E0">Requests runner provisioning</text>
+    <text x="90" y="94" text-anchor="middle" font-size="9" fill="#FFD700">Receives JIT config</text>
+  </g>
+
+  <!-- Runner - below Third Party -->
+  <g transform="translate(80, 400)">
+    <rect x="0" y="0" width="180" height="90" rx="10" fill="url(#actorGrad)" stroke="#2E5C8A" stroke-width="2"/>
+    <text x="90" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="white">Runner</text>
+    <text x="90" y="40" text-anchor="middle" font-size="10" fill="#E0E0E0">(Third Party Infrastructure)</text>
+    <text x="90" y="58" text-anchor="middle" font-size="10" fill="#E0E0E0">./run.sh --jitconfig</text>
+    <text x="90" y="76" text-anchor="middle" font-size="10" fill="#FFD700">Ephemeral • Labels locked</text>
+  </g>
+
+  <!-- Token Service - center -->
+  <g transform="translate(480, 240)">
+    <rect x="0" y="0" width="260" height="220" rx="10" fill="url(#serviceGrad)" stroke="#2E8B57" stroke-width="2"/>
+    <text x="130" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Runner Token Service</text>
+
+    <!-- OIDC Validation - highlighted -->
+    <rect x="15" y="40" width="230" height="40" rx="5" fill="rgba(255,255,255,0.3)"/>
+    <use href="#key" x="20" y="45" width="20" height="20" style="color:white"/>
+    <text x="140" y="55" text-anchor="middle" font-size="11" fill="white">OIDC Token Validation</text>
+    <text x="130" y="70" text-anchor="middle" font-size="9" fill="#E0E0E0">Fetches JWKS • Verifies signature &amp; claims</text>
+
+    <!-- Label Policy -->
+    <rect x="15" y="90" width="230" height="40" rx="5" fill="rgba(255,255,255,0.25)"/>
+    <use href="#shield" x="20" y="95" width="20" height="20" style="color:white"/>
+    <text x="140" y="105" text-anchor="middle" font-size="11" fill="white">Label Policy Enforcement</text>
+    <text x="130" y="120" text-anchor="middle" font-size="9" fill="#E0E0E0">Server-side validation before provisioning</text>
+
+    <!-- JIT Generator -->
+    <rect x="15" y="140" width="230" height="40" rx="5" fill="rgba(255,255,255,0.2)"/>
+    <text x="130" y="155" text-anchor="middle" font-size="11" fill="white">JIT Config Generator</text>
+    <text x="130" y="170" text-anchor="middle" font-size="9" fill="#E0E0E0">Calls GitHub API with App credentials</text>
+
+    <text x="130" y="195" text-anchor="middle" font-size="9" fill="white">Database: SQLite/PostgreSQL</text>
+    <text x="130" y="210" text-anchor="middle" font-size="9" fill="#E0E0E0">Audit logs • Runner state • Policies</text>
+  </g>
+
+  <!-- GitHub - right side -->
+  <g transform="translate(920, 280)">
+    <rect x="0" y="0" width="200" height="130" rx="10" fill="url(#githubGrad)" stroke="#4a3660" stroke-width="2"/>
+    <text x="100" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="white">GitHub</text>
+    <text x="100" y="48" text-anchor="middle" font-size="10" fill="#E0E0E0">generate-jitconfig API</text>
+    <text x="100" y="65" text-anchor="middle" font-size="10" fill="#E0E0E0">Runner registration</text>
+    <text x="100" y="82" text-anchor="middle" font-size="10" fill="#E0E0E0">Workflow job dispatch</text>
+    <rect x="15" y="95" width="170" height="28" rx="3" fill="rgba(255,255,255,0.2)"/>
+    <text x="100" y="110" text-anchor="middle" font-size="9" fill="white">Authenticates via GitHub App</text>
+    <text x="100" y="120" text-anchor="middle" font-size="8" fill="#D0D0D0">(Private key on Token Service)</text>
+  </g>
+
+  <!-- ==================== FLOW ARROWS ==================== -->
+
+  <!-- Step 1: Third Party -> OIDC (Auth request) -->
+  <g>
+    <path d="M 170 270 L 170 220 L 280 160" fill="none" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="180" y="200" width="70" height="22" rx="3" fill="white" stroke="#ddd"/>
+    <text x="215" y="215" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">1. Auth</text>
+  </g>
+
+  <!-- Step 1 return: OIDC -> Third Party (JWT Token) -->
+  <g>
+    <path d="M 380 185 L 250 250 L 250 270" fill="none" stroke="#C44D4D" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowhead-red)"/>
+    <rect x="285" y="210" width="80" height="22" rx="3" fill="url(#securityGrad)"/>
+    <text x="325" y="225" text-anchor="middle" font-size="9" fill="white">JWT Token</text>
+  </g>
+
+  <!-- Step 2: Third Party -> Token Service (POST /jit) -->
+  <g>
+    <line x1="260" y1="320" x2="475" y2="320" stroke="#2E8B57" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowhead-green)"/>
+    <rect x="300" y="290" width="130" height="40" rx="3" fill="white" stroke="#2E8B57" stroke-width="1"/>
+    <text x="365" y="307" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">2. POST /jit</text>
+    <text x="365" y="322" text-anchor="middle" font-size="9" fill="#666">Authorization: Bearer &lt;JWT&gt;</text>
+  </g>
+
+  <!-- Step 2a: Token Service -> OIDC (Fetch JWKS for validation) -->
+  <g>
+    <path d="M 600 240 L 600 200 L 460 165" fill="none" stroke="#9B59B6" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowhead)"/>
+    <rect x="490" y="185" width="100" height="22" rx="3" fill="white" stroke="#9B59B6"/>
+    <text x="540" y="200" text-anchor="middle" font-size="9" fill="#6C3483">2a. Fetch JWKS</text>
+  </g>
+
+  <!-- Step 3: Token Service -> GitHub (Generate JIT) -->
+  <g>
+    <line x1="740" y1="350" x2="915" y2="330" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="770" y="310" width="100" height="35" rx="3" fill="white" stroke="#ddd"/>
+    <text x="820" y="327" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">3. Generate</text>
+    <text x="820" y="340" text-anchor="middle" font-size="9" fill="#666">JIT Config</text>
+  </g>
+
+  <!-- Step 4: GitHub -> Token Service (Return JIT Config) -->
+  <g>
+    <line x1="915" y1="380" x2="745" y2="400" stroke="#C44D4D" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowhead-red)"/>
+    <rect x="770" y="375" width="100" height="35" rx="3" fill="url(#securityGrad)"/>
+    <text x="820" y="390" text-anchor="middle" font-size="9" fill="white">4. JIT Config</text>
+    <text x="820" y="403" text-anchor="middle" font-size="8" fill="#FFE0E0">(RSA keys, creds)</text>
+  </g>
+
+  <!-- Step 5: Token Service -> Third Party (Return Response) -->
+  <g>
+    <line x1="475" y1="390" x2="265" y2="360" stroke="#2E8B57" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowhead-green)"/>
+    <rect x="300" y="355" width="135" height="40" rx="3" fill="white" stroke="#2E8B57" stroke-width="1"/>
+    <text x="367" y="372" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">5. Response</text>
+    <text x="367" y="387" text-anchor="middle" font-size="9" fill="#666">encoded_jit_config</text>
+  </g>
+
+  <!-- Step 6: Third Party -> Runner (Deploy and start) -->
+  <g>
+    <line x1="170" y1="370" x2="170" y2="395" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="175" y="372" width="90" height="22" rx="3" fill="white" stroke="#ddd"/>
+    <text x="220" y="387" text-anchor="middle" font-size="9" fill="#333">6. Deploy</text>
+  </g>
+
+  <!-- Step 7: Runner -> GitHub (Connect) - goes below token service -->
+  <g>
+    <path d="M 260 470 L 400 510 L 800 510 L 920 410" fill="none" stroke="#6e5494" stroke-width="2" marker-end="url(#arrowhead-purple)"/>
+    <rect x="530" y="490" width="140" height="35" rx="3" fill="white" stroke="#6e5494"/>
+    <text x="600" y="507" text-anchor="middle" font-size="10" font-weight="bold" fill="#6e5494">7. Connect</text>
+    <text x="600" y="520" text-anchor="middle" font-size="9" fill="#666">to GitHub Actions</text>
+  </g>
+
+  <!-- Step 8: Monitoring - circular arrow on Token Service -->
+  <g>
+    <path d="M 740 280 C 780 260, 800 270, 800 300 C 800 330, 780 340, 750 330" fill="none" stroke="#2E8B57" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+    <rect x="755" y="250" width="120" height="35" rx="3" fill="white" stroke="#2E8B57"/>
+    <text x="815" y="265" text-anchor="middle" font-size="10" font-weight="bold" fill="#2E8B57">8. Monitor</text>
+    <text x="815" y="278" text-anchor="middle" font-size="9" fill="#666">Runners &amp; Labels</text>
+  </g>
+
+  <!-- Dashboard -> Token Service connection -->
+  <g>
+    <path d="M 920 205 L 700 235" fill="none" stroke="#CC8A30" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowhead-orange)"/>
+    <text x="790" y="210" text-anchor="middle" font-size="8" fill="#CC8A30">Admin API</text>
+  </g>
+
+  <!-- ==================== SECURITY BENEFITS ==================== -->
+  <g transform="translate(50, 520)">
+    <rect x="0" y="0" width="1100" height="150" rx="10" fill="white" stroke="#2E8B57" stroke-width="2"/>
+    <text x="550" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#2E8B57">Security Benefits of JIT Provisioning</text>
+
+    <!-- Row 1 -->
+    <g transform="translate(30, 45)">
+      <use href="#shield" x="0" y="0" width="28" height="28" style="color:#2E8B57"/>
+      <text x="38" y="12" font-size="11" font-weight="bold" fill="#333">Server-Side Label Enforcement</text>
+      <text x="38" y="26" font-size="10" fill="#666">Labels configured in JIT config before reaching client.</text>
+      <text x="38" y="40" font-size="10" fill="#666">Client cannot modify - cryptographically bound.</text>
+    </g>
+
+    <g transform="translate(380, 45)">
+      <use href="#shield" x="0" y="0" width="28" height="28" style="color:#2E8B57"/>
+      <text x="38" y="12" font-size="11" font-weight="bold" fill="#333">Ephemeral Mode Always Enforced</text>
+      <text x="38" y="26" font-size="10" fill="#666">Runner auto-deletes after completing one job.</text>
+      <text x="38" y="40" font-size="10" fill="#666">No persistent runners that could be compromised.</text>
+    </g>
+
+    <g transform="translate(750, 45)">
+      <use href="#shield" x="0" y="0" width="28" height="28" style="color:#2E8B57"/>
+      <text x="38" y="12" font-size="11" font-weight="bold" fill="#333">Label Drift Detection</text>
+      <text x="38" y="26" font-size="10" fill="#666">Sync service detects label modifications.</text>
+      <text x="38" y="40" font-size="10" fill="#666">Runners with drifted labels auto-deleted.</text>
+    </g>
+
+    <!-- Row 2 -->
+    <g transform="translate(30, 100)">
+      <use href="#shield" x="0" y="0" width="28" height="28" style="color:#2E8B57"/>
+      <text x="38" y="12" font-size="11" font-weight="bold" fill="#333">Complete Audit Trail</text>
+      <text x="38" y="26" font-size="10" fill="#666">All provisioning and policy violations logged.</text>
+      <text x="38" y="40" font-size="10" fill="#666">Viewable in dashboard for compliance.</text>
+    </g>
+
+    <g transform="translate(380, 100)">
+      <use href="#shield" x="0" y="0" width="28" height="28" style="color:#2E8B57"/>
+      <text x="38" y="12" font-size="11" font-weight="bold" fill="#333">OIDC Authentication</text>
+      <text x="38" y="26" font-size="10" fill="#666">Third parties use their own identity provider.</text>
+      <text x="38" y="40" font-size="10" fill="#666">No shared secrets between parties.</text>
+    </g>
+
+    <g transform="translate(750, 100)">
+      <use href="#shield" x="0" y="0" width="28" height="28" style="color:#2E8B57"/>
+      <text x="38" y="12" font-size="11" font-weight="bold" fill="#333">JWT Signature Verification</text>
+      <text x="38" y="26" font-size="10" fill="#666">Token Service validates all incoming tokens.</text>
+      <text x="38" y="40" font-size="10" fill="#666">Fetches JWKS from OIDC provider.</text>
+    </g>
+  </g>
+
+  <!-- Footer -->
+  <text x="600" y="720" text-anchor="middle" font-size="10" fill="#999">
+    Runner Token Service • JIT Provisioning Flow
+  </text>
+  <a href="https://github.com/afrittoli/gha-runner-token-service/blob/main/docs/design/jit_provisioning.md">
+    <text x="600" y="738" text-anchor="middle" font-size="10" fill="#4A90D9" text-decoration="underline">
+      JIT API Documentation
+    </text>
+  </a>
+</svg>
