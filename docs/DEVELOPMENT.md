@@ -428,12 +428,14 @@ This is more than sufficient for development and small-scale testing.
 
 ## 12. HTTPS Configuration
 
-For production deployments, HTTPS is strongly recommended. The service supports HTTPS natively.
+For production deployments, HTTPS is strongly recommended.
 
-### With Self-Signed Certificates (Development)
+### Option A: Using `python -m app.main` (Recommended)
+
+The service reads HTTPS configuration from environment variables when started via the main module:
 
 ```bash
-# Generate self-signed certificate
+# Generate self-signed certificate (development)
 openssl req -x509 -newkey rsa:4096 \
   -keyout key.pem -out cert.pem \
   -days 365 -nodes \
@@ -444,16 +446,31 @@ HTTPS_ENABLED=true
 HTTPS_CERT_FILE=./cert.pem
 HTTPS_KEY_FILE=./key.pem
 
-# Run the service
+# Run the service (MUST use python -m for HTTPS env vars to work)
 python -m app.main
 
 # Access at https://localhost:8000 (browser will warn about self-signed cert)
 ```
 
+### Option B: Using uvicorn directly with SSL flags
+
+If you prefer using `uvicorn` directly (e.g., for hot-reload during development), pass SSL parameters explicitly:
+
+```bash
+# Generate certificates as above, then:
+uvicorn app.main:app --reload \
+  --ssl-keyfile=./key.pem \
+  --ssl-certfile=./cert.pem \
+  --host 0.0.0.0 --port 8000
+
+# Note: HTTPS_ENABLED env var is ignored when using uvicorn directly
+# You must pass --ssl-keyfile and --ssl-certfile to uvicorn
+```
+
 ### Without HTTPS (Development Only)
 
 ```bash
-# In .env
+# In .env (or just don't set HTTPS vars)
 HTTPS_ENABLED=false
 
 # Run normally
@@ -466,11 +483,21 @@ uvicorn app.main:app --reload
 # Obtain certificates using certbot
 certbot certonly --standalone -d your-domain.com
 
-# Update .env
+# Option A: Update .env and use python -m app.main
 HTTPS_ENABLED=true
 HTTPS_CERT_FILE=/etc/letsencrypt/live/your-domain.com/fullchain.pem
 HTTPS_KEY_FILE=/etc/letsencrypt/live/your-domain.com/privkey.pem
+
+python -m app.main
+
+# Option B: Use uvicorn with SSL flags directly
+uvicorn app.main:app \
+  --ssl-keyfile=/etc/letsencrypt/live/your-domain.com/privkey.pem \
+  --ssl-certfile=/etc/letsencrypt/live/your-domain.com/fullchain.pem \
+  --host 0.0.0.0 --port 443 --workers 4
 ```
+
+**Important:** The `HTTPS_ENABLED` environment variable only works when using `python -m app.main`. When using `uvicorn app.main:app` directly, you must pass `--ssl-keyfile` and `--ssl-certfile` arguments to uvicorn.
 
 ## 13. JIT Provisioning
 
@@ -519,7 +546,66 @@ When drift is detected:
 2. Idle runners are deleted from GitHub
 3. Busy runners are logged but not deleted (unless `LABEL_DRIFT_DELETE_BUSY_RUNNERS=true`)
 
-## 14. Security Notes for Development
+## 14. Alternative: Registration Token API
+
+For cases where JIT provisioning doesn't meet your needs (e.g., non-ephemeral runners, custom configuration), the registration token API is available.
+
+**Warning:** The registration token API allows clients to potentially bypass label and ephemeral settings. Use JIT for production environments.
+
+### Provision with Registration Token
+
+```bash
+RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/provision \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name_prefix": "legacy-runner",
+    "labels": ["test", "linux"],
+    "ephemeral": true
+  }')
+echo "$RESPONSE" | jq .
+```
+
+Response:
+```json
+{
+  "runner_id": "abc123...",
+  "runner_name": "legacy-runner-x1y2z3",
+  "registration_token": "AABBCCDD...",
+  "expires_at": "2026-01-21T15:30:00Z",
+  "github_url": "https://github.com/your-org",
+  "configuration_command": "./config.sh --url https://github.com/your-org --token AABBCCDD... --name legacy-runner-x1y2z3 --unattended --labels test,linux --ephemeral"
+}
+```
+
+### Start Runner with Registration Token
+
+```bash
+# Extract the configuration command
+CONFIG_CMD=$(echo "$RESPONSE" | jq -r '.configuration_command')
+
+# Run with Podman (requires config.sh step)
+podman run -it --rm \
+  ghcr.io/actions/actions-runner:latest \
+  bash -c "$CONFIG_CMD && ./run.sh"
+```
+
+### When to Use Registration Tokens
+
+- Non-ephemeral runners that persist across jobs
+- Custom runner configuration beyond what JIT supports
+- Integration with existing provisioning systems
+- Development/testing scenarios
+
+### Manual Sync Required
+
+Unlike JIT, registration token runners start in "pending" state. After the runner connects to GitHub, run sync:
+
+```bash
+python -m app.cli sync-github
+```
+
+## 15. Security Notes for Development
 
 - Never commit `.env` or private keys to version control
 - Use different Auth0 tenants for development and production

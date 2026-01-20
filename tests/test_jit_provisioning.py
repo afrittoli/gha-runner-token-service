@@ -138,6 +138,52 @@ class TestJitProvisionEndpoint:
         data = response.json()
         assert data["runner_name"].startswith("my-prefix-")
 
+    def test_jit_provision_adds_self_hosted_label(
+        self, client: TestClient, test_db: Session, auth_override, mock_user
+    ):
+        """Test that self-hosted label is always added even if GitHub doesn't return it."""
+        # Mock GitHub returning only custom labels (no system labels)
+        mock_jit_response = JitConfigResponse(
+            runner_id=12345,
+            runner_name="test-runner-no-system-labels",
+            encoded_jit_config="base64encodedconfig==",
+            os="linux",
+            labels=["custom-label", "gpu"],  # No self-hosted!
+        )
+
+        with patch("app.services.runner_service.GitHubClient") as MockGitHubClient:
+            mock_github = AsyncMock()
+            mock_github.generate_jit_config = AsyncMock(return_value=mock_jit_response)
+            MockGitHubClient.return_value = mock_github
+
+            response = client.post(
+                "/api/v1/runners/jit",
+                json={
+                    "runner_name": "test-runner-no-system-labels",
+                    "labels": ["custom-label", "gpu"],
+                },
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        # self-hosted should be added automatically
+        assert "self-hosted" in data["labels"]
+        # It should be first in the list
+        assert data["labels"][0] == "self-hosted"
+        # Custom labels should still be there
+        assert "custom-label" in data["labels"]
+        assert "gpu" in data["labels"]
+
+        # Verify runner in database also has self-hosted label
+        runner = (
+            test_db.query(Runner)
+            .filter(Runner.runner_name == "test-runner-no-system-labels")
+            .first()
+        )
+        assert runner is not None
+        runner_labels = json.loads(runner.labels)
+        assert "self-hosted" in runner_labels
+
     def test_jit_provision_duplicate_name_fails(
         self, client: TestClient, test_db: Session, auth_override, mock_user
     ):

@@ -5,11 +5,12 @@ This document provides practical examples for using the Runner Token Service.
 ## Table of Contents
 
 - [Setup](#setup)
-- [Basic Workflow](#basic-workflow)
-- [JIT Provisioning](#jit-provisioning)
+- [JIT Provisioning (Recommended)](#jit-provisioning)
+- [JIT with Podman](#jit-with-podman)
 - [API Examples](#api-examples)
 - [CLI Examples](#cli-examples)
 - [Integration Examples](#integration-examples)
+- [Legacy: Registration Token Workflow](#basic-workflow)
 
 ## Setup
 
@@ -75,7 +76,71 @@ uvicorn app.main:app --reload --port 8000
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-## Basic Workflow
+## JIT with Podman
+
+Running JIT-provisioned runners with Podman is ideal for macOS development where the GitHub runner binary requires Linux.
+
+### Basic Podman JIT Flow
+
+```bash
+# 1. Provision runner using JIT
+RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/runners/jit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name_prefix": "podman-runner",
+    "labels": ["podman", "linux"]
+  }')
+
+# 2. Extract JIT config
+JIT_CONFIG=$(echo "$RESPONSE" | jq -r '.encoded_jit_config')
+RUNNER_NAME=$(echo "$RESPONSE" | jq -r '.runner_name')
+
+echo "Starting runner: $RUNNER_NAME"
+
+# 3. Run with Podman (no config.sh needed!)
+podman run -it --rm \
+  ghcr.io/actions/actions-runner:latest \
+  ./run.sh --jitconfig "$JIT_CONFIG"
+```
+
+### Podman with Resource Limits
+
+```bash
+# Run with CPU and memory limits
+podman run -it --rm \
+  --cpus=2 \
+  --memory=4g \
+  ghcr.io/actions/actions-runner:latest \
+  ./run.sh --jitconfig "$JIT_CONFIG"
+```
+
+### Podman in Background
+
+```bash
+# Run detached
+CONTAINER_ID=$(podman run -d --rm \
+  --name "$RUNNER_NAME" \
+  ghcr.io/actions/actions-runner:latest \
+  ./run.sh --jitconfig "$JIT_CONFIG")
+
+echo "Runner started in container: $CONTAINER_ID"
+
+# View logs
+podman logs -f "$RUNNER_NAME"
+
+# Stop when done
+podman stop "$RUNNER_NAME"
+```
+
+### macOS Notes
+
+- Make sure `podman machine` is running: `podman machine start`
+- The container runs inside a Linux VM managed by Podman
+- JIT runners will automatically terminate after one job (ephemeral)
+
+## Legacy: Registration Token Workflow
+
+> **Note:** JIT provisioning is recommended for production use. Registration tokens allow clients to bypass label and ephemeral settings.
 
 ### Complete Runner Provisioning Flow
 
@@ -331,11 +396,80 @@ python -m app.cli export-audit-log \
 
 ## Integration Examples
 
-### Automated Runner Provisioning Script
+### Automated JIT Runner Provisioning Script (Recommended)
 
 ```python
 #!/usr/bin/env python3
-"""Automated runner provisioning with the Token Service."""
+"""Automated JIT runner provisioning with the Token Service."""
+
+import requests
+import subprocess
+import sys
+import time
+
+TOKEN_SERVICE_URL = "http://localhost:8000"
+OIDC_TOKEN = "your-oidc-token"
+
+def get_oidc_token():
+    """Get OIDC token from your auth provider."""
+    # Implement your OIDC token retrieval here
+    return OIDC_TOKEN
+
+def provision_jit_runner(name_prefix, labels):
+    """Provision a runner using JIT configuration."""
+    headers = {
+        "Authorization": f"Bearer {get_oidc_token()}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "runner_name_prefix": name_prefix,
+        "labels": labels
+    }
+
+    response = requests.post(
+        f"{TOKEN_SERVICE_URL}/api/v1/runners/jit",
+        headers=headers,
+        json=payload
+    )
+    response.raise_for_status()
+
+    return response.json()
+
+def main():
+    """Main JIT provisioning flow."""
+    name_prefix = f"auto-worker"
+    labels = ["automated", "python", "linux"]
+
+    print(f"Provisioning JIT runner with prefix: {name_prefix}")
+
+    try:
+        # Get JIT configuration
+        config_data = provision_jit_runner(name_prefix, labels)
+        runner_name = config_data["runner_name"]
+        jit_config = config_data["encoded_jit_config"]
+
+        print(f"✓ JIT config obtained for runner: {runner_name}")
+        print(f"  Labels: {config_data['labels']}")
+        print(f"  Expires: {config_data['expires_at']}")
+
+        # Start runner directly (no config.sh needed!)
+        print("Starting runner...")
+        subprocess.run(["./run.sh", "--jitconfig", jit_config], check=True)
+
+    except Exception as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+```
+
+### Legacy: Automated Registration Token Script
+
+```python
+#!/usr/bin/env python3
+"""Automated runner provisioning with registration tokens (legacy)."""
 
 import requests
 import subprocess
@@ -346,7 +480,6 @@ OIDC_TOKEN = "your-oidc-token"
 
 def get_oidc_token():
     """Get OIDC token from your auth provider."""
-    # Implement your OIDC token retrieval here
     return OIDC_TOKEN
 
 def provision_runner(name, labels, ephemeral=True):
@@ -373,13 +506,11 @@ def provision_runner(name, labels, ephemeral=True):
 
 def configure_runner(config_data):
     """Configure the runner locally."""
-    # Extract configuration
     token = config_data["registration_token"]
     name = config_data["runner_name"]
     url = config_data["github_url"]
     labels = ",".join(config_data["labels"])
 
-    # Run configuration
     cmd = [
         "./config.sh",
         "--url", url,
@@ -392,25 +523,20 @@ def configure_runner(config_data):
         cmd.append("--ephemeral")
 
     subprocess.run(cmd, check=True)
-
     print(f"✓ Runner {name} configured successfully")
 
 def main():
     """Main provisioning flow."""
+    import time
     runner_name = f"auto-worker-{int(time.time())}"
     labels = ["automated", "python", "linux"]
 
     print(f"Provisioning runner: {runner_name}")
 
     try:
-        # Get registration token
         config_data = provision_runner(runner_name, labels)
         print(f"✓ Registration token obtained (expires: {config_data['expires_at']})")
-
-        # Configure runner
         configure_runner(config_data)
-
-        # Start runner
         print("Starting runner...")
         subprocess.run(["./run.sh"], check=True)
 
@@ -422,27 +548,25 @@ if __name__ == "__main__":
     main()
 ```
 
-### Kubernetes Job for Ephemeral Runner
+### Kubernetes Job with JIT (Recommended)
 
 ```yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: github-runner-job
+  name: github-runner-jit
 spec:
   template:
     spec:
       serviceAccountName: runner-provisioner
       containers:
       - name: runner
-        image: myorg/github-runner:latest
+        image: ghcr.io/actions/actions-runner:latest
         env:
         - name: TOKEN_SERVICE_URL
           value: "http://runner-token-service:8000"
-        - name: RUNNER_NAME
-          value: "k8s-runner-$(POD_NAME)"
-        - name: RUNNER_LABELS
-          value: "kubernetes,ephemeral,docker"
+        - name: RUNNER_PREFIX
+          value: "k8s-runner"
         command:
         - /bin/bash
         - -c
@@ -452,7 +576,56 @@ spec:
           # Get OIDC token (from K8s service account)
           OIDC_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 
-          # Provision runner
+          # Provision runner using JIT
+          RESPONSE=$(curl -s -X POST $TOKEN_SERVICE_URL/api/v1/runners/jit \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"runner_name_prefix\": \"$RUNNER_PREFIX\",
+              \"labels\": [\"kubernetes\", \"docker\"]
+            }")
+
+          # Extract JIT config
+          JIT_CONFIG=$(echo $RESPONSE | jq -r .encoded_jit_config)
+          RUNNER_NAME=$(echo $RESPONSE | jq -r .runner_name)
+
+          echo "Starting runner: $RUNNER_NAME"
+
+          # Run directly with JIT config (no config.sh needed!)
+          ./run.sh --jitconfig "$JIT_CONFIG"
+      restartPolicy: Never
+  backoffLimit: 3
+```
+
+### Legacy: Kubernetes Job with Registration Token
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: github-runner-legacy
+spec:
+  template:
+    spec:
+      serviceAccountName: runner-provisioner
+      containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        env:
+        - name: TOKEN_SERVICE_URL
+          value: "http://runner-token-service:8000"
+        - name: RUNNER_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          OIDC_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+
           RESPONSE=$(curl -s -X POST $TOKEN_SERVICE_URL/api/v1/runners/provision \
             -H "Authorization: Bearer $OIDC_TOKEN" \
             -H "Content-Type: application/json" \
@@ -462,11 +635,9 @@ spec:
               \"ephemeral\": true
             }")
 
-          # Extract registration token
           REG_TOKEN=$(echo $RESPONSE | jq -r .registration_token)
           GITHUB_URL=$(echo $RESPONSE | jq -r .github_url)
 
-          # Configure runner
           ./config.sh \
             --url $GITHUB_URL \
             --token $REG_TOKEN \
@@ -474,7 +645,6 @@ spec:
             --labels kubernetes,ephemeral \
             --ephemeral
 
-          # Run (will exit after one job due to --ephemeral)
           ./run.sh
       restartPolicy: Never
   backoffLimit: 3

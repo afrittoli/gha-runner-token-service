@@ -20,16 +20,22 @@
 - [x] (Claude) Add precommit configuration for linting and unit tests
 - [x] (Claude) Design and implement GitHub sync mechanism (65 tests total)
 - [x] (Claude) Add JIT based service as alternative to registration token (85 tests total)
+- [x] (Claude) Fix JIT runners missing self-hosted label (86 tests total)
+- [x] (Claude) Fix deletion via API returns unauthorized - identity mismatch (87 tests total)
+- [x] (Claude) Rework docs to prioritize JIT, add Podman examples, clarify sync is automatic
+- [x] (Claude) Fix HTTPS_ENABLED docs - clarified that `python -m app.main` is required, or use uvicorn SSL flags directly
+- [x] (Claude) Add periodic sync logging - logs `periodic_sync_triggered` and `periodic_sync_completed` events
 
 ## Open
 
-- [ ] P1, feature, Use JIT instead of registration token, [details](#jit)
 - [ ] P1, bug, Deletion of runners via API returns unauthorized, [details](#deletion-unauthorized)
 - [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
 - [ ] P2, feature, Add coverage check workflow
 - [ ] P3, test, Test label policy management
 - [ ] P4, feature, Dashboard authentication and refresh button
 - [ ] P5, feature, Dashboard next phase, based on the design
+- [ ] P3, bug, codecov is used in the workflow without a token, which won't work.
+ 
 
 ---
 
