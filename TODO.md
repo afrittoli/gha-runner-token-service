@@ -18,13 +18,13 @@
 - [x] (Claude) Catch up on missing tests (55 tests added)
 - [x] (Claude) Add unit test workflow
 - [x] (Claude) Add precommit configuration for linting and unit tests
+- [x] (Claude) Design and implement GitHub sync mechanism (65 tests total)
 
 ## Open
 
 - [ ] P1, bug, Deletion of runners via API returns unauthorized, [details](#deletion-unauthorized)
 - [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
 - [ ] P2, feature, Add coverage check workflow
-- [ ] P3, feature, Design GitHub sync mechanism, [details](#github-sync)
 - [ ] P3, test, Test label policy management
 - [ ] P4, feature, Dashboard authentication and refresh button
 
@@ -42,11 +42,6 @@ OIDC should only be for authentication. Authorization should use an app-side use
 - Modify auth flow to check user exists in DB before allowing access
 - Store display_name for dashboard (fixes "shows OIDC sub instead of email")
 - Replace ADMIN_IDENTITIES env var with is_admin from User table
-
-### GitHub Sync
-Keep runner status in sync with GitHub. Options:
-1. GitHub webhooks for runner events
-2. Periodic polling job
 
 ---
 

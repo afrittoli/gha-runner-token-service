@@ -7,8 +7,9 @@ The Runner Token Service maintains a local database of runner information that c
 - Ephemeral runners auto-delete after completing a job
 - Runner status (online/offline) changes independently
 - Pending runners may never register or fail silently
+- **Runners may be configured with labels that violate policy**
 
-Currently, sync is triggered manually via `python -m app.cli sync-github`. This document designs an automated sync mechanism.
+Currently, sync is triggered manually via `python -m app.cli sync-github`. This document designs an automated sync mechanism with label policy enforcement.
 
 ## Requirements
 
@@ -18,6 +19,8 @@ Currently, sync is triggered manually via `python -m app.cli sync-github`. This 
 3. Update `github_runner_id` when pending runners register
 4. Clear expired registration tokens
 5. Support both automatic and manual sync triggers
+6. **Enforce label policies by detecting and deleting violating runners**
+7. **Log security events for policy violations**
 
 ### Non-Functional
 1. Minimize GitHub API calls (rate limiting: 5000/hour for apps)
@@ -70,13 +73,22 @@ Use webhooks for real-time updates with periodic polling as fallback.
 - Most complex to implement
 - Requires webhook infrastructure
 
-## Recommended Solution: Periodic Polling
+## Implemented Solution: Hybrid (Polling + Webhooks)
 
-For this service, periodic polling is the pragmatic choice because:
-1. Runner status doesn't need sub-second updates
-2. Avoids infrastructure complexity
-3. Works in all deployment scenarios
-4. GitHub runner webhook events are limited
+The implementation uses a hybrid approach:
+
+1. **Periodic Polling (every 2 minutes)** - Primary enforcement mechanism
+   - Syncs runner status with GitHub
+   - Validates runner labels against user's policy
+   - **Automatically deletes runners with policy violations**
+   - Logs security events for all violations
+
+2. **Webhook Handler (workflow_job events)** - Secondary enforcement
+   - Catches violations that slip through the sync window
+   - Triggers on `in_progress` action (when job starts)
+   - Fetches runner's actual labels from GitHub API
+   - Validates against user's label policy
+   - Configurable response: audit-only or cancel workflow
 
 ## Implementation Design
 
@@ -109,20 +121,38 @@ For this service, periodic polling is the pragmatic choice because:
 
 ### Configuration
 
-Add to `app/config.py`:
+Settings in `app/config.py`:
 
 ```python
 # Sync Configuration
 sync_enabled: bool = Field(
-    default=True, description="Enable background runner sync"
+    default=True, description="Enable background runner sync with GitHub"
 )
 sync_interval_seconds: int = Field(
-    default=300, description="Seconds between sync cycles (default: 5 min)"
+    default=120, description="Seconds between sync cycles (default: 2 min)"
 )
 sync_on_startup: bool = Field(
     default=True, description="Run sync immediately on startup"
 )
+
+# Webhook Configuration
+github_webhook_secret: str = Field(
+    default="", description="GitHub webhook secret for signature verification"
+)
+
+# Label Policy Enforcement
+label_policy_enforcement: str = Field(
+    default="audit",
+    description="Label policy enforcement mode: 'audit' (log only) or 'enforce' (cancel workflow)"
+)
 ```
+
+**Environment Variables:**
+- `SYNC_ENABLED` - Enable/disable background sync (default: true)
+- `SYNC_INTERVAL_SECONDS` - Sync interval in seconds (default: 120)
+- `SYNC_ON_STARTUP` - Run sync on application startup (default: true)
+- `GITHUB_WEBHOOK_SECRET` - Secret for verifying webhook signatures
+- `LABEL_POLICY_ENFORCEMENT` - `audit` or `enforce`
 
 ### SyncService
 
@@ -321,9 +351,60 @@ async def sync_all_runners(self) -> SyncResult:
 3. Test error handling (rate limits, network errors)
 4. Test background task lifecycle
 
+## Label Policy Enforcement
+
+### Enforcement Points
+
+1. **Sync Service (Primary)**
+   - On each sync cycle, validates runner labels against user's policy
+   - If violation detected:
+     - Deletes runner from GitHub via API
+     - Marks runner as deleted in local DB
+     - Logs security event with severity "high"
+   - This is the primary enforcement mechanism
+
+2. **Webhook Handler (Secondary)**
+   - Endpoint: `POST /api/v1/webhooks/github`
+   - Listens for `workflow_job` events with action `in_progress`
+   - Validates runner labels before job executes code
+   - Configurable behavior via `LABEL_POLICY_ENFORCEMENT`:
+     - `audit`: Log security event only (default)
+     - `enforce`: Log event AND cancel the workflow run
+
+### Webhook Setup
+
+To enable webhook enforcement:
+
+1. In GitHub org settings, create a webhook:
+   - URL: `https://your-service/api/v1/webhooks/github`
+   - Content type: `application/json`
+   - Secret: Generate a secure secret
+   - Events: Select "Workflow jobs"
+
+2. Configure the service:
+   ```bash
+   export GITHUB_WEBHOOK_SECRET="your-secret"
+   export LABEL_POLICY_ENFORCEMENT="enforce"  # or "audit"
+   ```
+
+### Security Events
+
+Policy violations are logged to the `security_events` table:
+
+| Event Type | Description |
+|------------|-------------|
+| `label_policy_violation` | Runner deleted during sync for label violation |
+| `label_policy_violation_workflow` | Violation detected via webhook when job started |
+
+Events include:
+- User identity (who provisioned the runner)
+- Runner name and GitHub runner ID
+- Invalid labels detected
+- Action taken (runner_deleted, workflow_cancelled, audit_only)
+
 ## Future Enhancements
 
-1. **Metrics**: Prometheus metrics for sync duration, runner counts
-2. **Webhooks**: Add webhook support as optional enhancement
-3. **Selective Sync**: Sync only runners modified since last sync
-4. **Sync Queue**: Queue sync requests to avoid concurrent syncs
+1. **Metrics**: Prometheus metrics for sync duration, runner counts, violations
+2. **Selective Sync**: Sync only runners modified since last sync
+3. **Sync Queue**: Queue sync requests to avoid concurrent syncs
+4. **Webhook for queued events**: Optionally validate on `queued` action to reject jobs earlier

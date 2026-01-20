@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.github.client import GitHubClient
 from app.models import Runner
+from app.services.label_policy_service import LabelPolicyService, LabelPolicyViolation
 
 logger = structlog.get_logger()
 
@@ -22,6 +23,7 @@ class SyncResult:
     deleted: int = 0
     unchanged: int = 0
     errors: int = 0
+    policy_violations: int = 0
 
     def to_dict(self) -> dict:
         """Convert to dictionary for logging/API response."""
@@ -30,6 +32,7 @@ class SyncResult:
             "deleted": self.deleted,
             "unchanged": self.unchanged,
             "errors": self.errors,
+            "policy_violations": self.policy_violations,
             "total": self.updated + self.deleted + self.unchanged + self.errors,
         }
 
@@ -59,6 +62,7 @@ class SyncService:
         self.settings = settings
         self.db = db
         self.github = GitHubClient(settings)
+        self.label_policy_service = LabelPolicyService(db)
 
     async def sync_all_runners(self) -> SyncResult:
         """
@@ -109,8 +113,18 @@ class SyncService:
                 github_runner = github_by_name.get(runner.runner_name)
 
                 if github_runner:
-                    # Runner exists in GitHub - update status
-                    if self._update_runner_from_github(runner, github_runner):
+                    # Runner exists in GitHub - check label policy first
+                    violation = await self._check_label_policy(
+                        runner, github_runner.labels
+                    )
+                    if violation:
+                        # Policy violation - delete runner from GitHub
+                        await self._handle_policy_violation(
+                            runner, github_runner, violation
+                        )
+                        result.policy_violations += 1
+                        result.deleted += 1
+                    elif self._update_runner_from_github(runner, github_runner):
                         result.updated += 1
                     else:
                         result.unchanged += 1
@@ -278,3 +292,88 @@ class SyncService:
             logger.info("expired_tokens_cleared", count=count)
 
         return count
+
+    async def _check_label_policy(
+        self, runner: Runner, actual_labels: list[str]
+    ) -> Optional[LabelPolicyViolation]:
+        """
+        Check if runner's labels comply with user's label policy.
+
+        Args:
+            runner: Local runner record
+            actual_labels: Labels configured on the GitHub runner
+
+        Returns:
+            LabelPolicyViolation if policy violated, None otherwise
+        """
+        try:
+            self.label_policy_service.validate_labels(
+                runner.provisioned_by, actual_labels
+            )
+            return None
+        except LabelPolicyViolation as e:
+            return e
+
+    async def _handle_policy_violation(
+        self, runner: Runner, github_runner, violation: LabelPolicyViolation
+    ) -> None:
+        """
+        Handle a label policy violation by deleting the runner and logging.
+
+        Args:
+            runner: Local runner record
+            github_runner: GitHub runner info
+            violation: The policy violation details
+        """
+        logger.error(
+            "label_policy_violation_detected",
+            runner_id=runner.id,
+            runner_name=runner.runner_name,
+            github_runner_id=github_runner.id,
+            provisioned_by=runner.provisioned_by,
+            actual_labels=github_runner.labels,
+            invalid_labels=list(violation.invalid_labels),
+        )
+
+        # Delete the runner from GitHub
+        try:
+            deleted = await self.github.delete_runner(github_runner.id)
+            if deleted:
+                logger.info(
+                    "runner_deleted_for_policy_violation",
+                    runner_id=runner.id,
+                    runner_name=runner.runner_name,
+                    github_runner_id=github_runner.id,
+                )
+            else:
+                logger.warning(
+                    "runner_not_found_for_deletion",
+                    runner_id=runner.id,
+                    github_runner_id=github_runner.id,
+                )
+        except Exception as e:
+            logger.error(
+                "failed_to_delete_runner",
+                runner_id=runner.id,
+                github_runner_id=github_runner.id,
+                error=str(e),
+            )
+
+        # Log security event
+        self.label_policy_service.log_security_event(
+            event_type="label_policy_violation",
+            severity="high",
+            user_identity=runner.provisioned_by,
+            runner_id=str(runner.id),
+            runner_name=runner.runner_name,
+            github_runner_id=github_runner.id,
+            violation_data={
+                "actual_labels": github_runner.labels,
+                "invalid_labels": list(violation.invalid_labels),
+                "message": str(violation),
+            },
+            action_taken="runner_deleted",
+        )
+
+        # Mark runner as deleted in local DB
+        self._mark_deleted(runner, reason="label_policy_violation")
