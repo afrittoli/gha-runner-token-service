@@ -17,6 +17,7 @@ import structlog
 from app import __version__
 from app.api.v1 import admin
 from app.api.v1 import runners
+from app.api.v1 import webhooks
 from app.config import get_settings
 from app.database import get_db, init_db, SessionLocal
 from app.models import Runner, SecurityEvent
@@ -290,6 +291,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 
 app.include_router(runners.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(webhooks.router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

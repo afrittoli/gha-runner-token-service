@@ -68,10 +68,21 @@ class Settings(BaseSettings):
         default=True, description="Enable background runner sync with GitHub"
     )
     sync_interval_seconds: int = Field(
-        default=300, description="Seconds between sync cycles (default: 5 min)"
+        default=120, description="Seconds between sync cycles (default: 2 min)"
     )
     sync_on_startup: bool = Field(
         default=True, description="Run sync immediately on startup"
+    )
+
+    # Webhook Configuration
+    github_webhook_secret: str = Field(
+        default="", description="GitHub webhook secret for signature verification"
+    )
+
+    # Label Policy Enforcement
+    label_policy_enforcement: str = Field(
+        default="audit",
+        description="Label policy enforcement mode: 'audit' (log only) or 'enforce' (cancel workflow)",
     )
 
     @field_validator("github_app_private_key_path")
