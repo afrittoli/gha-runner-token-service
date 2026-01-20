@@ -285,6 +285,62 @@ class TestDeleteRunner:
         assert response.status_code == 400
         assert "already deleted" in response.json()["detail"].lower()
 
+    def test_delete_runner_by_oidc_sub_when_identity_differs(
+        self, client: TestClient, test_db: Session, mock_user
+    ):
+        """
+        REGRESSION TEST: User should be able to delete runners provisioned by them
+        even when their OIDC token has different claims.
+
+        Scenario: User provisions runner with email-based identity, then tries to
+        delete with M2M token that only has 'sub' claim. The ownership check should
+        match on oidc_sub as well as provisioned_by.
+
+        Fix: get_runner_by_id now checks both provisioned_by == user.identity
+        OR oidc_sub == user.sub for ownership.
+        """
+        from app.auth.dependencies import get_current_user
+        from app.main import app
+
+        # Runner was provisioned with email identity
+        runner = Runner(
+            runner_name="sub-match-runner",
+            runner_group_id=1,
+            labels=json.dumps(["test"]),
+            provisioned_by="different-identity@example.com",  # Different from user.identity
+            oidc_sub=mock_user.sub,  # But same OIDC sub
+            status="active",
+            github_url="https://github.com/test-org",
+        )
+        test_db.add(runner)
+        test_db.commit()
+        test_db.refresh(runner)
+        runner_id = runner.id
+
+        # Override auth to use mock_user (whose sub matches oidc_sub)
+        async def override_get_current_user():
+            return mock_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+
+        try:
+            with patch("app.services.runner_service.GitHubClient") as MockGitHubClient:
+                mock_github = AsyncMock()
+                mock_github.delete_runner = AsyncMock(return_value=True)
+                MockGitHubClient.return_value = mock_github
+
+                response = client.delete(f"/api/v1/runners/{runner_id}")
+
+            # Should be able to delete because oidc_sub matches
+            assert response.status_code == 200, (
+                f"Expected 200 OK when deleting runner by OIDC sub match, "
+                f"got {response.status_code}: {response.json()}"
+            )
+            data = response.json()
+            assert data["success"] is True
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+
 
 class TestRefreshRunner:
     """Tests for refreshing runner status."""

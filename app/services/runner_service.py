@@ -7,6 +7,7 @@ import structlog
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+import httpx
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import AuthenticatedUser
@@ -386,6 +387,23 @@ class RunnerService:
                 labels=request.labels,
                 work_folder=request.work_folder,
             )
+        except httpx.HTTPStatusError as e:
+            error_detail = str(e)
+            # Try to get more details from the response
+            try:
+                error_data = e.response.json()
+                error_detail = error_data.get("message", str(e))
+            except Exception:
+                pass
+            self._log_audit(
+                event_type="provision_jit_failed",
+                runner_name=runner_name,
+                user=user,
+                success=False,
+                error_message=f"GitHub API error: {error_detail}",
+                event_data=request.model_dump(),
+            )
+            raise ValueError(f"GitHub API error: {error_detail}")
         except Exception as e:
             self._log_audit(
                 event_type="provision_jit_failed",
@@ -397,19 +415,27 @@ class RunnerService:
             )
             raise
 
+        # Ensure self-hosted label is always included
+        # GitHub's JIT API returns labels, but system labels (self-hosted, os, arch)
+        # may not be present until the runner actually starts and reports its platform.
+        # 'self-hosted' should always be present for self-hosted runners.
+        final_labels = list(jit_response.labels or request.labels)
+        if "self-hosted" not in final_labels:
+            final_labels.insert(0, "self-hosted")
+
         # Create runner record
         # Note: JIT runners are always ephemeral
         runner = Runner(
             runner_name=runner_name,
             runner_group_id=runner_group_id,
-            labels=json.dumps(jit_response.labels or request.labels),
+            labels=json.dumps(final_labels),
             ephemeral=True,  # JIT enforces ephemeral
             disable_update=False,
             provisioned_by=user.identity,
             oidc_sub=user.sub,
             status="pending",
             provisioning_method="jit",
-            provisioned_labels=json.dumps(jit_response.labels or request.labels),
+            provisioned_labels=json.dumps(final_labels),
             github_runner_id=jit_response.runner_id,  # Set immediately for JIT
             github_url=f"https://github.com/{self.settings.github_org}",
         )
@@ -427,7 +453,7 @@ class RunnerService:
             success=True,
             event_data={
                 "runner_group_id": runner_group_id,
-                "labels": jit_response.labels or request.labels,
+                "labels": final_labels,
                 "github_runner_id": jit_response.runner_id,
                 "provisioning_method": "jit",
             },
@@ -443,7 +469,7 @@ class RunnerService:
             runner_id=runner.id,
             runner_name=runner.runner_name,
             encoded_jit_config=jit_response.encoded_jit_config,
-            labels=jit_response.labels or request.labels,
+            labels=final_labels,
             expires_at=expires_at,
             run_command=run_cmd,
         )
@@ -460,10 +486,24 @@ class RunnerService:
 
         Returns:
             Runner if found and owned by user, None otherwise
+
+        Note:
+            Ownership is determined by matching either:
+            - provisioned_by == user.identity (email or preferred_username)
+            - oidc_sub == user.sub (OIDC subject claim)
+            This handles cases where the same user authenticates with tokens
+            that have different claims (e.g., M2M vs user tokens).
         """
+        from sqlalchemy import or_
+
+        # Build ownership filter: match by identity OR by OIDC sub
+        ownership_conditions = [Runner.provisioned_by == user.identity]
+        if user.sub:
+            ownership_conditions.append(Runner.oidc_sub == user.sub)
+
         runner = (
             self.db.query(Runner)
-            .filter(Runner.id == runner_id, Runner.provisioned_by == user.identity)
+            .filter(Runner.id == runner_id, or_(*ownership_conditions))
             .first()
         )
 
@@ -483,12 +523,26 @@ class RunnerService:
 
         Returns:
             Runner if found and owned by user, None otherwise
+
+        Note:
+            Ownership is determined by matching either:
+            - provisioned_by == user.identity (email or preferred_username)
+            - oidc_sub == user.sub (OIDC subject claim)
+            This handles cases where the same user authenticates with tokens
+            that have different claims (e.g., M2M vs user tokens).
         """
+        from sqlalchemy import or_
+
+        # Build ownership filter: match by identity OR by OIDC sub
+        ownership_conditions = [Runner.provisioned_by == user.identity]
+        if user.sub:
+            ownership_conditions.append(Runner.oidc_sub == user.sub)
+
         runner = (
             self.db.query(Runner)
             .filter(
                 Runner.runner_name == runner_name,
-                Runner.provisioned_by == user.identity,
+                or_(*ownership_conditions),
                 Runner.status != "deleted",
             )
             .order_by(Runner.created_at.desc())
@@ -506,10 +560,24 @@ class RunnerService:
 
         Returns:
             List of runners
+
+        Note:
+            Ownership is determined by matching either:
+            - provisioned_by == user.identity (email or preferred_username)
+            - oidc_sub == user.sub (OIDC subject claim)
+            This handles cases where the same user authenticates with tokens
+            that have different claims (e.g., M2M vs user tokens).
         """
+        from sqlalchemy import or_
+
+        # Build ownership filter: match by identity OR by OIDC sub
+        ownership_conditions = [Runner.provisioned_by == user.identity]
+        if user.sub:
+            ownership_conditions.append(Runner.oidc_sub == user.sub)
+
         runners = (
             self.db.query(Runner)
-            .filter(Runner.provisioned_by == user.identity, Runner.status != "deleted")
+            .filter(or_(*ownership_conditions), Runner.status != "deleted")
             .order_by(Runner.created_at.desc())
             .all()
         )

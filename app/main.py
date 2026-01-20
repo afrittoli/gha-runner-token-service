@@ -71,6 +71,10 @@ async def run_sync_loop():
     while True:
         try:
             await asyncio.sleep(settings.sync_interval_seconds)
+            logger.info(
+                "periodic_sync_triggered",
+                interval_seconds=settings.sync_interval_seconds,
+            )
             await _run_sync()
         except asyncio.CancelledError:
             logger.info("sync_loop_cancelled")
@@ -90,6 +94,10 @@ async def _run_sync():
         result = await sync_service.sync_all_runners()
         _last_sync_time = datetime.now(timezone.utc)
         _last_sync_result = result.to_dict()
+        logger.info(
+            "periodic_sync_completed",
+            **_last_sync_result,
+        )
     except Exception as e:
         logger.error("sync_failed", error=str(e))
         _last_sync_result = {"error": str(e)}
