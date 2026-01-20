@@ -22,11 +22,13 @@
 
 ## Open
 
+- [ ] P1, feature, Use JIT instead of registration token, [details](#jit)
 - [ ] P1, bug, Deletion of runners via API returns unauthorized, [details](#deletion-unauthorized)
 - [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
 - [ ] P2, feature, Add coverage check workflow
 - [ ] P3, test, Test label policy management
 - [ ] P4, feature, Dashboard authentication and refresh button
+- [ ] P5, feature, Dashboard next phase, based on the design
 
 ---
 
@@ -42,6 +44,18 @@ OIDC should only be for authentication. Authorization should use an app-side use
 - Modify auth flow to check user exists in DB before allowing access
 - Store display_name for dashboard (fixes "shows OIDC sub instead of email")
 - Replace ADMIN_IDENTITIES env var with is_admin from User table
+- Allow admin to configure which API can be used by which user. Can use something like regex based or functionality based (reg token vs jit)
+
+### JIT
+GitHub exposes an [API for JIT](https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-an-organization). Instead of returning a registration token, the runner-token-service should validate the requested labels and if compliant return a JIT in the response. Things required:
+- Create a design document. Update other design documents
+- Add a JIT based provisioning API. All tests and docs needs to be updated accordingly.
+- If possible, enforce ephemeral mode
+- Update the sync service to detect deviations of labels between registration and sync time
+    - If a runner has different labels and is idle, write to audit log and delete it
+    - if a runner has different labels and is running a job, write to audit log. If enabled in config, delete it too.
+- Switch to HTTPs (configurable), enhance the development docs to specify how to disable HTTPs in dev environments or setup self-signed certificates
+
 
 ---
 
