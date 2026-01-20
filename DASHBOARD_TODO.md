@@ -62,13 +62,14 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - *Note:* Existing Jinja2 dashboard doesn't need CORS (server-rendered)
   - ✅ **COMPLETED**: CORS middleware updated to check feature flag and allow Vite dev server
 
-- [ ] **P1, backend, feature** - Add static file serving for React build
+- [x] **P1, backend, feature** - Add static file serving for React build
   - Serve React bundle from `/app` path
   - Use FastAPI's `StaticFiles` middleware
   - Point to `frontend/dist/` or similar
   - Configure cache headers for assets
   - *Code:* Add to app/main.py: `app.mount("/app", StaticFiles(directory="frontend/dist"), name="dashboard")`
   - *Note:* Dev mode: Vite proxy handles this automatically
+  - ✅ **COMPLETED**: StaticFiles middleware added to app/main.py, mounts to /app when ENABLE_NEW_DASHBOARD=true and dist exists
 
 ### Backend - Authentication & Authorization
 

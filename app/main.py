@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 import structlog
@@ -300,6 +301,18 @@ app.include_router(runners.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
+
+
+# Mount React dashboard static files (if they exist)
+# In development: Vite dev server handles this on localhost:5173
+# In production: React build output is served from /app path
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if frontend_dist.exists() and settings.enable_new_dashboard:
+    app.mount(
+        "/app",
+        StaticFiles(directory=str(frontend_dist), check_dir=True),
+        name="dashboard",
+    )
 
 
 if __name__ == "__main__":
