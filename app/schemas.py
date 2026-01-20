@@ -220,3 +220,106 @@ class SecurityEventListResponse(BaseModel):
 
     events: List[SecurityEventResponse]
     total: int
+
+
+# JIT Provisioning Schemas
+
+
+class JitProvisionRequest(BaseModel):
+    """Request to provision a runner using JIT configuration."""
+
+    runner_name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="Exact name for the runner (mutually exclusive with runner_name_prefix)",
+    )
+    runner_name_prefix: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        description="Prefix for auto-generated runner name (e.g., 'my-runner' becomes 'my-runner-a1b2c3')",
+    )
+    labels: List[str] = Field(
+        default_factory=list,
+        description="Custom labels for the runner (system labels added automatically)",
+    )
+    runner_group_id: Optional[int] = Field(
+        default=None,
+        description="Runner group ID (uses default if not specified)",
+    )
+    work_folder: str = Field(
+        default="_work",
+        description="Working directory for the runner",
+    )
+
+    @field_validator("runner_name")
+    @classmethod
+    def validate_runner_name(cls, v: Optional[str]) -> Optional[str]:
+        """Validate runner name format."""
+        if v is not None and not v.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(
+                "Runner name must contain only alphanumeric, hyphens, and underscores"
+            )
+        return v
+
+    @field_validator("runner_name_prefix")
+    @classmethod
+    def validate_runner_name_prefix(cls, v: Optional[str]) -> Optional[str]:
+        """Validate runner name prefix format."""
+        if v is not None and not v.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(
+                "Runner name prefix must contain only alphanumeric, hyphens, and underscores"
+            )
+        return v
+
+    def model_post_init(self, __context) -> None:
+        """Validate that either runner_name or runner_name_prefix is provided, but not both."""
+        if self.runner_name is None and self.runner_name_prefix is None:
+            raise ValueError(
+                "Either 'runner_name' or 'runner_name_prefix' must be provided"
+            )
+        if self.runner_name is not None and self.runner_name_prefix is not None:
+            raise ValueError(
+                "Only one of 'runner_name' or 'runner_name_prefix' can be provided, not both"
+            )
+
+    @field_validator("labels")
+    @classmethod
+    def validate_labels(cls, v: List[str]) -> List[str]:
+        """Validate labels format."""
+        for label in v:
+            if not label.replace("-", "").replace("_", "").isalnum():
+                raise ValueError(
+                    f"Label '{label}' must contain only alphanumeric, hyphens, and underscores"
+                )
+        return v
+
+
+class JitProvisionResponse(BaseModel):
+    """Response containing JIT configuration for a runner."""
+
+    runner_id: str = Field(
+        ...,
+        description="Internal runner UUID",
+    )
+    runner_name: str = Field(
+        ...,
+        description="Runner name",
+    )
+    encoded_jit_config: str = Field(
+        ...,
+        description="Base64-encoded JIT configuration to pass to run.sh --jitconfig",
+    )
+    labels: List[str] = Field(
+        ...,
+        description="Full list of labels including system labels (self-hosted, os, arch)",
+    )
+    expires_at: datetime = Field(
+        ...,
+        description="When the JIT config expires (runner must start before this)",
+    )
+    run_command: str = Field(
+        ...,
+        description="Command to start the runner",
+    )

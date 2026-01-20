@@ -42,6 +42,14 @@ class Runner(Base):
         String, nullable=False, default="pending", index=True
     )  # pending, active, offline, deleted
 
+    # Provisioning method (registration_token or jit)
+    provisioning_method = Column(
+        String, nullable=False, default="registration_token"
+    )  # "registration_token" or "jit"
+    provisioned_labels = Column(
+        Text, nullable=True
+    )  # Original labels at provisioning time (JSON array)
+
     # Tokens (masked in logs)
     registration_token = Column(Text, nullable=True)  # Cleared after use
     registration_token_expires_at = Column(DateTime, nullable=True)

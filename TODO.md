@@ -19,6 +19,7 @@
 - [x] (Claude) Add unit test workflow
 - [x] (Claude) Add precommit configuration for linting and unit tests
 - [x] (Claude) Design and implement GitHub sync mechanism (65 tests total)
+- [x] (Claude) Add JIT based service as alternative to registration token (85 tests total)
 
 ## Open
 
