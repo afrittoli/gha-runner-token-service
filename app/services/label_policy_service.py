@@ -43,6 +43,9 @@ class LabelPolicyService:
         """
         Validate requested labels against user's policy.
 
+        System labels (self-hosted, OS, architecture) are automatically allowed
+        and excluded from policy validation.
+
         Args:
             user_identity: User identity from OIDC token
             requested_labels: Labels requested for runner
@@ -72,9 +75,14 @@ class LabelPolicyService:
         if policy.label_patterns:
             label_patterns = json.loads(policy.label_patterns)
 
-        # Validate each requested label
+        # Filter out system labels - they are always allowed
+        user_labels = [
+            label for label in requested_labels if self._is_user_label(label)
+        ]
+
+        # Validate each user-defined label
         invalid_labels = set()
-        for label in requested_labels:
+        for label in user_labels:
             # Check exact match
             if label in allowed_labels:
                 continue
@@ -100,6 +108,32 @@ class LabelPolicyService:
                 f"Allowed patterns: {label_patterns}",
                 invalid_labels=invalid_labels,
             )
+
+    # System labels that are automatically added by GitHub and should be
+    # excluded from policy validation
+    SYSTEM_LABEL_PREFIXES = [
+        "self-hosted",
+        "linux",
+        "macos",
+        "windows",
+        "x64",
+        "arm64",
+    ]
+
+    def _is_user_label(self, label: str) -> bool:
+        """
+        Check if label is user-defined (not system-generated).
+
+        Args:
+            label: Label to check
+
+        Returns:
+            True if this is a user-defined label, False if system label
+        """
+        label_lower = label.lower()
+        return not any(
+            label_lower.startswith(prefix) for prefix in self.SYSTEM_LABEL_PREFIXES
+        )
 
     def check_runner_quota(self, user_identity: str, current_count: int) -> None:
         """
@@ -136,25 +170,10 @@ class LabelPolicyService:
         Returns:
             Set of labels that are missing or don't match
         """
-        # Filter out system-generated labels
-        system_label_prefixes = [
-            "self-hosted",
-            "linux",
-            "macos",
-            "windows",
-            "x64",
-            "arm64",
-        ]
-
-        def is_user_label(label: str) -> bool:
-            """Check if label is user-defined (not system-generated)."""
-            label_lower = label.lower()
-            return not any(
-                label_lower.startswith(prefix) for prefix in system_label_prefixes
-            )
-
-        expected_set = {label for label in expected_labels if is_user_label(label)}
-        actual_set = {label for label in actual_labels if is_user_label(label)}
+        expected_set = {
+            label for label in expected_labels if self._is_user_label(label)
+        }
+        actual_set = {label for label in actual_labels if self._is_user_label(label)}
 
         # Check if all expected labels are present
         missing_labels = expected_set - actual_set

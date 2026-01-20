@@ -198,3 +198,33 @@ class GitHubClient:
 
             data = response.json()
             return data.get("runner_groups", [])
+
+    async def cancel_workflow_run(self, repo: str, run_id: int) -> bool:
+        """
+        Cancel a workflow run.
+
+        Args:
+            repo: Repository name (without org prefix)
+            run_id: Workflow run ID
+
+        Returns:
+            True if cancelled successfully, False if not found
+
+        Raises:
+            httpx.HTTPError: If API call fails (except 404)
+        """
+        url = f"{self.api_url}/repos/{self.org}/{repo}/actions/runs/{run_id}/cancel"
+        headers = await self.auth.get_authenticated_headers()
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(url, headers=headers)
+                # 202 Accepted is success for cancel
+                if response.status_code == 202:
+                    return True
+                response.raise_for_status()
+                return True
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    return False
+                raise
