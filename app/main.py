@@ -118,9 +118,15 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+# For new dashboard development, allow localhost:5173 (Vite dev server)
+cors_origins = ["*"]
+if settings.enable_new_dashboard:
+    # Add Vite dev server in development
+    cors_origins = ["http://localhost:5173", "http://localhost:8000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
