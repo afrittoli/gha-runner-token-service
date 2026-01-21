@@ -441,3 +441,57 @@ class UserListResponse(BaseModel):
 
     users: List[UserResponse]
     total: int
+
+
+# Batch Operation Schemas
+
+
+class BatchActionRequest(BaseModel):
+    """Request for batch admin actions requiring audit comment."""
+
+    comment: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="Required comment explaining the reason for this action (audit trail)",
+    )
+
+
+class BatchDisableUsersRequest(BatchActionRequest):
+    """Request to disable multiple users."""
+
+    user_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of user IDs to disable. If empty/null, disables all non-admin users.",
+    )
+    exclude_admins: bool = Field(
+        default=True,
+        description="Exclude admin users from batch disable (safety measure)",
+    )
+
+
+class BatchDeleteRunnersRequest(BatchActionRequest):
+    """Request to delete multiple runners."""
+
+    user_identity: Optional[str] = Field(
+        default=None,
+        description="Delete all runners for this user identity. If null, deletes all runners.",
+    )
+    runner_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Specific runner IDs to delete. Takes precedence over user_identity.",
+    )
+
+
+class BatchActionResponse(BaseModel):
+    """Response for batch admin actions."""
+
+    success: bool
+    action: str
+    affected_count: int
+    failed_count: int = 0
+    comment: str
+    details: Optional[List[dict]] = Field(
+        default=None,
+        description="Details of each affected item (success/failure)",
+    )
