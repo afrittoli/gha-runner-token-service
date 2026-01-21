@@ -1,6 +1,7 @@
 """Admin API endpoints for label policy and user management."""
 
 import json
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,6 +12,9 @@ from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import LabelPolicy, SecurityEvent
 from app.schemas import (
+    BatchActionResponse,
+    BatchDeleteRunnersRequest,
+    BatchDisableUsersRequest,
     LabelPolicyCreate,
     LabelPolicyListResponse,
     LabelPolicyResponse,
@@ -721,4 +725,236 @@ async def activate_user(
         updated_at=user.updated_at,
         last_login_at=user.last_login_at,
         created_by=user.created_by,
+    )
+
+
+# Batch Admin Actions
+
+
+@router.post("/batch/disable-users", response_model=BatchActionResponse)
+async def batch_disable_users(
+    request: BatchDisableUsersRequest,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Disable multiple users in a single operation.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Quickly disable access for multiple users, e.g., during security incidents
+    or organizational changes.
+
+    **Request Body:**
+    - **comment**: Required audit trail comment (10-500 chars)
+    - **user_ids**: Optional list of user IDs. If null/empty, disables all non-admin users.
+    - **exclude_admins**: Safety flag to exclude admin users (default: true)
+
+    **Returns:**
+    Batch operation result with affected count and details
+
+    **Example:**
+    ```json
+    {
+      "comment": "Security incident: disabling all contractor accounts pending review",
+      "user_ids": ["uuid1", "uuid2"],
+      "exclude_admins": true
+    }
+    ```
+    """
+    service = UserService(db)
+    label_policy_service = LabelPolicyService(db)
+
+    # Determine which users to disable
+    if request.user_ids:
+        # Specific users
+        users_to_disable = [service.get_user_by_id(uid) for uid in request.user_ids]
+        users_to_disable = [u for u in users_to_disable if u is not None]
+    else:
+        # All users
+        users_to_disable = service.list_users(include_inactive=False)
+
+    # Filter out admins if requested
+    if request.exclude_admins:
+        users_to_disable = [u for u in users_to_disable if not u.is_admin]
+
+    # Filter out the current admin (can't disable yourself)
+    users_to_disable = [
+        u
+        for u in users_to_disable
+        if not (u.email == admin.email or u.oidc_sub == admin.sub)
+    ]
+
+    affected = []
+    failed = []
+
+    for user in users_to_disable:
+        try:
+            service.deactivate_user(user.id)
+            affected.append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "status": "disabled",
+                }
+            )
+        except Exception as e:
+            failed.append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
+    # Log security event for audit trail
+    label_policy_service.log_security_event(
+        event_type="batch_disable_users",
+        severity="high",
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        runner_id=None,
+        runner_name=None,
+        violation_data={
+            "comment": request.comment,
+            "affected_count": len(affected),
+            "failed_count": len(failed),
+            "user_ids": [u["user_id"] for u in affected],
+            "exclude_admins": request.exclude_admins,
+        },
+        action_taken=f"disabled {len(affected)} users",
+    )
+
+    return BatchActionResponse(
+        success=len(failed) == 0,
+        action="disable_users",
+        affected_count=len(affected),
+        failed_count=len(failed),
+        comment=request.comment,
+        details=affected + failed if affected or failed else None,
+    )
+
+
+@router.post("/batch/delete-runners", response_model=BatchActionResponse)
+async def batch_delete_runners(
+    request: BatchDeleteRunnersRequest,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Delete multiple runners in a single operation.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Quickly remove runners, e.g., during security incidents, cleanup operations,
+    or when deprovisioning a user's resources.
+
+    **Request Body:**
+    - **comment**: Required audit trail comment (10-500 chars)
+    - **runner_ids**: Optional list of specific runner IDs to delete
+    - **user_identity**: Optional user identity to delete all runners for
+
+    **Priority:**
+    1. If runner_ids provided, delete only those runners
+    2. Else if user_identity provided, delete all runners for that user
+    3. Else delete ALL non-deleted runners (dangerous!)
+
+    **Returns:**
+    Batch operation result with affected count and details
+
+    **Example:**
+    ```json
+    {
+      "comment": "Cleanup: removing all runners for terminated employee alice@example.com",
+      "user_identity": "alice@example.com"
+    }
+    ```
+    """
+    from app.models import Runner
+    from app.github.client import GitHubClient
+
+    label_policy_service = LabelPolicyService(db)
+    github = GitHubClient(settings)
+
+    # Determine which runners to delete
+    query = db.query(Runner).filter(Runner.status != "deleted")
+
+    if request.runner_ids:
+        # Specific runners
+        query = query.filter(Runner.id.in_(request.runner_ids))
+    elif request.user_identity:
+        # All runners for a specific user
+        query = query.filter(Runner.provisioned_by == request.user_identity)
+    # else: all non-deleted runners
+
+    runners_to_delete = query.all()
+
+    affected = []
+    failed = []
+
+    for runner in runners_to_delete:
+        try:
+            # Delete from GitHub if it has a GitHub ID
+            if runner.github_runner_id:
+                try:
+                    await github.delete_runner(runner.github_runner_id)
+                except Exception:
+                    # Continue even if GitHub deletion fails
+                    pass
+
+            # Update local state
+            runner.status = "deleted"
+            runner.deleted_at = runner.deleted_at or datetime.utcnow()
+            db.commit()
+
+            affected.append(
+                {
+                    "runner_id": runner.id,
+                    "runner_name": runner.runner_name,
+                    "provisioned_by": runner.provisioned_by,
+                    "status": "deleted",
+                }
+            )
+        except Exception as e:
+            failed.append(
+                {
+                    "runner_id": runner.id,
+                    "runner_name": runner.runner_name,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
+    # Log security event for audit trail
+    label_policy_service.log_security_event(
+        event_type="batch_delete_runners",
+        severity="high",
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        runner_id=None,
+        runner_name=None,
+        violation_data={
+            "comment": request.comment,
+            "affected_count": len(affected),
+            "failed_count": len(failed),
+            "runner_ids": [r["runner_id"] for r in affected],
+            "target_user": request.user_identity,
+            "scope": "specific"
+            if request.runner_ids
+            else ("user" if request.user_identity else "all"),
+        },
+        action_taken=f"deleted {len(affected)} runners",
+    )
+
+    return BatchActionResponse(
+        success=len(failed) == 0,
+        action="delete_runners",
+        affected_count=len(affected),
+        failed_count=len(failed),
+        comment=request.comment,
+        details=affected + failed if affected or failed else None,
     )
