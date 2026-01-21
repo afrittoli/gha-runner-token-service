@@ -155,6 +155,47 @@ class LabelPolicy(Base):
     updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
 
 
+class User(Base):
+    """Authorized users for the runner token service."""
+
+    __tablename__ = "users"
+
+    # Primary key - auto-generated UUID
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    # OIDC identity fields
+    email = Column(String, nullable=True, unique=True, index=True)  # Primary identifier
+    oidc_sub = Column(
+        String, nullable=True, unique=True, index=True
+    )  # OIDC subject claim
+
+    # Display information
+    display_name = Column(String, nullable=True)  # For dashboard display
+
+    # Authorization flags
+    is_admin = Column(
+        Boolean, default=False, nullable=False
+    )  # Replaces ADMIN_IDENTITIES
+    is_active = Column(Boolean, default=True, nullable=False)  # Soft disable
+
+    # API access controls (per-method authorization)
+    can_use_registration_token = Column(Boolean, default=True, nullable=False)
+    can_use_jit = Column(Boolean, default=True, nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
+    last_login_at = Column(DateTime, nullable=True)  # Track last authentication
+
+    # Audit
+    created_by = Column(String, nullable=True)  # Admin who created this user
+
+    __table_args__ = (
+        Index("ix_users_email_active", "email", "is_active"),
+        Index("ix_users_oidc_sub_active", "oidc_sub", "is_active"),
+    )
+
+
 class SecurityEvent(Base):
     """Security violation events for monitoring and alerting."""
 

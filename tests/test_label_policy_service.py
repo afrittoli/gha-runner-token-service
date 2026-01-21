@@ -183,9 +183,9 @@ class TestSystemLabelDetection:
         ]
 
         for label in system_labels:
-            assert (
-                service._is_user_label(label) is False
-            ), f"Label '{label}' should be detected as system label"
+            assert service._is_user_label(label) is False, (
+                f"Label '{label}' should be detected as system label"
+            )
 
     def test_is_user_label_allows_custom_labels(self, test_db: Session):
         """Test that custom labels are not mistaken for system labels."""
@@ -200,9 +200,9 @@ class TestSystemLabelDetection:
         ]
 
         for label in user_labels:
-            assert (
-                service._is_user_label(label) is True
-            ), f"Label '{label}' should be detected as user label"
+            assert service._is_user_label(label) is True, (
+                f"Label '{label}' should be detected as user label"
+            )
 
     def test_validate_labels_ignores_system_labels(self, test_db: Session):
         """Test that system labels are not subject to policy validation."""

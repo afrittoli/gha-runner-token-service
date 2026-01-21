@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import SessionLocal, init_db
 from app.github.client import GitHubClient
-from app.models import AuditLog, Runner
+from app.models import AuditLog, Runner, User
+from app.services.user_service import UserService
 
 
 @click.group()
@@ -272,6 +273,195 @@ def sync_github():
     except Exception as e:
         click.echo(f"✗ Sync failed: {e}", err=True)
         raise SystemExit(1)
+    finally:
+        db.close()
+
+
+# User management commands
+
+
+@cli.command()
+@click.option("--email", required=True, help="Admin user email address")
+@click.option("--oidc-sub", help="OIDC subject claim (optional)")
+@click.option("--display-name", help="Display name (defaults to email)")
+def create_admin(email: str, oidc_sub: str, display_name: str):
+    """Create an admin user.
+
+    Use this command to bootstrap the first admin user, or to create
+    additional admin users from the command line.
+    """
+    db: Session = SessionLocal()
+
+    try:
+        user_service = UserService(db)
+
+        # Check if user already exists
+        existing = user_service.get_user_by_email(email)
+        if existing:
+            if existing.is_admin:
+                click.echo(
+                    f"✗ Admin user with email '{email}' already exists", err=True
+                )
+                raise SystemExit(1)
+            else:
+                # Upgrade existing user to admin
+                user_service.update_user(existing.id, is_admin=True)
+                click.echo(f"✓ Upgraded existing user '{email}' to admin")
+                return
+
+        # Create new admin user
+        user = user_service.create_user(
+            email=email,
+            oidc_sub=oidc_sub,
+            display_name=display_name or email,
+            is_admin=True,
+            can_use_registration_token=True,
+            can_use_jit=True,
+            created_by="cli",
+        )
+
+        click.echo("✓ Created admin user:")
+        click.echo(f"  ID:           {user.id}")
+        click.echo(f"  Email:        {user.email}")
+        click.echo(f"  Display Name: {user.display_name}")
+        click.echo(f"  Is Admin:     {user.is_admin}")
+
+    except ValueError as e:
+        click.echo(f"✗ Failed to create admin: {e}", err=True)
+        raise SystemExit(1)
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be migrated without making changes"
+)
+def migrate_admin_identities(dry_run: bool):
+    """Migrate ADMIN_IDENTITIES env var to User table.
+
+    This command reads the ADMIN_IDENTITIES environment variable and
+    creates admin users in the database for each identity found.
+    """
+    settings = get_settings()
+    db: Session = SessionLocal()
+
+    try:
+        admin_identities = settings.admin_identities
+
+        if not admin_identities:
+            click.echo("No ADMIN_IDENTITIES configured in environment")
+            return
+
+        click.echo(f"Found {len(admin_identities)} admin identities to migrate:\n")
+
+        user_service = UserService(db)
+        created = 0
+        skipped = 0
+
+        for identity in admin_identities:
+            # Determine if this is an email or OIDC sub
+            is_email = "@" in identity
+
+            click.echo(f"  - {identity}")
+
+            if dry_run:
+                continue
+
+            # Check if user already exists
+            if is_email:
+                existing = user_service.get_user_by_email(identity)
+            else:
+                existing = user_service.get_user_by_oidc_sub(identity)
+
+            if existing:
+                if not existing.is_admin:
+                    # Upgrade to admin
+                    user_service.update_user(existing.id, is_admin=True)
+                    click.echo("    ✓ Upgraded to admin")
+                    created += 1
+                else:
+                    click.echo("    → Already an admin, skipped")
+                    skipped += 1
+            else:
+                # Create new admin user
+                user_service.create_user(
+                    email=identity if is_email else None,
+                    oidc_sub=identity if not is_email else None,
+                    display_name=identity,
+                    is_admin=True,
+                    can_use_registration_token=True,
+                    can_use_jit=True,
+                    created_by="migrate-admin-identities",
+                )
+                click.echo("    ✓ Created admin user")
+                created += 1
+
+        if dry_run:
+            click.echo("\n(Dry run - no changes made)")
+        else:
+            click.echo(
+                f"\n✓ Migration complete: {created} users created/upgraded, {skipped} skipped"
+            )
+            if created > 0:
+                click.echo(
+                    "\nNote: You can now remove ADMIN_IDENTITIES from your environment."
+                )
+
+    except Exception as e:
+        click.echo(f"✗ Migration failed: {e}", err=True)
+        raise SystemExit(1)
+    finally:
+        db.close()
+
+
+@cli.command()
+@click.option("--include-inactive", is_flag=True, help="Include inactive users")
+@click.option("--admins-only", is_flag=True, help="Show only admin users")
+def list_users(include_inactive: bool, admins_only: bool):
+    """List all users."""
+    db: Session = SessionLocal()
+
+    try:
+        query = db.query(User)
+
+        if not include_inactive:
+            query = query.filter(User.is_active == True)  # noqa: E712
+
+        if admins_only:
+            query = query.filter(User.is_admin == True)  # noqa: E712
+
+        users = query.order_by(User.created_at.desc()).all()
+
+        if not users:
+            click.echo("No users found")
+            return
+
+        click.echo(f"\nFound {len(users)} users:\n")
+
+        for user in users:
+            status_flags = []
+            if user.is_admin:
+                status_flags.append("admin")
+            if not user.is_active:
+                status_flags.append("inactive")
+            if user.can_use_registration_token:
+                status_flags.append("reg-token")
+            if user.can_use_jit:
+                status_flags.append("jit")
+
+            flags_str = ", ".join(status_flags) if status_flags else "none"
+
+            click.echo(f"ID:           {user.id}")
+            click.echo(f"Email:        {user.email or 'N/A'}")
+            click.echo(f"OIDC Sub:     {user.oidc_sub or 'N/A'}")
+            click.echo(f"Display Name: {user.display_name or 'N/A'}")
+            click.echo(f"Permissions:  {flags_str}")
+            click.echo(f"Created:      {user.created_at}")
+            if user.last_login_at:
+                click.echo(f"Last Login:   {user.last_login_at}")
+            click.echo()
+
     finally:
         db.close()
 

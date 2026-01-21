@@ -27,12 +27,14 @@
 - [x] (Claude) Add periodic sync logging - logs `periodic_sync_triggered` and `periodic_sync_completed` events
 - [x] (Claude) Add coverage check workflow - 55% threshold, codecov token support
 - [x] (Claude) Add label policy tests - system label detection, edge cases (89 tests total)
+- [x] (Claude) Implement user authorization table with per-method API access control (139 tests total)
 
 ## Open
-
-- [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
 - [ ] P4, feature, Dashboard authentication and refresh button
 - [ ] P5, feature, Dashboard next phase, based on the design
+- [ ] P2, feature, Admin action disable user, disable all users (API and dashboard)
+- [ ] P2, feature, Admin action delete all runners for a user, all runners (API and dashboard)
+- [ ] P2, feature, admin/batch actions require a comment in the API/dashboard, which goes in the audit trail
  
 
 ---
