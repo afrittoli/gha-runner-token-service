@@ -106,6 +106,12 @@ class Settings(BaseSettings):
         description="Path to SSL private key file (required if https_enabled=true)",
     )
 
+    # Dashboard Features
+    enable_new_dashboard: bool = Field(
+        default=False,
+        description="Enable new React-based dashboard at /app path",
+    )
+
     @field_validator("github_app_private_key_path")
     @classmethod
     def validate_private_key_path(cls, v: Path) -> Path:
