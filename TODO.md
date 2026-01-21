@@ -31,9 +31,9 @@
 - [x] (Claude) Cherry-pick dashboard branch work: feature flag, CORS, API contract, auth endpoint, static files, runner detail (178 tests total)
 - [x] (Claude) Add batch admin endpoints with audit trail: disable users, delete runners (189 tests total)
 - [x] (Claude) Add Admin Actions UI to dashboard: disable users, delete runners with comment requirement (189 tests total)
+- [x] (Claude) Add dashboard token persistence with localStorage and clear button (189 tests total)
 
 ## Open
-- [ ] P4, feature, Dashboard authentication and refresh button
 - [ ] P5, feature, Dashboard next phase, based on the design
 - [ ] P3, docs, convert SVG diagram into draw.io format
 - [ ] P3, docs, read from docs/DEMO.md, check its feasibility, identify missing features and complement with commands for the demo
