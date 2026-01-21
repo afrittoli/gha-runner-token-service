@@ -282,6 +282,121 @@
             color: #721c24;
             display: block;
         }
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: #f9f9f9;
+            border-bottom: 1px solid #eee;
+        }
+        .filter-bar label {
+            font-size: 0.875rem;
+            color: #666;
+        }
+        .filter-bar select {
+            padding: 0.375rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        .filter-bar input[type="text"] {
+            padding: 0.375rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            width: 200px;
+        }
+        .runner-link {
+            color: #0366d6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .runner-link:hover {
+            text-decoration: underline;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #eee;
+            background: #f9f9f9;
+        }
+        .tab {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+        .tab:hover {
+            color: #333;
+        }
+        .tab.active {
+            color: #0366d6;
+            border-bottom-color: #0366d6;
+            background: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+        }
+        .data-card {
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .data-card h4 {
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        .data-card p {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+        .data-card .labels {
+            margin-top: 0.5rem;
+        }
+        .user-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .user-status.active {
+            background: #28a745;
+        }
+        .user-status.inactive {
+            background: #dc3545;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        .badge.admin {
+            background: #6f42c1;
+            color: white;
+        }
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -315,8 +430,20 @@
                 <h2>Runners</h2>
                 <button class="refresh-btn" onclick="location.reload()">Refresh</button>
             </div>
+            <div class="filter-bar">
+                <label for="statusFilter">Status:</label>
+                <select id="statusFilter" onchange="filterRunners()">
+                    <option value="">All</option>
+                    <option value="active">Active</option>
+                    <option value="offline">Offline</option>
+                    <option value="pending">Pending</option>
+                    <option value="deleted">Deleted</option>
+                </select>
+                <label for="searchFilter">Search:</label>
+                <input type="text" id="searchFilter" placeholder="Filter by name or user..." oninput="filterRunners()">
+            </div>
             {% if runners %}
-            <table>
+            <table id="runnersTable">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -328,8 +455,12 @@
                 </thead>
                 <tbody>
                     {% for runner in runners %}
-                    <tr>
-                        <td><strong>{{ runner.runner_name }}</strong></td>
+                    <tr data-status="{{ runner.status }}" data-name="{{ runner.runner_name|lower }}" data-user="{{ runner.provisioned_by|lower }}">
+                        <td>
+                            <a href="/api/v1/runners/{{ runner.id }}" class="runner-link" target="_blank" title="View runner details">
+                                {{ runner.runner_name }}
+                            </a>
+                        </td>
                         <td>
                             <span class="status-badge status-{{ runner.status }}">
                                 {{ runner.status }}
@@ -348,6 +479,9 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div id="noRunnersMatch" class="empty-state hidden">
+                <p>No runners match the filter criteria.</p>
+            </div>
             {% else %}
             <div class="empty-state">
                 <p>No runners registered yet.</p>
@@ -393,6 +527,34 @@
                 <p>No security events recorded.</p>
             </div>
             {% endif %}
+        </div>
+
+        <!-- Admin Data Section with Tabs -->
+        <div class="section">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('policies')">Label Policies</button>
+                <button class="tab" onclick="showTab('users')">Users</button>
+            </div>
+
+            <!-- Label Policies Tab -->
+            <div id="policies-tab" class="tab-content active">
+                <div id="policiesContent" class="data-grid">
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <p>Loading label policies... (requires authentication)</p>
+                        <button class="refresh-btn" style="margin-top: 1rem;" onclick="loadPolicies()">Load Policies</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content">
+                <div id="usersContent" class="data-grid">
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <p>Loading users... (requires authentication)</p>
+                        <button class="refresh-btn" style="margin-top: 1rem;" onclick="loadUsers()">Load Users</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Admin Actions Section -->
@@ -613,6 +775,156 @@
                 }
             });
         });
+
+        // Runner filtering
+        function filterRunners() {
+            const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
+            const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+            const table = document.getElementById('runnersTable');
+            const noMatch = document.getElementById('noRunnersMatch');
+
+            if (!table) return;
+
+            const rows = table.querySelectorAll('tbody tr');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const status = row.dataset.status;
+                const name = row.dataset.name;
+                const user = row.dataset.user;
+
+                const matchesStatus = !statusFilter || status === statusFilter;
+                const matchesSearch = !searchFilter || name.includes(searchFilter) || user.includes(searchFilter);
+
+                if (matchesStatus && matchesSearch) {
+                    row.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+
+            if (noMatch) {
+                if (visibleCount === 0) {
+                    noMatch.classList.remove('hidden');
+                    table.classList.add('hidden');
+                } else {
+                    noMatch.classList.add('hidden');
+                    table.classList.remove('hidden');
+                }
+            }
+        }
+
+        // Tab switching
+        function showTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+
+        // Load label policies
+        async function loadPolicies() {
+            const headers = getAuthHeaders();
+            if (!headers) return;
+
+            const container = document.getElementById('policiesContent');
+            container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch('/api/v1/admin/label-policies', { headers });
+
+                if (!response.ok) {
+                    throw new Error(response.status === 401 ? 'Unauthorized' : 'Failed to load policies');
+                }
+
+                const data = await response.json();
+
+                if (!data.policies || data.policies.length === 0) {
+                    container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><p>No label policies configured.</p></div>';
+                    return;
+                }
+
+                container.innerHTML = data.policies.map(policy => `
+                    <div class="data-card">
+                        <h4>${escapeHtml(policy.user_identity)}</h4>
+                        <p><strong>Max Runners:</strong> ${policy.max_runners || 'Unlimited'}</p>
+                        <p><strong>Require Ephemeral:</strong> ${policy.require_ephemeral ? 'Yes' : 'No'}</p>
+                        <div class="labels">
+                            <p style="margin-bottom: 0.25rem;"><strong>Allowed Labels:</strong></p>
+                            ${(policy.allowed_labels || []).map(l => `<span class="label">${escapeHtml(l)}</span>`).join(' ')}
+                        </div>
+                        ${policy.label_patterns && policy.label_patterns.length > 0 ? `
+                        <div class="labels" style="margin-top: 0.5rem;">
+                            <p style="margin-bottom: 0.25rem;"><strong>Patterns:</strong></p>
+                            ${policy.label_patterns.map(p => `<span class="label">${escapeHtml(p)}</span>`).join(' ')}
+                        </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><p>Error: ${escapeHtml(error.message)}</p><button class="refresh-btn" style="margin-top: 1rem;" onclick="loadPolicies()">Retry</button></div>`;
+            }
+        }
+
+        // Load users
+        async function loadUsers() {
+            const headers = getAuthHeaders();
+            if (!headers) return;
+
+            const container = document.getElementById('usersContent');
+            container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><p>Loading...</p></div>';
+
+            try {
+                const response = await fetch('/api/v1/admin/users?include_inactive=true', { headers });
+
+                if (!response.ok) {
+                    throw new Error(response.status === 401 ? 'Unauthorized' : 'Failed to load users');
+                }
+
+                const data = await response.json();
+
+                if (!data.users || data.users.length === 0) {
+                    container.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><p>No users found.</p></div>';
+                    return;
+                }
+
+                container.innerHTML = data.users.map(user => `
+                    <div class="data-card">
+                        <h4>
+                            <span class="user-status ${user.is_active ? 'active' : 'inactive'}"></span>
+                            ${escapeHtml(user.display_name || user.email || 'Unknown')}
+                            ${user.is_admin ? '<span class="badge admin">Admin</span>' : ''}
+                        </h4>
+                        <p><strong>Email:</strong> ${escapeHtml(user.email || '-')}</p>
+                        <p><strong>Status:</strong> ${user.is_active ? 'Active' : 'Disabled'}</p>
+                        <p><strong>Registration Token:</strong> ${user.can_use_registration_token ? '✓' : '✗'}</p>
+                        <p><strong>JIT:</strong> ${user.can_use_jit ? '✓' : '✗'}</p>
+                        <p style="font-size: 0.7rem; color: #999; margin-top: 0.5rem;">
+                            Created: ${new Date(user.created_at).toLocaleDateString()}
+                            ${user.last_login_at ? ` | Last login: ${new Date(user.last_login_at).toLocaleDateString()}` : ''}
+                        </p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><p>Error: ${escapeHtml(error.message)}</p><button class="refresh-btn" style="margin-top: 1rem;" onclick="loadUsers()">Retry</button></div>`;
+            }
+        }
+
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
 </body>
 </html>
