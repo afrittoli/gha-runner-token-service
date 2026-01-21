@@ -323,3 +323,89 @@ class JitProvisionResponse(BaseModel):
         ...,
         description="Command to start the runner",
     )
+
+
+# User Authorization Schemas
+
+
+class UserCreate(BaseModel):
+    """Request to create a new user."""
+
+    email: Optional[str] = Field(
+        default=None,
+        description="User email (primary identifier)",
+    )
+    oidc_sub: Optional[str] = Field(
+        default=None,
+        description="OIDC subject claim (alternative identifier)",
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="Display name for dashboard",
+    )
+    is_admin: bool = Field(
+        default=False,
+        description="Grant admin privileges",
+    )
+    can_use_registration_token: bool = Field(
+        default=True,
+        description="Allow access to registration token API",
+    )
+    can_use_jit: bool = Field(
+        default=True,
+        description="Allow access to JIT API",
+    )
+
+    def model_post_init(self, __context) -> None:
+        """Validate that at least one identifier is provided."""
+        if not self.email and not self.oidc_sub:
+            raise ValueError("Either 'email' or 'oidc_sub' must be provided")
+
+
+class UserUpdate(BaseModel):
+    """Request to update a user."""
+
+    display_name: Optional[str] = Field(
+        default=None,
+        description="Display name for dashboard",
+    )
+    is_admin: Optional[bool] = Field(
+        default=None,
+        description="Admin privileges",
+    )
+    is_active: Optional[bool] = Field(
+        default=None,
+        description="Whether user account is active",
+    )
+    can_use_registration_token: Optional[bool] = Field(
+        default=None,
+        description="Allow access to registration token API",
+    )
+    can_use_jit: Optional[bool] = Field(
+        default=None,
+        description="Allow access to JIT API",
+    )
+
+
+class UserResponse(BaseModel):
+    """User information response."""
+
+    id: str
+    email: Optional[str]
+    oidc_sub: Optional[str]
+    display_name: Optional[str]
+    is_admin: bool
+    is_active: bool
+    can_use_registration_token: bool
+    can_use_jit: bool
+    created_at: datetime
+    updated_at: datetime
+    last_login_at: Optional[datetime]
+    created_by: Optional[str]
+
+
+class UserListResponse(BaseModel):
+    """List of users response."""
+
+    users: List[UserResponse]
+    total: int

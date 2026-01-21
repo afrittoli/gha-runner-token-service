@@ -5,7 +5,12 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import AuthenticatedUser, get_current_user
+from app.auth.dependencies import (
+    AuthenticatedUser,
+    get_current_user,
+    require_jit_access,
+    require_registration_token_access,
+)
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.schemas import (
@@ -30,7 +35,7 @@ router = APIRouter(prefix="/runners", tags=["Runners"])
 )
 async def provision_runner(
     request: ProvisionRunnerRequest,
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(require_registration_token_access),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
@@ -74,7 +79,7 @@ async def provision_runner(
 )
 async def provision_runner_jit(
     request: JitProvisionRequest,
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(require_jit_access),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
