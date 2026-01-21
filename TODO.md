@@ -28,13 +28,15 @@
 - [x] (Claude) Add coverage check workflow - 55% threshold, codecov token support
 - [x] (Claude) Add label policy tests - system label detection, edge cases (89 tests total)
 - [x] (Claude) Implement user authorization table with per-method API access control (139 tests total)
+- [x] (Claude) Cherry-pick dashboard branch work: feature flag, CORS, API contract, auth endpoint, static files, runner detail (178 tests total)
+- [x] (Claude) Add batch admin endpoints with audit trail: disable users, delete runners (189 tests total)
 
 ## Open
 - [ ] P4, feature, Dashboard authentication and refresh button
 - [ ] P5, feature, Dashboard next phase, based on the design
-- [ ] P2, feature, Admin action disable user, disable all users (API and dashboard)
-- [ ] P2, feature, Admin action delete all runners for a user, all runners (API and dashboard)
-- [ ] P2, feature, admin/batch actions require a comment in the API/dashboard, which goes in the audit trail
+- [ ] P2, feature, Admin action disable user, disable all users - dashboard UI (API done)
+- [ ] P2, feature, Admin action delete all runners for a user, all runners - dashboard UI (API done)
+- [ ] P2, feature, admin/batch actions require a comment - dashboard UI (API done)
  
 
 ---
