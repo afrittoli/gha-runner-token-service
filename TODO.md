@@ -25,13 +25,12 @@
 - [x] (Claude) Rework docs to prioritize JIT, add Podman examples, clarify sync is automatic
 - [x] (Claude) Fix HTTPS_ENABLED docs - clarified that `python -m app.main` is required, or use uvicorn SSL flags directly
 - [x] (Claude) Add periodic sync logging - logs `periodic_sync_triggered` and `periodic_sync_completed` events
+- [x] (Claude) Add coverage check workflow - 55% threshold, codecov token support
 
 ## Open
 
 - [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
-- [ ] P2, feature, Add coverage check workflow
 - [ ] P3, test, Test label policy management
-- [ ] P3, bug, codecov is used in the workflow without a token, which won't work.
 - [ ] P4, feature, Dashboard authentication and refresh button
 - [ ] P5, feature, Dashboard next phase, based on the design
  

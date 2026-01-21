@@ -27,9 +27,22 @@ jobs:
           # Test environment is set up automatically by conftest.py
           python -m pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=xml
 
+      - name: Check coverage threshold
+        run: |
+          # Extract coverage percentage from pytest output
+          coverage_percent=$(python -m coverage report --format=total)
+          echo "Coverage: ${coverage_percent}%"
+          # Fail if coverage is below 55% (current baseline)
+          if [ $(echo "$coverage_percent < 55" | bc -l) -eq 1 ]; then
+            echo "Coverage ${coverage_percent}% is below 55% threshold"
+            exit 1
+          fi
+
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
           fail_ci_if_error: false
         continue-on-error: true
