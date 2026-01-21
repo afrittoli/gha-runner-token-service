@@ -26,11 +26,11 @@
 - [x] (Claude) Fix HTTPS_ENABLED docs - clarified that `python -m app.main` is required, or use uvicorn SSL flags directly
 - [x] (Claude) Add periodic sync logging - logs `periodic_sync_triggered` and `periodic_sync_completed` events
 - [x] (Claude) Add coverage check workflow - 55% threshold, codecov token support
+- [x] (Claude) Add label policy tests - system label detection, edge cases (89 tests total)
 
 ## Open
 
 - [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
-- [ ] P3, test, Test label policy management
 - [ ] P4, feature, Dashboard authentication and refresh button
 - [ ] P5, feature, Dashboard next phase, based on the design
  
