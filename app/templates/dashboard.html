@@ -409,6 +409,7 @@
             <div class="admin-actions">
                 <button class="admin-btn secondary" onclick="openModal('disableUsers')">Disable Users</button>
                 <button class="admin-btn" onclick="openModal('deleteRunners')">Delete Runners</button>
+                <button class="admin-btn secondary" onclick="clearToken()" style="margin-left: auto;">Clear Token</button>
             </div>
             <div id="adminResult" class="result-message"></div>
         </div>
@@ -459,6 +460,34 @@
     </div>
 
     <script>
+        // Token persistence
+        const TOKEN_KEY = 'runner_service_admin_token';
+
+        function loadToken() {
+            const token = localStorage.getItem(TOKEN_KEY);
+            if (token) {
+                document.getElementById('authToken').value = token;
+            }
+        }
+
+        function saveToken() {
+            const token = document.getElementById('authToken').value.trim();
+            if (token) {
+                localStorage.setItem(TOKEN_KEY, token);
+            } else {
+                localStorage.removeItem(TOKEN_KEY);
+            }
+        }
+
+        function clearToken() {
+            localStorage.removeItem(TOKEN_KEY);
+            document.getElementById('authToken').value = '';
+            showResult('Token cleared', true);
+        }
+
+        // Load token on page load
+        document.addEventListener('DOMContentLoaded', loadToken);
+
         function openModal(type) {
             document.getElementById(type + 'Modal').classList.add('active');
         }
@@ -479,6 +508,8 @@
                 alert('Please enter your Bearer token first');
                 return null;
             }
+            // Save token when used
+            saveToken();
             return {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
