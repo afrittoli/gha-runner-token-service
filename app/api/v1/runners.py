@@ -1,8 +1,9 @@
 """Runner management API endpoints."""
 
 import json
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import (
@@ -129,11 +130,28 @@ async def list_runners(
     user: AuthenticatedUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
+    status_filter: Optional[str] = Query(
+        None,
+        alias="status",
+        description="Filter by runner status: active, offline, pending",
+    ),
+    ephemeral: Optional[bool] = Query(
+        None,
+        description="Filter by ephemeral flag (true/false)",
+    ),
+    limit: int = Query(50, ge=1, le=200, description="Limit results (1-200)"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
 ):
     """
     List all runners provisioned by the authenticated user.
 
     **Required Authentication:** OIDC Bearer token
+
+    **Query Parameters:**
+    - `status`: Filter by runner status (active, offline, pending)
+    - `ephemeral`: Filter by ephemeral flag
+    - `limit`: Results per page (1-200, default 50)
+    - `offset`: Pagination offset (default 0)
 
     **Returns:**
     - List of runners with their current status
@@ -141,11 +159,22 @@ async def list_runners(
     """
     service = RunnerService(settings, db)
 
-    runners = await service.list_runners(user)
+    all_runners = await service.list_runners(user)
+
+    # Apply filters
+    filtered_runners = all_runners
+    if status_filter:
+        filtered_runners = [r for r in filtered_runners if r.status == status_filter]
+    if ephemeral is not None:
+        filtered_runners = [r for r in filtered_runners if r.ephemeral == ephemeral]
+
+    # Apply pagination
+    total = len(filtered_runners)
+    paginated_runners = filtered_runners[offset : offset + limit]
 
     # Convert to response schema
     runner_statuses = []
-    for runner in runners:
+    for runner in paginated_runners:
         runner_statuses.append(
             RunnerStatus(
                 runner_id=runner.id,
@@ -163,7 +192,7 @@ async def list_runners(
             )
         )
 
-    return RunnerListResponse(runners=runner_statuses, total=len(runner_statuses))
+    return RunnerListResponse(runners=runner_statuses, total=total)
 
 
 @router.get("/{runner_id}", response_model=RunnerStatus)
