@@ -97,10 +97,11 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - *Tests:* Test each filter combination, test sorting, test pagination
   - ✅ **COMPLETED**: Runners endpoint enhanced with status_filter, ephemeral, limit, offset query parameters with pagination and filtering logic
 
-- [ ] **P1, backend, feature** - Add runner detail endpoint improvements
+- [x] **P1, backend, feature** - Add runner detail endpoint improvements
   - Return complete audit trail / activity timeline for runner
   - Include timestamps for creation, registration, last_seen, deleted
   - *Tests:* Verify all fields returned correctly
+  - ✅ **COMPLETED**: GET /api/v1/runners/{runner_id} now returns RunnerDetailResponse with 20-event audit trail from SecurityEvent table
 
 - [ ] **P1, backend, security** - Enforce RBAC on all endpoints
   - Admin endpoints (/api/v1/admin/*) return 403 for non-admin users

@@ -14,12 +14,14 @@ from app.auth.dependencies import (
 )
 from app.config import Settings, get_settings
 from app.database import get_db
+from app.models import SecurityEvent
 from app.schemas import (
     DeprovisionResponse,
     JitProvisionRequest,
     JitProvisionResponse,
     ProvisionRunnerRequest,
     ProvisionRunnerResponse,
+    RunnerDetailResponse,
     RunnerListResponse,
     RunnerStatus,
 )
@@ -195,7 +197,7 @@ async def list_runners(
     return RunnerListResponse(runners=runner_statuses, total=total)
 
 
-@router.get("/{runner_id}", response_model=RunnerStatus)
+@router.get("/{runner_id}", response_model=RunnerDetailResponse)
 async def get_runner(
     runner_id: str,
     user: AuthenticatedUser = Depends(get_current_user),
@@ -203,7 +205,7 @@ async def get_runner(
     settings: Settings = Depends(get_settings),
 ):
     """
-    Get status of a specific runner by ID.
+    Get detailed status of a specific runner including audit trail.
 
     **Required Authentication:** OIDC Bearer token
 
@@ -211,6 +213,7 @@ async def get_runner(
 
     **Returns:**
     - Runner status and metadata
+    - Recent audit trail events (security events, actions taken)
     """
     service = RunnerService(settings, db)
 
@@ -218,22 +221,45 @@ async def get_runner(
     if not runner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Runner with ID '{runner_id}' not found or not owned by you",
+            detail=(f"Runner with ID '{runner_id}' " "not found or not owned by you"),
         )
 
-    return RunnerStatus(
+    # Fetch audit trail - recent security events for this runner
+    audit_events = (
+        db.query(SecurityEvent)
+        .filter(SecurityEvent.runner_id == runner_id)
+        .order_by(SecurityEvent.timestamp.desc())
+        .limit(20)
+        .all()
+    )
+
+    # Convert to response schema
+    audit_trail = [
+        {
+            "id": event.id,
+            "event_type": event.event_type,
+            "severity": event.severity,
+            "user_identity": event.user_identity,
+            "action_taken": event.action_taken,
+            "timestamp": event.timestamp,
+        }
+        for event in audit_events
+    ]
+
+    return RunnerDetailResponse(
         runner_id=runner.id,
         runner_name=runner.runner_name,
         status=runner.status,
         github_runner_id=runner.github_runner_id,
         runner_group_id=runner.runner_group_id,
-        labels=json.loads(runner.labels),
+        labels=json.loads(runner.labels) if runner.labels else [],
         ephemeral=runner.ephemeral,
         provisioned_by=runner.provisioned_by,
         created_at=runner.created_at,
         updated_at=runner.updated_at,
         registered_at=runner.registered_at,
         deleted_at=runner.deleted_at,
+        audit_trail=audit_trail,
     )
 
 
