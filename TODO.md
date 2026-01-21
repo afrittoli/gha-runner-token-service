@@ -28,21 +28,17 @@
 
 ## Open
 
-- [ ] P1, bug, Deletion of runners via API returns unauthorized, [details](#deletion-unauthorized)
 - [ ] P2, feature, Implement user authorization table, [details](#user-authorization-table)
 - [ ] P2, feature, Add coverage check workflow
 - [ ] P3, test, Test label policy management
+- [ ] P3, bug, codecov is used in the workflow without a token, which won't work.
 - [ ] P4, feature, Dashboard authentication and refresh button
 - [ ] P5, feature, Dashboard next phase, based on the design
-- [ ] P3, bug, codecov is used in the workflow without a token, which won't work.
  
 
 ---
 
 ## Details
-
-### Deletion Unauthorized
-Deletion of runners via API always returns unauthorized. Need to investigate if this is an identity mismatch issue - check if `provisioned_by` stored value matches current `user.identity`.
 
 ### User Authorization Table
 OIDC should only be for authentication. Authorization should use an app-side user table.
