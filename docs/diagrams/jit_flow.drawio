@@ -1,0 +1,294 @@
+<mxfile host="app.diagrams.net" modified="2026-01-21T00:00:00.000Z" agent="Claude" version="22.1.0">
+  <diagram name="JIT Runner Provisioning Flow" id="jit-flow-diagram">
+    <mxGraphModel dx="1200" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="750" background="#f8f9fa" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="JIT Runner Provisioning Flow" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="400" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Secure runner provisioning with server-side label enforcement" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="350" y="40" width="500" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Legend Box -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#dddddd;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="75" width="200" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-title" value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="80" width="200" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-sensitive" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF6B6B;strokeColor=#C44D4D;" vertex="1" parent="1">
+          <mxGeometry x="45" y="105" width="20" height="12" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-sensitive-text" value="Sensitive Data / Token" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="70" y="100" width="150" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-security" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#50C878;strokeColor=#2E8B57;" vertex="1" parent="1">
+          <mxGeometry x="45" y="125" width="20" height="12" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-security-text" value="Security Enforcement" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="70" y="120" width="150" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-request-text" value="→ Request Flow" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="45" y="140" width="150" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-https-text" value="⇢ Secure (HTTPS)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#2E8B57;" vertex="1" parent="1">
+          <mxGeometry x="45" y="160" width="150" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend-shield-text" value="🛡 Security Benefit" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#2E8B57;" vertex="1" parent="1">
+          <mxGeometry x="45" y="180" width="150" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- Admin Dashboard -->
+        <mxCell id="dashboard" value="&lt;b&gt;Admin Dashboard&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FFB347;strokeColor=#CC8A30;fontColor=#FFFFFF;startSize=25;rounded=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="830" y="75" width="320" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="dashboard-monitoring" value="&lt;b&gt;Monitoring&lt;/b&gt;&lt;br&gt;• Runner status &amp;amp; health&lt;br&gt;• Audit log viewer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD699;strokeColor=none;fontSize=9;align=center;" vertex="1" parent="dashboard">
+          <mxGeometry x="10" y="32" width="145" height="45" as="geometry"/>
+        </mxCell>
+        <mxCell id="dashboard-admin" value="&lt;b&gt;Admin Functions&lt;/b&gt;&lt;br&gt;• Label policy management&lt;br&gt;• User authorization" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD699;strokeColor=none;fontSize=9;align=center;" vertex="1" parent="dashboard">
+          <mxGeometry x="165" y="32" width="145" height="45" as="geometry"/>
+        </mxCell>
+        <mxCell id="dashboard-extra" value="• Security event alerts • Runner quota management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE4C0;strokeColor=none;fontSize=9;align=center;" vertex="1" parent="dashboard">
+          <mxGeometry x="10" y="85" width="300" height="35" as="geometry"/>
+        </mxCell>
+
+        <!-- OIDC Provider -->
+        <mxCell id="oidc" value="&lt;b&gt;OIDC Provider&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;(Auth0, Okta, Keycloak)&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Issues &amp;amp; signs JWT tokens&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#D4A5FF&quot;&gt;Publishes JWKS for validation&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9B59B6;strokeColor=#6C3483;fontColor=#FFFFFF;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="280" y="100" width="180" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Third Party -->
+        <mxCell id="third-party" value="&lt;b&gt;Third Party&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;(Runner Operator)&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Authenticates via OIDC&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Requests runner provisioning&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#FFD700&quot;&gt;Receives JIT config&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A90D9;strokeColor=#2E5C8A;fontColor=#FFFFFF;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="80" y="270" width="180" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- Runner -->
+        <mxCell id="runner" value="&lt;b&gt;Runner&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;(Third Party Infrastructure)&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;./run.sh --jitconfig&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#FFD700&quot;&gt;Ephemeral • Labels locked&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4A90D9;strokeColor=#2E5C8A;fontColor=#FFFFFF;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="80" y="400" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- Runner Token Service -->
+        <mxCell id="token-service" value="&lt;b&gt;Runner Token Service&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;fillColor=#50C878;strokeColor=#2E8B57;fontColor=#FFFFFF;startSize=25;rounded=1;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="240" width="260" height="220" as="geometry"/>
+        </mxCell>
+        <mxCell id="ts-oidc" value="&lt;b&gt;🔑 OIDC Token Validation&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Fetches JWKS • Verifies signature &amp;amp; claims&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7DD89A;strokeColor=none;fontSize=10;align=center;" vertex="1" parent="token-service">
+          <mxGeometry x="15" y="35" width="230" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="ts-label" value="&lt;b&gt;🛡 Label Policy Enforcement&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Server-side validation before provisioning&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8FE0A8;strokeColor=none;fontSize=10;align=center;" vertex="1" parent="token-service">
+          <mxGeometry x="15" y="85" width="230" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="ts-jit" value="&lt;b&gt;JIT Config Generator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Calls GitHub API with App credentials&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A0E8B5;strokeColor=none;fontSize=10;align=center;" vertex="1" parent="token-service">
+          <mxGeometry x="15" y="135" width="230" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="ts-db" value="&lt;font style=&quot;font-size:9px&quot;&gt;Database: SQLite/PostgreSQL&lt;br&gt;Audit logs • Runner state • Policies&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#FFFFFF;" vertex="1" parent="token-service">
+          <mxGeometry x="15" y="180" width="230" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- GitHub -->
+        <mxCell id="github" value="&lt;b&gt;GitHub&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;generate-jitconfig API&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Runner registration&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Workflow job dispatch&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6e5494;strokeColor=#4a3660;fontColor=#FFFFFF;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="920" y="280" width="200" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="github-auth" value="Authenticates via GitHub App&lt;br&gt;&lt;font style=&quot;font-size:8px;color:#D0D0D0&quot;&gt;(Private key on Token Service)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8A6DAC;strokeColor=none;fontSize=9;align=center;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="935" y="350" width="170" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- Flow Arrows -->
+
+        <!-- Step 1: Third Party -> OIDC -->
+        <mxCell id="arrow1" value="" style="endArrow=classic;html=1;strokeColor=#333333;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;curved=1;" edge="1" parent="1" source="third-party" target="oidc">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="170" y="260" as="sourcePoint"/>
+            <mxPoint x="280" y="170" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label1" value="&lt;b&gt;1. Auth&lt;/b&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fillColor=#FFFFFF;rounded=1;strokeColor=#dddddd;" vertex="1" connectable="0" parent="arrow1">
+          <mxGeometry x="-0.2" y="-10" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 1 return: OIDC -> Third Party -->
+        <mxCell id="arrow1r" value="" style="endArrow=classic;html=1;strokeColor=#C44D4D;strokeWidth=2;dashed=1;dashPattern=5 3;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0;entryDx=0;entryDy=0;curved=1;" edge="1" parent="1" source="oidc" target="third-party">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="380" y="185" as="sourcePoint"/>
+            <mxPoint x="260" y="280" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label1r" value="JWT Token" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FF6B6B;rounded=1;fontColor=#FFFFFF;" vertex="1" connectable="0" parent="arrow1r">
+          <mxGeometry x="-0.1" y="10" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 2: Third Party -> Token Service -->
+        <mxCell id="arrow2" value="" style="endArrow=classic;html=1;strokeColor=#2E8B57;strokeWidth=2;dashed=1;dashPattern=5 3;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;" edge="1" parent="1" source="third-party" target="token-service">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="260" y="320" as="sourcePoint"/>
+            <mxPoint x="480" y="328" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label2" value="&lt;b&gt;2. POST /jit&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Authorization: Bearer &amp;lt;JWT&amp;gt;&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fillColor=#FFFFFF;rounded=1;strokeColor=#2E8B57;" vertex="1" connectable="0" parent="arrow2">
+          <mxGeometry x="-0.1" y="-25" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 2a: Token Service -> OIDC -->
+        <mxCell id="arrow2a" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=1.5;dashed=1;dashPattern=4 3;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;curved=1;" edge="1" parent="1" source="token-service" target="oidc">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="610" y="240" as="sourcePoint"/>
+            <mxPoint x="460" y="140" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label2a" value="2a. Fetch JWKS" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FFFFFF;rounded=1;strokeColor=#9B59B6;fontColor=#6C3483;" vertex="1" connectable="0" parent="arrow2a">
+          <mxGeometry x="0.1" y="-10" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 3: Token Service -> GitHub -->
+        <mxCell id="arrow3" value="" style="endArrow=classic;html=1;strokeColor=#333333;strokeWidth=2;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="token-service" target="github">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="740" y="328" as="sourcePoint"/>
+            <mxPoint x="920" y="330" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label3" value="&lt;b&gt;3. Generate&lt;/b&gt;&lt;br&gt;JIT Config" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fillColor=#FFFFFF;rounded=1;strokeColor=#dddddd;" vertex="1" connectable="0" parent="arrow3">
+          <mxGeometry x="-0.1" y="-20" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 4: GitHub -> Token Service -->
+        <mxCell id="arrow4" value="" style="endArrow=classic;html=1;strokeColor=#C44D4D;strokeWidth=2;dashed=1;dashPattern=5 3;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.6;entryDx=0;entryDy=0;" edge="1" parent="1" source="github" target="token-service">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="920" y="360" as="sourcePoint"/>
+            <mxPoint x="740" y="380" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label4" value="&lt;b&gt;4. JIT Config&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:8px&quot;&gt;(RSA keys, creds)&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FF6B6B;rounded=1;fontColor=#FFFFFF;" vertex="1" connectable="0" parent="arrow4">
+          <mxGeometry x="0.1" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 5: Token Service -> Third Party -->
+        <mxCell id="arrow5" value="" style="endArrow=classic;html=1;strokeColor=#2E8B57;strokeWidth=2;dashed=1;dashPattern=5 3;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="token-service" target="third-party">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="390" as="sourcePoint"/>
+            <mxPoint x="260" y="350" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label5" value="&lt;b&gt;5. Response&lt;/b&gt;&lt;br&gt;encoded_jit_config" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fillColor=#FFFFFF;rounded=1;strokeColor=#2E8B57;" vertex="1" connectable="0" parent="arrow5">
+          <mxGeometry x="0.1" y="20" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 6: Third Party -> Runner -->
+        <mxCell id="arrow6" value="" style="endArrow=classic;html=1;strokeColor=#333333;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="third-party" target="runner">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="170" y="370" as="sourcePoint"/>
+            <mxPoint x="170" y="400" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label6" value="6. Deploy" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FFFFFF;rounded=1;strokeColor=#dddddd;" vertex="1" connectable="0" parent="arrow6">
+          <mxGeometry x="0.2" y="10" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 7: Runner -> GitHub -->
+        <mxCell id="arrow7" value="" style="endArrow=classic;html=1;strokeColor=#6e5494;strokeWidth=2;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;curved=1;" edge="1" parent="1" source="runner" target="github">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="260" y="480" as="sourcePoint"/>
+            <mxPoint x="920" y="380" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="450" y="520"/>
+              <mxPoint x="700" y="520"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label7" value="&lt;b&gt;7. Connect&lt;/b&gt;&lt;br&gt;to GitHub Actions" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fillColor=#FFFFFF;rounded=1;strokeColor=#6e5494;fontColor=#6e5494;" vertex="1" connectable="0" parent="arrow7">
+          <mxGeometry x="-0.1" y="-15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Step 8: Monitoring loop -->
+        <mxCell id="arrow8" value="" style="endArrow=classic;html=1;strokeColor=#2E8B57;strokeWidth=2;curved=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="740" y="280" as="sourcePoint"/>
+            <mxPoint x="740" y="340" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="800" y="280"/>
+              <mxPoint x="810" y="310"/>
+              <mxPoint x="800" y="340"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label8" value="&lt;b&gt;8. Monitor&lt;/b&gt;&lt;br&gt;Runners &amp;amp; Labels" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fillColor=#FFFFFF;rounded=1;strokeColor=#2E8B57;fontColor=#2E8B57;" vertex="1" connectable="0" parent="arrow8">
+          <mxGeometry x="0.5" y="30" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Dashboard -> Token Service -->
+        <mxCell id="arrow-dashboard" value="" style="endArrow=classic;html=1;strokeColor=#CC8A30;strokeWidth=1.5;dashed=1;dashPattern=4 3;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="dashboard" target="token-service">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="830" y="200" as="sourcePoint"/>
+            <mxPoint x="700" y="240" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-dashboard" value="Admin API" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=8;fontColor=#CC8A30;" vertex="1" connectable="0" parent="arrow-dashboard">
+          <mxGeometry x="0.2" y="-10" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Security Benefits Section -->
+        <mxCell id="security-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E8B57;strokeWidth=2;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="50" y="550" width="1100" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="security-title" value="🛡 Security Benefits of JIT Provisioning" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#2E8B57;" vertex="1" parent="1">
+          <mxGeometry x="400" y="555" width="400" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- Row 1 -->
+        <mxCell id="benefit1" value="&lt;b&gt;🛡 Server-Side Label Enforcement&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Labels configured in JIT config before reaching client.&lt;br&gt;Client cannot modify - cryptographically bound.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="80" y="590" width="300" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="benefit2" value="&lt;b&gt;🛡 Ephemeral Mode Always Enforced&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Runner auto-deletes after completing one job.&lt;br&gt;No persistent runners that could be compromised.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="430" y="590" width="300" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="benefit3" value="&lt;b&gt;🛡 Label Drift Detection&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Sync service detects label modifications.&lt;br&gt;Runners with drifted labels auto-deleted.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="800" y="590" width="300" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- Row 2 -->
+        <mxCell id="benefit4" value="&lt;b&gt;🛡 Complete Audit Trail&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;All provisioning and policy violations logged.&lt;br&gt;Viewable in dashboard for compliance.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="80" y="645" width="300" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="benefit5" value="&lt;b&gt;🛡 OIDC Authentication&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Third parties use their own identity provider.&lt;br&gt;No shared secrets between parties.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="430" y="645" width="300" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="benefit6" value="&lt;b&gt;🛡 JWT Signature Verification&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Token Service validates all incoming tokens.&lt;br&gt;Fetches JWKS from OIDC provider.&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="800" y="645" width="300" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- Footer -->
+        <mxCell id="footer" value="Runner Token Service • JIT Provisioning Flow" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="450" y="710" width="300" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="footer-link" value="&lt;a href=&quot;https://github.com/afrittoli/gha-runner-token-service/blob/main/docs/design/jit_provisioning.md&quot;&gt;JIT API Documentation&lt;/a&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#4A90D9;" vertex="1" parent="1">
+          <mxGeometry x="450" y="725" width="300" height="20" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
