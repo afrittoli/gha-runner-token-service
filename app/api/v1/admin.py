@@ -1,4 +1,4 @@
-"""Admin API endpoints for label policy management."""
+"""Admin API endpoints for label policy and user management."""
 
 import json
 from typing import Optional
@@ -16,9 +16,14 @@ from app.schemas import (
     LabelPolicyResponse,
     SecurityEventListResponse,
     SecurityEventResponse,
+    UserCreate,
+    UserListResponse,
+    UserResponse,
+    UserUpdate,
 )
 from app.services.label_policy_service import LabelPolicyService
 from app.services.sync_service import SyncService
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -30,8 +35,10 @@ def require_admin(
     """
     Require admin privileges.
 
-    Checks if the user's identity is in the ADMIN_IDENTITIES environment variable.
-    If ADMIN_IDENTITIES is empty, all authenticated users have admin access (dev mode).
+    Checks admin status in the following order:
+    1. If user has is_admin=True in the User table, grant access
+    2. If no users exist in database (bootstrap mode), check ADMIN_IDENTITIES env var
+    3. Otherwise, deny access
 
     Args:
         user: Authenticated user
@@ -43,19 +50,25 @@ def require_admin(
     Raises:
         HTTPException: If user is not admin
     """
-    admin_list = [
-        identity.strip()
-        for identity in settings.admin_identities.split(",")
-        if identity.strip()
-    ]
-
-    # If no admin list configured, allow all authenticated users (dev mode)
-    if not admin_list:
+    # Check database-backed admin status
+    if user.is_admin:
         return user
 
-    # Check if user identity or sub is in admin list
-    if user.identity in admin_list or (user.sub and user.sub in admin_list):
-        return user
+    # Bootstrap mode: if no db_user (no users in database), fall back to env var
+    if user.db_user is None:
+        admin_list = [
+            identity.strip()
+            for identity in settings.admin_identities.split(",")
+            if identity.strip()
+        ]
+
+        # If no admin list configured, allow all authenticated users (dev mode)
+        if not admin_list:
+            return user
+
+        # Check if user identity or sub is in admin list
+        if user.identity in admin_list or (user.sub and user.sub in admin_list):
+            return user
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -382,3 +395,330 @@ async def trigger_sync(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Sync failed: {str(e)}",
         )
+
+
+# User Management Endpoints
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user_data: UserCreate,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new user.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Add a user to the authorization table. Users must exist in this table
+    to access the API (explicit allowlist approach).
+
+    **Required Fields:**
+    At least one of `email` or `oidc_sub` must be provided.
+
+    **Returns:**
+    Created user
+
+    **Example:**
+    ```json
+    {
+      "email": "alice@example.com",
+      "display_name": "Alice Smith",
+      "is_admin": false,
+      "can_use_registration_token": true,
+      "can_use_jit": true
+    }
+    ```
+    """
+    service = UserService(db)
+
+    # Check for existing user with same email or oidc_sub
+    if user_data.email:
+        existing = service.get_user_by_email(user_data.email)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with email '{user_data.email}' already exists",
+            )
+    if user_data.oidc_sub:
+        existing = service.get_user_by_oidc_sub(user_data.oidc_sub)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with oidc_sub '{user_data.oidc_sub}' already exists",
+            )
+
+    try:
+        db_user = service.create_user(
+            email=user_data.email,
+            oidc_sub=user_data.oidc_sub,
+            display_name=user_data.display_name,
+            is_admin=user_data.is_admin,
+            can_use_registration_token=user_data.can_use_registration_token,
+            can_use_jit=user_data.can_use_jit,
+            created_by=admin.identity,
+        )
+
+        return UserResponse(
+            id=db_user.id,
+            email=db_user.email,
+            oidc_sub=db_user.oidc_sub,
+            display_name=db_user.display_name,
+            is_admin=db_user.is_admin,
+            is_active=db_user.is_active,
+            can_use_registration_token=db_user.can_use_registration_token,
+            can_use_jit=db_user.can_use_jit,
+            created_at=db_user.created_at,
+            updated_at=db_user.updated_at,
+            last_login_at=db_user.last_login_at,
+            created_by=db_user.created_by,
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/users", response_model=UserListResponse)
+async def list_users(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    include_inactive: bool = Query(default=False),
+    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """
+    List all users.
+
+    **Required Authentication:** Admin privileges
+
+    **Query Parameters:**
+    - **limit**: Maximum number of users to return (1-1000)
+    - **offset**: Offset for pagination
+    - **include_inactive**: Include deactivated users (default: false)
+
+    **Returns:**
+    Paginated list of users
+    """
+    service = UserService(db)
+    users = service.list_users(
+        limit=limit, offset=offset, include_inactive=include_inactive
+    )
+
+    user_responses = [
+        UserResponse(
+            id=user.id,
+            email=user.email,
+            oidc_sub=user.oidc_sub,
+            display_name=user.display_name,
+            is_admin=user.is_admin,
+            is_active=user.is_active,
+            can_use_registration_token=user.can_use_registration_token,
+            can_use_jit=user.can_use_jit,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            last_login_at=user.last_login_at,
+            created_by=user.created_by,
+        )
+        for user in users
+    ]
+
+    total = service.count_users(include_inactive=include_inactive)
+
+    return UserListResponse(users=user_responses, total=total)
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: str,
+    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """
+    Get a specific user by ID.
+
+    **Required Authentication:** Admin privileges
+
+    **Parameters:**
+    - **user_id**: User UUID
+
+    **Returns:**
+    User information
+
+    **Raises:**
+    - 404: User not found
+    """
+    service = UserService(db)
+    user = service.get_user_by_id(user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found: {user_id}",
+        )
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        oidc_sub=user.oidc_sub,
+        display_name=user.display_name,
+        is_admin=user.is_admin,
+        is_active=user.is_active,
+        can_use_registration_token=user.can_use_registration_token,
+        can_use_jit=user.can_use_jit,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        last_login_at=user.last_login_at,
+        created_by=user.created_by,
+    )
+
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: str,
+    user_data: UserUpdate,
+    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """
+    Update a user.
+
+    **Required Authentication:** Admin privileges
+
+    **Parameters:**
+    - **user_id**: User UUID
+
+    **Request Body:**
+    Only include fields to update. All fields are optional.
+
+    **Returns:**
+    Updated user
+
+    **Raises:**
+    - 404: User not found
+
+    **Example:**
+    ```json
+    {
+      "is_admin": true,
+      "can_use_jit": false
+    }
+    ```
+    """
+    service = UserService(db)
+
+    # Build updates dict from non-None fields
+    updates = {k: v for k, v in user_data.model_dump().items() if v is not None}
+
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields to update",
+        )
+
+    user = service.update_user(user_id, **updates)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found: {user_id}",
+        )
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        oidc_sub=user.oidc_sub,
+        display_name=user.display_name,
+        is_admin=user.is_admin,
+        is_active=user.is_active,
+        can_use_registration_token=user.can_use_registration_token,
+        can_use_jit=user.can_use_jit,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        last_login_at=user.last_login_at,
+        created_by=user.created_by,
+    )
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: str,
+    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """
+    Deactivate a user (soft delete).
+
+    **Required Authentication:** Admin privileges
+
+    **Parameters:**
+    - **user_id**: User UUID
+
+    **Returns:**
+    204 No Content on success
+
+    **Raises:**
+    - 404: User not found
+
+    **Note:**
+    This performs a soft delete by setting `is_active=False`.
+    The user can be reactivated using the `/users/{user_id}/activate` endpoint.
+    """
+    service = UserService(db)
+    deactivated = service.deactivate_user(user_id)
+
+    if not deactivated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found: {user_id}",
+        )
+
+
+@router.post("/users/{user_id}/activate", response_model=UserResponse)
+async def activate_user(
+    user_id: str,
+    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """
+    Reactivate a deactivated user.
+
+    **Required Authentication:** Admin privileges
+
+    **Parameters:**
+    - **user_id**: User UUID
+
+    **Returns:**
+    Activated user
+
+    **Raises:**
+    - 404: User not found
+    """
+    service = UserService(db)
+    activated = service.activate_user(user_id)
+
+    if not activated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found: {user_id}",
+        )
+
+    user = service.get_user_by_id(user_id)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        oidc_sub=user.oidc_sub,
+        display_name=user.display_name,
+        is_admin=user.is_admin,
+        is_active=user.is_active,
+        can_use_registration_token=user.can_use_registration_token,
+        can_use_jit=user.can_use_jit,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        last_login_at=user.last_login_at,
+        created_by=user.created_by,
+    )
