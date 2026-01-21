@@ -221,7 +221,7 @@ async def get_runner(
     if not runner:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=(f"Runner with ID '{runner_id}' " "not found or not owned by you"),
+            detail=(f"Runner with ID '{runner_id}' not found or not owned by you"),
         )
 
     # Fetch audit trail - recent security events for this runner
