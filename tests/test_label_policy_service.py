@@ -159,6 +159,69 @@ class TestRunnerQuota:
             service.check_runner_quota("user@example.com", 10)
 
 
+class TestSystemLabelDetection:
+    """Tests for system label detection."""
+
+    def test_is_user_label_detects_all_system_labels(self, test_db: Session):
+        """Test that all system label prefixes are correctly detected."""
+        service = LabelPolicyService(test_db)
+
+        system_labels = [
+            "self-hosted",
+            "linux",
+            "macos",
+            "windows",
+            "x64",
+            "arm64",
+            # Case variations should also be detected
+            "Self-Hosted",
+            "LINUX",
+            "MacOS",
+            "Windows",
+            "X64",
+            "ARM64",
+        ]
+
+        for label in system_labels:
+            assert (
+                service._is_user_label(label) is False
+            ), f"Label '{label}' should be detected as system label"
+
+    def test_is_user_label_allows_custom_labels(self, test_db: Session):
+        """Test that custom labels are not mistaken for system labels."""
+        service = LabelPolicyService(test_db)
+
+        user_labels = [
+            "team-a",
+            "gpu",
+            "custom-runner",
+            "my-linux-app",  # Contains 'linux' but doesn't start with it
+            "production",
+        ]
+
+        for label in user_labels:
+            assert (
+                service._is_user_label(label) is True
+            ), f"Label '{label}' should be detected as user label"
+
+    def test_validate_labels_ignores_system_labels(self, test_db: Session):
+        """Test that system labels are not subject to policy validation."""
+        policy = LabelPolicy(
+            user_identity="user@example.com",
+            allowed_labels=json.dumps(["team-a"]),  # Only team-a allowed
+        )
+        test_db.add(policy)
+        test_db.commit()
+
+        service = LabelPolicyService(test_db)
+
+        # Should pass because system labels are ignored even though only team-a is allowed
+        service.validate_labels(
+            "user@example.com",
+            ["self-hosted", "linux", "x64", "team-a"],  # System labels + team-a
+        )
+
+
 class TestLabelVerification:
     """Tests for post-registration label verification."""
 
