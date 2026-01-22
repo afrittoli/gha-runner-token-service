@@ -48,11 +48,12 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - *Files:* app/config.py
   - ✅ **COMPLETED**: Feature flag added and integrated into main.py CORS logic
 
-- [ ] **P1, backend, feature** - Add dashboard route conditional logic
+- [x] **P1, backend, feature** - Add dashboard route conditional logic
   - Route `/dashboard` to Jinja2 template (always available)
   - When `ENABLE_NEW_DASHBOARD=true`: Serve React SPA at `/app` path
   - When feature flag is true: Optionally move existing to `/dashboard-legacy`
   - *Files:* app/main.py
+  - ✅ **COMPLETED**: Conditional routing added, `/dashboard-legacy` always available, `/dashboard` redirects to `/app` when flag is true, SPA catch-all route for client-side routing
 
 - [x] **P1, backend, feature** - Configure CORS for React SPA
   - Allow `localhost:5173` (Vite dev server) in development
@@ -103,15 +104,16 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - *Tests:* Verify all fields returned correctly
   - ✅ **COMPLETED**: GET /api/v1/runners/{runner_id} now returns RunnerDetailResponse with 20-event audit trail from SecurityEvent table
 
-- [ ] **P1, backend, security** - Enforce RBAC on all endpoints
+- [x] **P1, backend, security** - Enforce RBAC on all endpoints
   - Admin endpoints (/api/v1/admin/*) return 403 for non-admin users
   - Standard users can only view/manage their own runners
   - *Tests:* Test each endpoint with admin and non-admin tokens, verify 403 responses
   - *Critical:* Backend enforcement is non-negotiable
+  - ✅ **COMPLETED**: All admin endpoints require `require_admin` dependency, runner endpoints filter by ownership (provisioned_by/oidc_sub), per-method authorization for JIT/registration token APIs, comprehensive tests in test_rbac_enforcement.py (7 tests)
 
 ### Frontend - Project Setup & Authentication
 
-- [ ] **P1, frontend, feature** - Initialize React + TypeScript + Vite project in separate directory
+- [x] **P1, frontend, feature** - Initialize React + TypeScript + Vite project in separate directory
   - Create `/frontend` directory at repo root (separate from `/app` Python package)
   - Set up project structure: `src/{components,pages,api,hooks,store,utils}`
   - Configure TypeScript strict mode
@@ -120,16 +122,18 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - *Files:* `frontend/package.json`, `frontend/tsconfig.json`, `frontend/vite.config.ts`
   - *Note:* Separate directory prevents conflicts with Python app
   - *Dev:* `npm run dev` runs on localhost:5173, `python -m app` runs on localhost:8000
+  - ✅ **COMPLETED**: Full project structure created with TailwindCSS, React Query, Zustand, react-oidc-context
 
-- [ ] **P1, frontend, feature** - Configure Vite for SPA serving at /app path
+- [x] **P1, frontend, feature** - Configure Vite for SPA serving at /app path
   - Set Vite `base: '/app/'` for production builds
   - Ensure router uses `HashRouter` or configure server-side fallback
   - In development: Vite dev server on :5173
   - In production: Built assets served from `/app` path by FastAPI
   - *Files:* `frontend/vite.config.ts`
   - *Note:* This allows SPA to work both at /app (production) and root (dev testing)
+  - ✅ **COMPLETED**: Vite configured with base='/app/', BrowserRouter with basename='/app', API proxy
 
-- [ ] **P1, frontend, feature** - Implement OIDC authentication flow (separate from existing dashboard)
+- [x] **P1, frontend, feature** - Implement OIDC authentication flow (separate from existing dashboard)
   - Integrate oidc-client-ts library
   - Implement login/logout flow
   - Store access token in memory, refresh token in httpOnly cookie
@@ -137,6 +141,7 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - Handle 401 responses and automatic re-authentication
   - Redirect to OIDC provider with correct redirect URI (`http://localhost:5173/callback` for dev, `/app/callback` for prod)
   - *Tests:* Mock OIDC provider, test token refresh, test 401 handling
+  - ✅ **COMPLETED**: react-oidc-context integrated, Login/LoginCallback pages, axios interceptors for auth
   - *Security:* Use short-lived tokens (15 min), refresh mechanism
   - *Note:* Existing dashboard has no auth; new dashboard requires login
 

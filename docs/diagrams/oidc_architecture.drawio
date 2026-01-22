@@ -1,0 +1,164 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.7.17 Chrome/128.0.6613.36 Electron/32.0.1 Safari/537.36" version="24.7.17">
+  <diagram name="OIDC Architecture" id="oidc-architecture">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="600" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="OIDC Architecture Overview" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#333333;" parent="1" vertex="1">
+          <mxGeometry x="300" y="20" width="400" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- OIDC Provider -->
+        <mxCell id="oidc-provider" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8E3F3;strokeColor=#9B59B6;strokeWidth=2;arcSize=8;" parent="1" vertex="1">
+          <mxGeometry x="350" y="70" width="300" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-title" value="&lt;b&gt;OIDC Provider&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;(Auth0, Okta, Keycloak, etc.)&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="400" y="80" width="200" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-issues" value="&lt;b&gt;Issues JWT Tokens&lt;/b&gt;&lt;br&gt;Signed with private key" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D4A5FF;strokeColor=none;fontSize=10;align=center;fontColor=#333;" parent="1" vertex="1">
+          <mxGeometry x="365" y="120" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-jwks" value="&lt;b&gt;Publishes JWKS&lt;/b&gt;&lt;br&gt;/.well-known/jwks.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D4A5FF;strokeColor=none;fontSize=10;align=center;fontColor=#333;" parent="1" vertex="1">
+          <mxGeometry x="505" y="120" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-config" value="&lt;font style=&quot;font-size:9px&quot;&gt;Issuer URL • Audience • Client ID&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#666;" parent="1" vertex="1">
+          <mxGeometry x="400" y="170" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Backend -->
+        <mxCell id="backend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#50C878;strokeWidth=2;arcSize=8;" parent="1" vertex="1">
+          <mxGeometry x="80" y="280" width="220" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-title" value="&lt;b&gt;Backend (FastAPI)&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#2E8B57;" parent="1" vertex="1">
+          <mxGeometry x="120" y="290" width="140" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-validate" value="&lt;b&gt;Token Validation&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;• Fetches JWKS (cached)&lt;br&gt;• Verifies signature&lt;br&gt;• Checks issuer &amp; audience&lt;br&gt;• Validates expiration&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=none;fontSize=10;align=left;fontColor=#333;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="95" y="320" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-api" value="&lt;font style=&quot;font-size:9px&quot;&gt;Runner API • Admin API&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#666;" parent="1" vertex="1">
+          <mxGeometry x="120" y="405" width="140" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-nosecret" value="&lt;font style=&quot;font-size:8px;color:#2E8B57&quot;&gt;🔒 No client secret needed&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="120" y="430" width="140" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Frontend -->
+        <mxCell id="frontend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#4A90D9;strokeWidth=2;arcSize=8;" parent="1" vertex="1">
+          <mxGeometry x="400" y="280" width="200" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-title" value="&lt;b&gt;Frontend (React)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;SPA Application&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#4A90D9;" parent="1" vertex="1">
+          <mxGeometry x="430" y="285" width="140" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-flow" value="&lt;b&gt;Auth Code + PKCE&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;• Redirects to OIDC provider&lt;br&gt;• Exchanges code for token&lt;br&gt;• Stores token in memory&lt;br&gt;• Includes in API requests&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#90CAF9;strokeColor=none;fontSize=10;align=left;fontColor=#333;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="415" y="320" width="170" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-nosecret" value="&lt;font style=&quot;font-size:8px;color:#4A90D9&quot;&gt;🔒 No client secret (PKCE)&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="430" y="430" width="140" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- CLI/Scripts -->
+        <mxCell id="cli" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9800;strokeWidth=2;arcSize=8;" parent="1" vertex="1">
+          <mxGeometry x="700" y="280" width="200" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="cli-title" value="&lt;b&gt;CLI / Scripts&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Native Application&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#FF9800;" parent="1" vertex="1">
+          <mxGeometry x="740" y="285" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="cli-flow" value="&lt;b&gt;Device Flow&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;• Opens browser with code&lt;br&gt;• User confirms code&lt;br&gt;• Polls for token&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Client Credentials&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;• M2M authentication&lt;br&gt;• No user interaction&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC80;strokeColor=none;fontSize=10;align=left;fontColor=#333;spacingLeft=10;" parent="1" vertex="1">
+          <mxGeometry x="715" y="320" width="170" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="cli-secret" value="&lt;font style=&quot;font-size:8px;color:#FF9800&quot;&gt;🔒 No client secret (device flow)&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="720" y="430" width="160" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows -->
+        <!-- OIDC to Backend (JWKS) -->
+        <mxCell id="arrow-jwks" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=2;dashed=1;dashPattern=5 3;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;curved=1;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="350" y="175" as="sourcePoint" />
+            <mxPoint x="190" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-jwks" value="JWKS" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FFFFFF;rounded=1;strokeColor=#9B59B6;" parent="arrow-jwks" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="-15" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- OIDC to Frontend (tokens) -->
+        <mxCell id="arrow-token-fe" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="500" y="210" as="sourcePoint" />
+            <mxPoint x="500" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-token-fe" value="JWT Token" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FFFFFF;rounded=1;strokeColor=#9B59B6;" parent="arrow-token-fe" vertex="1" connectable="0">
+          <mxGeometry x="0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- OIDC to CLI (tokens) -->
+        <mxCell id="arrow-token-cli" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=2;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;curved=1;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="650" y="175" as="sourcePoint" />
+            <mxPoint x="800" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-token-cli" value="JWT Token" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FFFFFF;rounded=1;strokeColor=#9B59B6;" parent="arrow-token-cli" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Frontend to Backend (API) -->
+        <mxCell id="arrow-api-fe" value="" style="endArrow=classic;html=1;strokeColor=#50C878;strokeWidth=2;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="370" as="sourcePoint" />
+            <mxPoint x="300" y="370" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-api-fe" value="API + Bearer Token" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FFFFFF;rounded=1;strokeColor=#50C878;" parent="arrow-api-fe" vertex="1" connectable="0">
+          <mxGeometry x="0.1" y="-15" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- CLI to Backend (API) -->
+        <mxCell id="arrow-api-cli" value="" style="endArrow=classic;html=1;strokeColor=#50C878;strokeWidth=2;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;curved=1;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="700" y="415" as="sourcePoint" />
+            <mxPoint x="300" y="415" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="500" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-api-cli" value="API + Bearer Token" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fillColor=#FFFFFF;rounded=1;strokeColor=#50C878;" parent="arrow-api-cli" vertex="1" connectable="0">
+          <mxGeometry x="0.1" y="15" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#dddddd;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="40" y="70" width="180" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="40" y="75" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-purple" value="─── Token issuance / JWKS" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="50" y="95" width="160" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-green" value="─── API requests (authenticated)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#50C878;" parent="1" vertex="1">
+          <mxGeometry x="50" y="115" width="160" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-dashed" value="- - - Periodic / cached fetch" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#666;" parent="1" vertex="1">
+          <mxGeometry x="50" y="135" width="160" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

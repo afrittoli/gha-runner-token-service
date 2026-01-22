@@ -470,6 +470,15 @@ class BatchDisableUsersRequest(BatchActionRequest):
     )
 
 
+class BatchRestoreUsersRequest(BatchActionRequest):
+    """Request to restore (reactivate) multiple users."""
+
+    user_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of user IDs to restore. If empty/null, restores all inactive users.",
+    )
+
+
 class BatchDeleteRunnersRequest(BatchActionRequest):
     """Request to delete multiple runners."""
 

@@ -1,0 +1,161 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.7.17 Chrome/128.0.6613.36 Electron/32.0.1 Safari/537.36" version="24.7.17">
+  <diagram name="Dashboard Login Flow" id="oidc-dashboard-flow">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="500" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Dashboard Login Flow (Authorization Code + PKCE)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#333333;" parent="1" vertex="1">
+          <mxGeometry x="300" y="15" width="500" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- User -->
+        <mxCell id="user" value="&lt;b&gt;User&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Browser&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#4A90D9;strokeWidth=2;arcSize=12;fontColor=#333;" parent="1" vertex="1">
+          <mxGeometry x="40" y="100" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- React Frontend -->
+        <mxCell id="frontend" value="&lt;b&gt;React Frontend&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;localhost:5173/app&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#4A90D9;strokeWidth=2;arcSize=12;fontColor=#333;" parent="1" vertex="1">
+          <mxGeometry x="220" y="100" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- OIDC Provider -->
+        <mxCell id="oidc" value="&lt;b&gt;OIDC Provider&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Auth0, Okta, etc.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8E3F3;strokeColor=#9B59B6;strokeWidth=2;arcSize=12;fontColor=#333;" parent="1" vertex="1">
+          <mxGeometry x="480" y="100" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Backend -->
+        <mxCell id="backend" value="&lt;b&gt;Backend (FastAPI)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;localhost:8000&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#50C878;strokeWidth=2;arcSize=12;fontColor=#333;" parent="1" vertex="1">
+          <mxGeometry x="760" y="100" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Step 1 -->
+        <mxCell id="arrow1" value="" style="endArrow=classic;html=1;strokeColor=#4A90D9;strokeWidth=2;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="90" y="170" as="sourcePoint" />
+            <mxPoint x="90" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step1" value="&lt;b&gt;1&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#4A90D9;strokeColor=none;fontColor=#FFFFFF;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="40" y="180" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="step1-box" value="Navigate to /app" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#ddd;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="40" y="210" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Step 2 -->
+        <mxCell id="arrow2" value="" style="endArrow=classic;html=1;strokeColor=#4A90D9;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="140" y="225" as="sourcePoint" />
+            <mxPoint x="220" y="225" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step2" value="&lt;b&gt;2&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#4A90D9;strokeColor=none;fontColor=#FFFFFF;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="170" y="213" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="step2-box" value="Check: not authenticated" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#ddd;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="220" y="210" width="140" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Step 3 -->
+        <mxCell id="arrow3" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=2;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="225" as="sourcePoint" />
+            <mxPoint x="480" y="225" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step3" value="&lt;b&gt;3&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#9B59B6;strokeColor=none;fontColor=#FFFFFF;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="408" y="213" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="step3-label" value="Redirect to /authorize" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="380" y="190" width="110" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="step3-box" value="User authenticates&lt;br&gt;(login form)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8E3F3;strokeColor=#9B59B6;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="480" y="210" width="140" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Step 4 -->
+        <mxCell id="arrow4" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=2;dashed=1;dashPattern=5 3;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="280" as="sourcePoint" />
+            <mxPoint x="360" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step4" value="&lt;b&gt;4&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#9B59B6;strokeColor=none;fontColor=#FFFFFF;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="408" y="268" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="step4-label" value="Redirect to /callback?code=..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#9B59B6;" parent="1" vertex="1">
+          <mxGeometry x="370" y="295" width="140" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="step4-box" value="Exchange code for token&lt;br&gt;(PKCE - no secret)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#ddd;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="220" y="265" width="140" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Step 5 -->
+        <mxCell id="arrow5" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=2;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="282" as="sourcePoint" />
+            <mxPoint x="480" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow5r" value="" style="endArrow=classic;html=1;strokeColor=#9B59B6;strokeWidth=2;dashed=1;dashPattern=5 3;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="340" as="sourcePoint" />
+            <mxPoint x="360" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step5" value="&lt;b&gt;5&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#9B59B6;strokeColor=none;fontColor=#FFFFFF;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="408" y="318" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="step5-label" value="JWT Token" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#9B59B6;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="410" y="348" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="step5-box" value="Store token in memory&lt;br&gt;Redirect to /app" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#ddd;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="220" y="330" width="140" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- Step 6 -->
+        <mxCell id="arrow6" value="" style="endArrow=classic;html=1;strokeColor=#50C878;strokeWidth=2;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="400" as="sourcePoint" />
+            <mxPoint x="760" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step6" value="&lt;b&gt;6&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#50C878;strokeColor=none;fontColor=#FFFFFF;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="548" y="388" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="step6-label" value="API Request + Authorization: Bearer &lt;token&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#50C878;" parent="1" vertex="1">
+          <mxGeometry x="430" y="375" width="230" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="step6-box" value="Validate token&lt;br&gt;(signature, issuer, audience, exp)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#50C878;fontSize=10;align=center;" parent="1" vertex="1">
+          <mxGeometry x="760" y="380" width="140" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Step 7 -->
+        <mxCell id="arrow7" value="" style="endArrow=classic;html=1;strokeColor=#50C878;strokeWidth=2;dashed=1;dashPattern=5 3;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="760" y="450" as="sourcePoint" />
+            <mxPoint x="360" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step7" value="&lt;b&gt;7&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#50C878;strokeColor=none;fontColor=#FFFFFF;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="548" y="438" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="step7-label" value="API Response (JSON)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#50C878;" parent="1" vertex="1">
+          <mxGeometry x="500" y="455" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Notes -->
+        <mxCell id="note-pkce" value="&lt;font style=&quot;font-size:9px&quot;&gt;🔒 &lt;b&gt;PKCE&lt;/b&gt;: Code Verifier + Challenge&lt;br&gt;prevents authorization code interception&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=#FFF9C4;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontColor=#666;spacingLeft=5;spacingRight=5;" parent="1" vertex="1">
+          <mxGeometry x="630" y="260" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note-nosecret" value="&lt;font style=&quot;font-size:9px&quot;&gt;🔒 No client secret needed&lt;br&gt;(safe for browser apps)&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=#FFF9C4;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontColor=#666;spacingLeft=5;spacingRight=5;" parent="1" vertex="1">
+          <mxGeometry x="630" y="310" width="140" height="35" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

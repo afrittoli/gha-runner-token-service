@@ -215,6 +215,15 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Drawio Backups
+.$*.bkp
+
+# MacOS
+**/.DS_Store
+
+# Frontend
+**/.env.local
+
 # Other files
 *.db
 runner_service.db.*
