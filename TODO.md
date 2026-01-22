@@ -36,7 +36,7 @@
 - [x] (Claude) Dashboard enhancements: runner filtering, clickable links, tabs for policies/users (189 tests total)
 
 ## Open
-- [ ] P3, docs, read from docs/DEMO.md, check its feasibility, identify missing features and complement with commands for the demo
+(No open items)
  
 
 ---

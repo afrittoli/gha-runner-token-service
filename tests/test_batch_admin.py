@@ -123,6 +123,154 @@ class TestBatchDisableUsers:
         assert "Audit test: disabling user" in event.violation_data
 
 
+class TestBatchRestoreUsers:
+    """Tests for POST /api/v1/admin/batch/restore-users endpoint."""
+
+    def test_batch_restore_users_requires_comment(self, client, admin_auth_override):
+        """Test that batch restore requires a comment."""
+        response = client.post(
+            "/api/v1/admin/batch/restore-users",
+            json={},  # Missing required comment
+        )
+        assert response.status_code == 422
+
+    def test_batch_restore_users_comment_min_length(self, client, admin_auth_override):
+        """Test that comment must be at least 10 characters."""
+        response = client.post(
+            "/api/v1/admin/batch/restore-users",
+            json={"comment": "short"},
+        )
+        assert response.status_code == 422
+
+    def test_batch_restore_specific_users(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test restoring specific users by ID."""
+        service = UserService(test_db)
+
+        # Create and disable test users
+        user1 = service.create_user(email="restore1@example.com")
+        user2 = service.create_user(email="restore2@example.com")
+        user3 = service.create_user(email="restore3@example.com")
+        service.deactivate_user(user1.id)
+        service.deactivate_user(user2.id)
+        service.deactivate_user(user3.id)
+
+        response = client.post(
+            "/api/v1/admin/batch/restore-users",
+            json={
+                "comment": "Incident resolved: restoring test accounts",
+                "user_ids": [user1.id, user2.id],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["action"] == "restore_users"
+        assert data["affected_count"] == 2
+        assert data["comment"] == "Incident resolved: restoring test accounts"
+
+        # Verify users are restored
+        test_db.refresh(user1)
+        test_db.refresh(user2)
+        test_db.refresh(user3)
+        assert user1.is_active is True
+        assert user2.is_active is True
+        assert user3.is_active is False  # Not in the list
+
+    def test_batch_restore_all_inactive_users(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test restoring all inactive users when no user_ids provided."""
+        service = UserService(test_db)
+
+        # Create and disable test users
+        user1 = service.create_user(email="restoreall1@example.com")
+        user2 = service.create_user(email="restoreall2@example.com")
+        user3 = service.create_user(email="restoreall3@example.com")
+        service.deactivate_user(user1.id)
+        service.deactivate_user(user2.id)
+        # user3 stays active
+
+        response = client.post(
+            "/api/v1/admin/batch/restore-users",
+            json={
+                "comment": "Maintenance complete: restoring all users",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["affected_count"] == 2  # Only the inactive users
+
+        # Verify users are restored
+        test_db.refresh(user1)
+        test_db.refresh(user2)
+        test_db.refresh(user3)
+        assert user1.is_active is True
+        assert user2.is_active is True
+        assert user3.is_active is True
+
+    def test_batch_restore_creates_audit_event(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test that batch restore creates a security event."""
+        service = UserService(test_db)
+        user = service.create_user(email="restoreaudit@example.com")
+        service.deactivate_user(user.id)
+
+        # Count existing security events
+        initial_count = test_db.query(SecurityEvent).count()
+
+        response = client.post(
+            "/api/v1/admin/batch/restore-users",
+            json={
+                "comment": "Audit test: restoring user",
+                "user_ids": [user.id],
+            },
+        )
+
+        assert response.status_code == 200
+
+        # Verify security event was created
+        final_count = test_db.query(SecurityEvent).count()
+        assert final_count == initial_count + 1
+
+        # Check event details
+        event = (
+            test_db.query(SecurityEvent)
+            .filter(SecurityEvent.event_type == "batch_restore_users")
+            .order_by(SecurityEvent.timestamp.desc())
+            .first()
+        )
+        assert event is not None
+        assert "Audit test: restoring user" in event.violation_data
+
+    def test_batch_restore_skips_already_active(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test that batch restore skips users that are already active."""
+        service = UserService(test_db)
+
+        # Create active user
+        user = service.create_user(email="alreadyactive@example.com")
+        # User is already active by default
+
+        response = client.post(
+            "/api/v1/admin/batch/restore-users",
+            json={
+                "comment": "Testing: should skip already active user",
+                "user_ids": [user.id],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["affected_count"] == 0  # User was already active
+
+
 class TestBatchDeleteRunners:
     """Tests for POST /api/v1/admin/batch/delete-runners endpoint."""
 
