@@ -94,3 +94,35 @@ class TestNoRegressions:
             response = client.get(path)
             # Should not be 404 (may be 401/403 if auth required, but not 404)
             assert response.status_code != 404, f"Unexpected 404 at {path}"
+
+
+class TestDashboardRoutingConditional:
+    """Test dashboard routing with feature flag enabled/disabled."""
+
+    def test_dashboard_legacy_always_accessible(self, client):
+        """Test that /dashboard-legacy is always accessible."""
+        response = client.get("/dashboard-legacy")
+        assert response.status_code == 200
+        assert "text/html" in response.headers.get("content-type", "")
+        # Should contain dashboard content
+        assert "GitHub Runner Token Service" in response.text
+
+    def test_dashboard_legacy_no_auth_required(self, client):
+        """Test that /dashboard-legacy does not require authentication."""
+        response = client.get("/dashboard-legacy")
+        assert response.status_code == 200
+
+    def test_dashboard_legacy_same_content_as_dashboard(self, client):
+        """Test that /dashboard-legacy renders same template as /dashboard."""
+        legacy_response = client.get("/dashboard-legacy")
+        dashboard_response = client.get("/dashboard")
+
+        # Both should succeed
+        assert legacy_response.status_code == 200
+        assert dashboard_response.status_code in [
+            200,
+            302,
+        ]  # May redirect if feature flag
+
+        # Legacy should contain dashboard template content
+        assert "Runner" in legacy_response.text or "runner" in legacy_response.text

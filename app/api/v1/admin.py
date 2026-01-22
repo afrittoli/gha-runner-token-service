@@ -15,6 +15,7 @@ from app.schemas import (
     BatchActionResponse,
     BatchDeleteRunnersRequest,
     BatchDisableUsersRequest,
+    BatchRestoreUsersRequest,
     LabelPolicyCreate,
     LabelPolicyListResponse,
     LabelPolicyResponse,
@@ -830,6 +831,101 @@ async def batch_disable_users(
     return BatchActionResponse(
         success=len(failed) == 0,
         action="disable_users",
+        affected_count=len(affected),
+        failed_count=len(failed),
+        comment=request.comment,
+        details=affected + failed if affected or failed else None,
+    )
+
+
+@router.post("/batch/restore-users", response_model=BatchActionResponse)
+async def batch_restore_users(
+    request: BatchRestoreUsersRequest,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Restore (reactivate) multiple users in a single operation.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Quickly restore access for multiple users after a security incident has been
+    resolved or for organizational changes.
+
+    **Request Body:**
+    - **comment**: Required audit trail comment (10-500 chars)
+    - **user_ids**: Optional list of user IDs. If null/empty, restores all inactive users.
+
+    **Returns:**
+    Batch operation result with affected count and details
+
+    **Example:**
+    ```json
+    {
+      "comment": "Security incident resolved: restoring access for all affected users",
+      "user_ids": null
+    }
+    ```
+    """
+    service = UserService(db)
+    label_policy_service = LabelPolicyService(db)
+
+    # Determine which users to restore
+    if request.user_ids:
+        # Specific users
+        users_to_restore = [service.get_user_by_id(uid) for uid in request.user_ids]
+        users_to_restore = [
+            u for u in users_to_restore if u is not None and not u.is_active
+        ]
+    else:
+        # All inactive users
+        users_to_restore = service.list_users(include_inactive=True)
+        users_to_restore = [u for u in users_to_restore if not u.is_active]
+
+    affected = []
+    failed = []
+
+    for user in users_to_restore:
+        try:
+            service.activate_user(user.id)
+            affected.append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "status": "restored",
+                }
+            )
+        except Exception as e:
+            failed.append(
+                {
+                    "user_id": user.id,
+                    "email": user.email,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
+    # Log security event for audit trail
+    label_policy_service.log_security_event(
+        event_type="batch_restore_users",
+        severity="medium",
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        runner_id=None,
+        runner_name=None,
+        violation_data={
+            "comment": request.comment,
+            "affected_count": len(affected),
+            "failed_count": len(failed),
+            "user_ids": [u["user_id"] for u in affected],
+        },
+        action_taken=f"restored {len(affected)} users",
+    )
+
+    return BatchActionResponse(
+        success=len(failed) == 0,
+        action="restore_users",
         affected_count=len(affected),
         failed_count=len(failed),
         comment=request.comment,
