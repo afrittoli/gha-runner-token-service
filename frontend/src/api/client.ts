@@ -81,6 +81,7 @@ export interface Runner {
   updated_at: string
   registered_at: string | null
   deleted_at: string | null
+  audit_trail?: SecurityEvent[]
 }
 
 export interface RunnerListResponse {

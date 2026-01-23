@@ -24,6 +24,8 @@ from app.services.label_policy_service import LabelPolicyService, LabelPolicyVio
 
 logger = structlog.get_logger()
 
+SYSTEM_LABELS = ["self-hosted"]
+
 
 class RunnerService:
     """Service for runner provisioning and management."""
@@ -80,6 +82,7 @@ class RunnerService:
             ValueError: If runner name already active or quota exceeded
             LabelPolicyViolation: If labels violate policy
         """
+        provision_labels = request.labels + SYSTEM_LABELS
         # Determine runner name
         if request.runner_name_prefix:
             # Generate unique name from prefix
@@ -194,7 +197,7 @@ class RunnerService:
         runner = Runner(
             runner_name=runner_name,
             runner_group_id=runner_group_id,
-            labels=json.dumps(request.labels),
+            labels=json.dumps(provision_labels),
             ephemeral=request.ephemeral,
             disable_update=request.disable_update,
             provisioned_by=user.identity,
@@ -218,7 +221,7 @@ class RunnerService:
             success=True,
             event_data={
                 "runner_group_id": runner_group_id,
-                "labels": request.labels,
+                "labels": provision_labels,
                 "ephemeral": request.ephemeral,
             },
         )
@@ -227,7 +230,7 @@ class RunnerService:
         asyncio.create_task(
             self._verify_labels_after_registration(
                 runner_id=runner.id,
-                expected_labels=request.labels,
+                expected_labels=provision_labels,
                 user_identity=user.identity,
                 oidc_sub=user.sub,
                 delay=60,
@@ -235,7 +238,7 @@ class RunnerService:
         )
 
         # Build configuration command
-        labels_str = ",".join(request.labels)
+        labels_str = ",".join(provision_labels)
         config_cmd = (
             f"./config.sh "
             f"--url {runner.github_url} "
@@ -258,7 +261,7 @@ class RunnerService:
             github_url=runner.github_url,
             runner_group_id=runner_group_id,
             ephemeral=request.ephemeral,
-            labels=request.labels,
+            labels=provision_labels,
             configuration_command=config_cmd,
         )
 
@@ -284,6 +287,7 @@ class RunnerService:
             ValueError: If runner name already active or quota exceeded
             LabelPolicyViolation: If labels violate policy
         """
+        provision_label = list(set(request.labels + SYSTEM_LABELS))
         # Determine runner name
         if request.runner_name_prefix:
             runner_name = self._generate_unique_runner_name(request.runner_name_prefix)
@@ -384,7 +388,7 @@ class RunnerService:
             jit_response = await self.github.generate_jit_config(
                 name=runner_name,
                 runner_group_id=runner_group_id,
-                labels=request.labels,
+                labels=provision_label,
                 work_folder=request.work_folder,
             )
         except httpx.HTTPStatusError as e:
@@ -415,27 +419,19 @@ class RunnerService:
             )
             raise
 
-        # Ensure self-hosted label is always included
-        # GitHub's JIT API returns labels, but system labels (self-hosted, os, arch)
-        # may not be present until the runner actually starts and reports its platform.
-        # 'self-hosted' should always be present for self-hosted runners.
-        final_labels = list(jit_response.labels or request.labels)
-        if "self-hosted" not in final_labels:
-            final_labels.insert(0, "self-hosted")
-
         # Create runner record
         # Note: JIT runners are always ephemeral
         runner = Runner(
             runner_name=runner_name,
             runner_group_id=runner_group_id,
-            labels=json.dumps(final_labels),
+            labels=json.dumps(provision_label),
             ephemeral=True,  # JIT enforces ephemeral
             disable_update=False,
             provisioned_by=user.identity,
             oidc_sub=user.sub,
             status="pending",
             provisioning_method="jit",
-            provisioned_labels=json.dumps(final_labels),
+            provisioned_labels=json.dumps(provision_label),
             github_runner_id=jit_response.runner_id,  # Set immediately for JIT
             github_url=f"https://github.com/{self.settings.github_org}",
         )
@@ -453,7 +449,7 @@ class RunnerService:
             success=True,
             event_data={
                 "runner_group_id": runner_group_id,
-                "labels": final_labels,
+                "labels": provision_label,
                 "github_runner_id": jit_response.runner_id,
                 "provisioning_method": "jit",
             },
@@ -469,7 +465,7 @@ class RunnerService:
             runner_id=runner.id,
             runner_name=runner.runner_name,
             encoded_jit_config=jit_response.encoded_jit_config,
-            labels=final_labels,
+            labels=provision_label,
             expires_at=expires_at,
             run_command=run_cmd,
         )
