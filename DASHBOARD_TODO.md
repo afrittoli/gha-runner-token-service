@@ -145,30 +145,34 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - *Security:* Use short-lived tokens (15 min), refresh mechanism
   - *Note:* Existing dashboard has no auth; new dashboard requires login
 
-- [ ] **P1, frontend, feature** - Create authentication guard / ProtectedRoute component
+- [x] **P1, frontend, feature** - Create authentication guard / ProtectedRoute component
   - Redirect to login if not authenticated
   - Redirect to login if session expired
   - Load user role/permissions from /api/v1/auth/me
   - Show role badge in UI
   - *Tests:* Test redirect behavior, test permission loading
+  - ✅ **COMPLETED**: ProtectedRoute component implemented, user info fetched from /api/v1/auth/me, role badge added to MainLayout
 
-- [ ] **P1, frontend, feature** - Set up API client with Axios
+- [x] **P1, frontend, feature** - Set up API client with Axios
   - Create API client with Bearer token interceptor
   - Configure base URL and timeout
   - Add error handling and logging
   - Create request/response type definitions
   - *Files:* api/client.ts, api/types.ts
+  - ✅ **COMPLETED**: Axios client configured with interceptors for auth and error handling
 
-- [ ] **P1, frontend, feature** - Set up React Query for server state management
+- [x] **P1, frontend, feature** - Set up React Query for server state management
   - Configure QueryClient with appropriate defaults
   - Set up stale time, cache time, retry logic
   - Create custom hooks for API queries (useRunners, useRunner, useDashboardStats, etc.)
   - *Files:* hooks/useRunners.ts, hooks/useDashboardStats.ts, etc.
+  - ✅ **COMPLETED**: QueryClient configured, useRunners and useDashboardStats hooks implemented and integrated into pages
 
-- [ ] **P1, frontend, feature** - Set up Zustand for client state management
+- [x] **P1, frontend, feature** - Set up Zustand for client state management
   - Create auth store (currentUser, token, refreshToken, isAdmin)
   - Create UI store (theme, sidebarOpen, filters, search, etc.)
   - *Files:* store/authStore.ts, store/uiStore.ts
+  - ✅ **COMPLETED**: authStore implemented for managing user profile and permissions
 
 ### Frontend - Layout & Navigation
 

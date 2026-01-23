@@ -3,17 +3,20 @@
 import asyncio
 import json
 from datetime import datetime, timezone
+import logging
 from pathlib import Path
 from typing import Optional
+import sys
 
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 import structlog
+from structlog.stdlib import LoggerFactory, ProcessorFormatter
 
 from app import __version__
 from app.api.v1 import admin
@@ -26,28 +29,68 @@ from app.models import Runner, SecurityEvent
 from app.schemas import ErrorResponse, HealthResponse
 from app.services.sync_service import SyncService
 
-# Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
-
-logger = structlog.get_logger()
+current_file_path = Path(__file__).parent.resolve()
+favicon_path = current_file_path / "favicon.ico"
 
 # Get settings
 settings = get_settings()
+
+
+def setup_logging():
+    # 1. Main shared processors (everything before the final renderer)
+    shared_processors = [
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+    ]
+
+    file_processors = [structlog.processors.TimeStamper(fmt="iso"), *shared_processors]
+
+    console_processors = [structlog.stdlib.filter_by_level, *shared_processors]
+
+    # 2. Structlog configuration
+    structlog.configure(
+        processors=console_processors
+        + [
+            # This prepares the event for the standard library's ProcessorFormatter
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    # 3. Setup Standard Library Handlers
+    # Console Handler (Pretty Output)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(
+        ProcessorFormatter(
+            processor=structlog.dev.ConsoleRenderer(),
+            foreign_pre_chain=shared_processors,
+        )
+    )
+
+    # File Handler (JSON Output)
+    file_handler = logging.FileHandler("app.log")
+    file_handler.setFormatter(
+        ProcessorFormatter(
+            processor=structlog.processors.JSONRenderer(),
+            foreign_pre_chain=file_processors,
+        )
+    )
+
+    # 4. Attach to Root Logger
+    root_logger = logging.getLogger()
+    root_logger.handlers = [console_handler, file_handler]
+    root_logger.setLevel(logging.INFO)
+
+
+setup_logging()
+logger = structlog.get_logger()
+
 
 # Global sync task reference
 _sync_task: Optional[asyncio.Task] = None
@@ -146,25 +189,30 @@ app.add_middleware(
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
-# Request logging middleware
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all requests."""
+async def log_requests_incoming(request: Request, call_next):
+    sensitive = {"authorization", "cookie", "proxy-authorization"}
+    safe_headers = {
+        k: ("*****" if k.lower() in sensitive else v)
+        for k, v in request.headers.items()
+    }
+
     log = logger.bind(
         method=request.method,
         path=request.url.path,
         client=request.client.host if request.client else None,
+        headers=safe_headers,
     )
 
-    log.info("request_started")
+    log.info("HTTP Request (incoming)")
 
     try:
         response = await call_next(request)
-        log = log.bind(status_code=response.status_code)
-        log.info("request_completed")
         return response
+
     except Exception as e:
-        log.exception("request_failed", error=str(e))
+        # Log the failure if the app crashes
+        log.exception("HTTP Request failed", error=str(e))
         raise
 
 
@@ -330,6 +378,11 @@ async def dashboard_legacy(request: Request, db: Session = Depends(get_db)):
     return await _render_jinja2_dashboard(request, db)
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(favicon_path)
+
+
 app.include_router(runners.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
@@ -416,6 +469,7 @@ if __name__ == "__main__":
         "port": settings.service_port,
         "reload": True,
         "log_level": settings.log_level.lower(),
+        "access_log": False,
     }
 
     # Add HTTPS configuration if enabled

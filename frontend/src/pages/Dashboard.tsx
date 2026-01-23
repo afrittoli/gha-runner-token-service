@@ -1,29 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { apiClient } from '@api/client'
-
-interface DashboardStats {
-  total_runners: number
-  active_runners: number
-  offline_runners: number
-  pending_runners: number
-  recent_events: Array<{
-    id: string
-    event_type: string
-    severity: string
-    user_identity: string
-    timestamp: string
-  }>
-}
+import { useDashboardStats } from '@hooks/useDashboardStats'
 
 export default function Dashboard() {
-  const { data: stats, isLoading, error } = useQuery<DashboardStats>({
-    queryKey: ['dashboard-stats'],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/v1/auth/stats')
-      return response.data
-    },
-  })
+  const { data: stats, isLoading, error } = useDashboardStats()
 
   if (isLoading) {
     return (

@@ -1,41 +1,10 @@
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@api/client'
-
-interface RunnerDetail {
-  runner_id: string
-  runner_name: string
-  status: string
-  github_runner_id: number | null
-  runner_group_id: number
-  labels: string[]
-  ephemeral: boolean
-  provisioned_by: string
-  created_at: string
-  updated_at: string
-  registered_at: string | null
-  deleted_at: string | null
-  audit_trail: Array<{
-    id: string
-    event_type: string
-    severity: string
-    user_identity: string
-    action_taken: string | null
-    timestamp: string
-  }>
-}
+import { useRunner } from '@hooks/useRunners'
 
 export default function RunnerDetail() {
   const { runnerId } = useParams<{ runnerId: string }>()
 
-  const { data: runner, isLoading, error } = useQuery<RunnerDetail>({
-    queryKey: ['runner', runnerId],
-    queryFn: async () => {
-      const response = await apiClient.get(`/api/v1/runners/${runnerId}`)
-      return response.data
-    },
-    enabled: !!runnerId,
-  })
+  const { data: runner, isLoading, error } = useRunner(runnerId)
 
   if (isLoading) {
     return (

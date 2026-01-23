@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from 'react-oidc-context'
+import { useAuthStore } from '@store/authStore'
 
 const navigation = [
   { name: 'Dashboard', href: '/' },
@@ -8,6 +9,7 @@ const navigation = [
 
 export default function MainLayout() {
   const auth = useAuth()
+  const { user } = useAuthStore()
   const location = useLocation()
 
   const handleLogout = () => {
@@ -58,9 +60,18 @@ export default function MainLayout() {
 
             {/* User menu */}
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-300">
-                {auth.user?.profile?.email || auth.user?.profile?.name || 'User'}
-              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-medium">
+                  {user?.display_name || user?.email || auth.user?.profile?.email || auth.user?.profile?.name || 'User'}
+                </span>
+                {user && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${
+                    user.is_admin ? 'bg-red-500/20 text-red-400' : 'bg-gh-blue/20 text-gh-blue'
+                  }`}>
+                    {user.is_admin ? 'Admin' : 'User'}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={handleLogout}
                 className="text-sm text-gray-300 hover:text-white transition-colors"

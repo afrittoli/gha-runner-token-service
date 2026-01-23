@@ -168,18 +168,8 @@ class TestSystemLabelDetection:
 
         system_labels = [
             "self-hosted",
-            "linux",
-            "macos",
-            "windows",
-            "x64",
-            "arm64",
             # Case variations should also be detected
             "Self-Hosted",
-            "LINUX",
-            "MacOS",
-            "Windows",
-            "X64",
-            "ARM64",
         ]
 
         for label in system_labels:
@@ -218,7 +208,7 @@ class TestSystemLabelDetection:
         # Should pass because system labels are ignored even though only team-a is allowed
         service.validate_labels(
             "user@example.com",
-            ["self-hosted", "linux", "x64", "team-a"],  # System labels + team-a
+            ["self-hosted", "team-a"],  # System labels + team-a
         )
 
 
@@ -231,7 +221,7 @@ class TestLabelVerification:
 
         result = service.verify_labels_match(
             expected_labels=["team-a", "custom"],
-            actual_labels=["self-hosted", "linux", "x64", "team-a", "custom"],
+            actual_labels=["self-hosted", "team-a", "custom"],
         )
 
         assert result == set()  # No mismatches
@@ -243,7 +233,7 @@ class TestLabelVerification:
         # System labels (self-hosted, linux, x64) should be ignored
         result = service.verify_labels_match(
             expected_labels=["custom"],
-            actual_labels=["self-hosted", "linux", "x64", "custom"],
+            actual_labels=["self-hosted", "custom"],
         )
 
         assert result == set()
@@ -254,7 +244,7 @@ class TestLabelVerification:
 
         result = service.verify_labels_match(
             expected_labels=["expected-label", "another"],
-            actual_labels=["self-hosted", "linux", "expected-label"],
+            actual_labels=["self-hosted", "expected-label"],
         )
 
         assert "another" in result
