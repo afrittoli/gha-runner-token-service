@@ -5,6 +5,12 @@ import MainLayout from '@components/MainLayout'
 import Dashboard from '@pages/Dashboard'
 import RunnersList from '@pages/RunnersList'
 import RunnerDetail from '@pages/RunnerDetail'
+import ProvisionRunner from '@pages/ProvisionRunner'
+import LabelPolicies from '@pages/admin/LabelPolicies'
+import UserManagement from '@pages/admin/UserManagement'
+import SecurityEvents from '@pages/admin/SecurityEvents'
+import AuditLog from '@pages/admin/AuditLog'
+import AdminConsole from '@pages/admin/AdminConsole'
 import LoginCallback from '@pages/LoginCallback'
 import Login from '@pages/Login'
 import { setAccessToken } from '@api/client'
@@ -94,7 +100,15 @@ function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="runners" element={<RunnersList />} />
+        <Route path="runners/provision" element={<ProvisionRunner />} />
         <Route path="runners/:runnerId" element={<RunnerDetail />} />
+        
+        {/* Admin routes */}
+        <Route path="admin" element={<AdminConsole />} />
+        <Route path="admin/policies" element={<LabelPolicies />} />
+        <Route path="admin/users" element={<UserManagement />} />
+        <Route path="admin/security" element={<SecurityEvents />} />
+        <Route path="admin/audit" element={<AuditLog />} />
       </Route>
 
       {/* Fallback */}

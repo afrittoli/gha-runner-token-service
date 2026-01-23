@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiClient, Runner, RunnerListResponse } from '@api/client'
+import { 
+  apiClient, 
+  Runner, 
+  RunnerListResponse, 
+  ProvisionRunnerResponse, 
+  JitProvisionResponse 
+} from '@api/client'
 
 export interface RunnerFilters {
   status?: string
@@ -35,12 +41,32 @@ export interface ProvisionRunnerRequest {
   ephemeral?: boolean
 }
 
+export interface ProvisionRunnerJitRequest {
+  runner_name_prefix?: string
+  labels?: string[]
+}
+
 export function useProvisionRunner() {
   const queryClient = useQueryClient()
   
-  return useMutation({
+  return useMutation<ProvisionRunnerResponse, Error, ProvisionRunnerRequest>({
     mutationFn: async (data: ProvisionRunnerRequest) => {
       const response = await apiClient.post('/api/v1/runners/provision', data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['runners'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useProvisionRunnerJit() {
+  const queryClient = useQueryClient()
+  
+  return useMutation<JitProvisionResponse, Error, ProvisionRunnerJitRequest>({
+    mutationFn: async (data: ProvisionRunnerJitRequest) => {
+      const response = await apiClient.post('/api/v1/runners/jit', data)
       return response.data
     },
     onSuccess: () => {

@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useDashboardStats } from '@hooks/useDashboardStats'
+import StatusBadge from '@components/StatusBadge'
+import { formatDate } from '@utils/formatters'
 
 export default function Dashboard() {
   const { data: stats, isLoading, error } = useDashboardStats()
@@ -58,9 +60,14 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <Link to="/runners" className="btn btn-primary">
-          View All Runners
-        </Link>
+        <div className="flex space-x-3">
+          <Link to="/runners/provision" className="btn btn-primary">
+            Provision Runner
+          </Link>
+          <Link to="/runners" className="btn btn-secondary">
+            View All Runners
+          </Link>
+        </div>
       </div>
 
       {/* Stats cards */}
@@ -90,24 +97,21 @@ export default function Dashboard() {
             stats.recent_events.slice(0, 10).map((event) => (
               <div key={event.id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <span
-                      className={`status-badge ${
-                        event.severity === 'high'
-                          ? 'bg-red-100 text-red-800'
-                          : event.severity === 'medium'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {event.event_type}
-                    </span>
-                    <span className="ml-2 text-sm text-gray-500">
-                      by {event.user_identity}
-                    </span>
+                  <div className="flex flex-col">
+                    <div className="flex items-center">
+                      <StatusBadge status={event.event_type} />
+                      <span className="ml-2 text-sm text-gray-500">
+                        by {event.user_identity}
+                      </span>
+                    </div>
+                    {event.action_taken && (
+                      <p className="mt-1 text-xs text-gray-600">
+                        {event.action_taken}
+                      </p>
+                    )}
                   </div>
                   <span className="text-sm text-gray-400">
-                    {new Date(event.timestamp).toLocaleString()}
+                    {formatDate(event.timestamp)}
                   </span>
                 </div>
               </div>
