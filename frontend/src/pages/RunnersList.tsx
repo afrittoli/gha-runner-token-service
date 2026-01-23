@@ -1,35 +1,13 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { apiClient } from '@api/client'
-
-interface Runner {
-  runner_id: string
-  runner_name: string
-  status: string
-  labels: string[]
-  ephemeral: boolean
-  provisioned_by: string
-  created_at: string
-}
-
-interface RunnerListResponse {
-  runners: Runner[]
-  total: number
-}
+import { useRunners } from '@hooks/useRunners'
 
 export default function RunnersList() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  const { data, isLoading, error } = useQuery<RunnerListResponse>({
-    queryKey: ['runners', statusFilter],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      if (statusFilter) params.set('status', statusFilter)
-      const response = await apiClient.get(`/api/v1/runners?${params}`)
-      return response.data
-    },
+  const { data, isLoading, error } = useRunners({ 
+    status: statusFilter || undefined 
   })
 
   const filteredRunners = data?.runners.filter((runner) => {

@@ -412,7 +412,7 @@ class TestLabelPolicyEnforcement:
             mock_github_runner.id = 12345
             mock_github_runner.name = "valid-runner"
             mock_github_runner.status = "online"
-            mock_github_runner.labels = ["self-hosted", "linux", "valid-label"]
+            mock_github_runner.labels = ["self-hosted", "valid-label"]
 
             mock_github = AsyncMock()
             mock_github.list_runners = AsyncMock(return_value=[mock_github_runner])

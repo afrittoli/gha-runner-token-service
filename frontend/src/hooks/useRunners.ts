@@ -1,0 +1,81 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiClient, Runner, RunnerListResponse } from '@api/client'
+
+export interface RunnerFilters {
+  status?: string
+  ephemeral?: boolean
+  limit?: number
+  offset?: number
+}
+
+export function useRunners(filters: RunnerFilters = {}) {
+  return useQuery<RunnerListResponse>({
+    queryKey: ['runners', filters],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/v1/runners', { params: filters })
+      return response.data
+    },
+  })
+}
+
+export function useRunner(runnerId: string | undefined) {
+  return useQuery<Runner>({
+    queryKey: ['runner', runnerId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/api/v1/runners/${runnerId}`)
+      return response.data
+    },
+    enabled: !!runnerId,
+  })
+}
+
+export interface ProvisionRunnerRequest {
+  runner_name_prefix?: string
+  labels?: string[]
+  ephemeral?: boolean
+}
+
+export function useProvisionRunner() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (data: ProvisionRunnerRequest) => {
+      const response = await apiClient.post('/api/v1/runners/provision', data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['runners'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useDeprovisionRunner() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (runnerId: string) => {
+      const response = await apiClient.delete(`/api/v1/runners/${runnerId}`)
+      return response.data
+    },
+    onSuccess: (_, runnerId) => {
+      queryClient.invalidateQueries({ queryKey: ['runners'] })
+      queryClient.invalidateQueries({ queryKey: ['runner', runnerId] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useRefreshRunnerStatus() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (runnerId: string) => {
+      const response = await apiClient.post(`/api/v1/runners/${runnerId}/refresh`)
+      return response.data
+    },
+    onSuccess: (_, runnerId) => {
+      queryClient.invalidateQueries({ queryKey: ['runner', runnerId] })
+    },
+  })
+}

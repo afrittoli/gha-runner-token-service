@@ -113,11 +113,6 @@ class LabelPolicyService:
     # excluded from policy validation
     SYSTEM_LABEL_PREFIXES = [
         "self-hosted",
-        "linux",
-        "macos",
-        "windows",
-        "x64",
-        "arm64",
     ]
 
     def _is_user_label(self, label: str) -> bool:

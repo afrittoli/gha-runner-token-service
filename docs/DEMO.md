@@ -9,6 +9,7 @@ Before starting the demo, ensure:
 - You have the [`docs/scripts/get_oidc_token`](./scripts/oidc.sh) function installed and configured
 - Label policies are configured for the users
 - The GitHub organization has self-hosted runners enabled
+- Alias `alias curl="curl -sw '%{stderr}Response: %{http_code}\n'"`
 
 ### Environment Variables
 
@@ -33,7 +34,7 @@ Reset the environment to a known state:
 curl -X POST "$SERVICE_URL/api/v1/admin/batch/delete-runners" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"comment": "Demo preparation: cleaning up all runners"}'
+  -d '{"comment": "Demo preparation: cleaning up all runners"}' | jq .
 
 # Verify no runners exist
 curl -s "$SERVICE_URL/api/v1/runners" \
@@ -80,8 +81,8 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -H "Authorization: Bearer $ALICE_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "runner_name": "alice-runner-1",
-    "labels": ["production", "admin-only"]
+    "runner_name_prefix": "alice-runner",
+    "labels": ["linux", "arm64", "secretsauce"]
   }'
 
 # Expected: 403 Forbidden - labels not permitted by policy
@@ -91,7 +92,7 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
 
 ```bash
 # Check security events for the violation
-curl -s "$SERVICE_URL/api/v1/admin/security-events?limit=5" \
+curl -s "$SERVICE_URL/api/v1/admin/security-events?limit=1" \
   -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.events[] | {event_type, severity, user_identity, action_taken}'
 ```
 
@@ -106,35 +107,32 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -H "Content-Type: application/json" \
   -d '{
     "runner_name_prefix": "alice-demo",
-    "labels": ["linux", "x64", "team-a"]
+    "labels": ["linux", "arm64", "alice"]
   }' | tee /tmp/alice-runner.json | jq
 
 # Save the JIT config for later
 export ALICE_JIT_CONFIG=$(jq -r '.encoded_jit_config' /tmp/alice-runner.json)
 export ALICE_RUNNER_NAME=$(jq -r '.runner_name' /tmp/alice-runner.json)
+export ALICE_LABELS=$(jq -r '.labels' /tmp/alice-runner.json)
+```
+
+### Show JIT Config Content
+
+```bash
+# The JIT config is a base64-encoded JSON structure, runner details, credentials
+
+# Runner:
+echo $ALICE_JIT_CONFIG | base64 -d | jq -r '.[".runner"]' | base64 -D | jq .
+
+# Labels:
+jq -r '.labels' /tmp/alice-runner.json
 ```
 
 ### Explain System Labels
 
 The response shows the full label list including system labels:
 - `self-hosted`: Required for all self-hosted runners
-- `Linux`/`macOS`/`Windows`: OS label (auto-detected or specified)
-- `X64`/`ARM64`: Architecture label
 
-These are automatically added by the service - users cannot bypass them.
-
-### Show JIT Config Content
-
-```bash
-# The JIT config is a base64-encoded JSON structure
-echo $ALICE_JIT_CONFIG | base64 -d | jq
-
-# Contains:
-# - encoded credentials
-# - runner name
-# - labels (enforced by GitHub, cannot be changed)
-# - runner group ID
-```
 
 ### Start the Runner
 
@@ -173,24 +171,6 @@ cd /path/to/actions-runner
 - The runner cannot modify them during startup
 - Any attempt to use different labels will fail
 
-### Alternative: Registration Token Approach
-
-With registration tokens (not recommended), users could theoretically:
-1. Get a registration token
-2. Run `./config.sh` with different labels
-
-The sync service detects this:
-
-```bash
-# Trigger a sync to detect label changes
-curl -X POST "$SERVICE_URL/api/v1/admin/sync/trigger" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
-
-# If label drift detected, runner is deleted and logged
-curl -s "$SERVICE_URL/api/v1/admin/security-events?event_type=label_drift_detected" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.events[0]'
-```
-
 ---
 
 ## Demo Multi-User
@@ -204,7 +184,7 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -H "Content-Type: application/json" \
   -d '{
     "runner_name_prefix": "bob-demo",
-    "labels": ["linux", "x64", "team-b"]
+    "labels": ["linux", "arm64", "bob"]
   }' | tee /tmp/bob-runner.json | jq
 
 export BOB_RUNNER_ID=$(jq -r '.runner_id' /tmp/bob-runner.json)
@@ -298,7 +278,7 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -H "Content-Type: application/json" \
   -d '{
     "runner_name_prefix": "bob-new",
-    "labels": ["linux", "x64", "team-b"]
+    "labels": ["linux", "arm64", "team-b"]
   }' | jq
 ```
 
@@ -382,7 +362,7 @@ curl -X POST "$SERVICE_URL/api/v1/admin/label-policies" \
   -H "Content-Type: application/json" \
   -d '{
     "user_identity": "alice@example.com",
-    "allowed_labels": ["linux", "x64", "team-a", "gpu"],
+    "allowed_labels": ["linux", "arm64", "team-a", "gpu"],
     "max_runners": 10,
     "description": "Team A runners with GPU support"
   }' | jq
