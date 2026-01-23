@@ -443,6 +443,30 @@ class UserListResponse(BaseModel):
     total: int
 
 
+class AuditLogResponse(BaseModel):
+    """Audit log entry information."""
+
+    id: int
+    event_type: str
+    runner_id: Optional[str]
+    runner_name: Optional[str]
+    user_identity: str
+    oidc_sub: Optional[str]
+    request_ip: Optional[str]
+    user_agent: Optional[str]
+    event_data: Optional[dict]
+    success: bool
+    error_message: Optional[str]
+    timestamp: datetime
+
+
+class AuditLogListResponse(BaseModel):
+    """List of audit log entries."""
+
+    logs: List[AuditLogResponse]
+    total: int
+
+
 # Batch Operation Schemas
 
 

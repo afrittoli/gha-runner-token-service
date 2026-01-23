@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { AxiosError } from 'axios'
 import { AuthInfo, apiClient, setAccessToken } from '../api/client'
 
 interface AuthState {
@@ -20,15 +21,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const response = await apiClient.get<AuthInfo>('/api/v1/auth/me')
       set({ user: response.data, isLoading: false })
-    } catch (err: any) {
-      console.error('Failed to fetch user info:', err)
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail?: string }>
+      console.error('Failed to fetch user info:', axiosError)
       set({ 
         user: null, 
         isLoading: false, 
-        error: err.response?.data?.detail || 'Failed to fetch user information' 
+        error: axiosError.response?.data?.detail || 'Failed to fetch user information' 
       })
       // If unauthorized, clear the access token
-      if (err.response?.status === 401) {
+      if (axiosError.response?.status === 401) {
         setAccessToken(null)
       }
     }

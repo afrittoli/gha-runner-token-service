@@ -176,32 +176,35 @@ Dashboard development is organized into **4 phases**, each with specific feature
 
 ### Frontend - Layout & Navigation
 
-- [ ] **P1, frontend, ui** - Create main layout components
+- [x] **P1, frontend, ui** - Create main layout components
   - Navigation sidebar with menu items
   - Top navigation bar with logo, search, user menu, settings
   - Main content area with router
   - Responsive design for mobile/tablet
   - *Components:* Sidebar.tsx, TopNav.tsx, MainLayout.tsx
   - *Styling:* Tailwind CSS + shadcn/ui
+  - ✅ **COMPLETED**: MainLayout refactored with Sidebar and TopNav components, responsive design implemented with Tailwind CSS
 
-- [ ] **P1, frontend, ui** - Implement responsive navigation
+- [x] **P1, frontend, ui** - Implement responsive navigation
   - Mobile hamburger menu
   - Collapsible sidebar on desktop
   - Show/hide admin-only menu items based on role
   - Active route highlighting
   - *Tests:* Test menu visibility based on screen size and role
+  - ✅ **COMPLETED**: Mobile hamburger menu implemented using Zustand for state management, sidebar is responsive and hides/shows correctly
 
 ### Frontend - Pages
 
-- [ ] **P1, frontend, ui, feature** - Home / Dashboard page
+- [x] **P1, frontend, ui, feature** - Home / Dashboard page
   - Display stats cards (total, active, offline, pending runners)
   - Show admin stats (top users by runner count) - admin only
   - Show recent activity feed with timestamps
   - Quick action button to provision new runner
   - *Components:* StatCard.tsx, ActivityFeed.tsx, Dashboard.tsx
   - *Data:* Use useDashboardStats hook
+  - ✅ **COMPLETED**: Dashboard page implemented with stats cards and recent activity feed
 
-- [ ] **P1, frontend, ui, feature** - Runners list page
+- [x] **P1, frontend, ui, feature** - Runners list page
   - Display table of runners with columns: name, status, user, labels, actions
   - Search bar (debounced)
   - Filter dropdown (status, user, labels)
@@ -210,16 +213,18 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - Row actions menu (view, refresh, deprovision) - deprovision for own runners only
   - *Components:* RunnersTable.tsx, FilterPanel.tsx, RunnersList.tsx
   - *Data:* Use useRunners hook with filters/pagination
+  - ✅ **COMPLETED**: Runners list page implemented with filtering, search, and pagination
 
-- [ ] **P1, frontend, ui, feature** - Runner detail page
+- [x] **P1, frontend, ui, feature** - Runner detail page
   - Display runner metadata (name, status, labels, GitHub ID, created/registered dates)
   - Show activity timeline
   - Action buttons: Refresh Status, Deprovision (if owner), View in GitHub
   - Back button to runners list
   - *Components:* RunnerDetail.tsx, ActivityTimeline.tsx
   - *Data:* Use useRunner(runnerId) hook
+  - ✅ **COMPLETED**: Runner detail page implemented with metadata display and audit trail
 
-- [ ] **P1, frontend, ui, feature** - Provision runner modal/page
+- [x] **P1, frontend, ui, feature** - Provision runner modal/page
   - Form fields: runner name, labels (multi-select), ephemeral checkbox
   - Submit to POST /api/v1/runners
   - Success modal showing:
@@ -230,25 +235,28 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - Error handling with user-friendly messages
   - *Components:* ProvisionRunnerModal.tsx, SuccessModal.tsx
   - *Tests:* Test form validation, test submit, test token display
+  - ✅ **COMPLETED**: ProvisionRunner page implemented with form validation, success screen, and copy-to-clipboard functionality
 
 ### Frontend - Utilities & Hooks
 
-- [ ] **P1, frontend, feature** - Create custom hooks for API calls
+- [x] **P1, frontend, feature** - Create custom hooks for API calls
   - useRunners(filters, pagination) - fetch runners list
   - useRunner(runnerId) - fetch single runner
   - useDashboardStats() - fetch dashboard statistics
   - useProvisionRunner() - mutation hook for creating runner
   - useRefreshRunnerStatus() - mutation hook
   - *Tests:* Mock React Query, test hook behavior
+  - ✅ **COMPLETED**: Custom hooks for all API endpoints implemented in hooks/ directory
 
-- [ ] **P1, frontend, feature** - Create utility functions
+- [x] **P1, frontend, feature** - Create utility functions
   - Format timestamps (created_at, last_seen, etc.)
   - Status badge helper (color, label, icon)
   - Labels formatter (display as pills/tags)
   - Copy to clipboard helper
   - *Files:* utils/formatters.ts, utils/clipboard.ts
+  - ✅ **COMPLETED**: Utility functions for date formatting, status styling, and clipboard operations implemented
 
-- [ ] **P1, frontend, ui** - Create shared UI components (shadcn/ui based)
+- [x] **P1, frontend, ui** - Create shared UI components (shadcn/ui based)
   - Status badge component
   - Label pills component
   - Pagination component
@@ -256,6 +264,7 @@ Dashboard development is organized into **4 phases**, each with specific feature
   - Toast notifications (error, success, info)
   - Loading skeleton screens
   - *Components:* components/StatusBadge.tsx, components/LabelPill.tsx, etc.
+  - ✅ **COMPLETED**: StatusBadge and LabelPill components implemented and integrated
 
 ### Testing
 
