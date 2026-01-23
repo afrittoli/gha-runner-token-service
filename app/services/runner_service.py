@@ -474,42 +474,39 @@ class RunnerService:
         self, runner_id: str, user: AuthenticatedUser
     ) -> Optional[Runner]:
         """
-        Get runner by ID (only if owned by user).
+        Get runner by ID.
+
+        For standard users, only returns if owned.
+        For admins, returns any runner.
 
         Args:
             runner_id: Runner UUID
             user: Authenticated user
 
         Returns:
-            Runner if found and owned by user, None otherwise
-
-        Note:
-            Ownership is determined by matching either:
-            - provisioned_by == user.identity (email or preferred_username)
-            - oidc_sub == user.sub (OIDC subject claim)
-            This handles cases where the same user authenticates with tokens
-            that have different claims (e.g., M2M vs user tokens).
+            Runner if found and authorized, None otherwise
         """
         from sqlalchemy import or_
 
-        # Build ownership filter: match by identity OR by OIDC sub
-        ownership_conditions = [Runner.provisioned_by == user.identity]
-        if user.sub:
-            ownership_conditions.append(Runner.oidc_sub == user.sub)
+        query = self.db.query(Runner).filter(Runner.id == runner_id)
 
-        runner = (
-            self.db.query(Runner)
-            .filter(Runner.id == runner_id, or_(*ownership_conditions))
-            .first()
-        )
+        # If not admin, enforce ownership
+        if not user.is_admin:
+            ownership_conditions = [Runner.provisioned_by == user.identity]
+            if user.sub:
+                ownership_conditions.append(Runner.oidc_sub == user.sub)
+            query = query.filter(or_(*ownership_conditions))
 
-        return runner
+        return query.first()
 
     async def get_runner_by_name(
         self, runner_name: str, user: AuthenticatedUser
     ) -> Optional[Runner]:
         """
-        Get runner by name (only if owned by user).
+        Get runner by name.
+
+        For standard users, only returns if owned.
+        For admins, returns any runner.
 
         Note: If multiple runners with the same name exist, returns the most recent non-deleted one.
 
@@ -518,38 +515,30 @@ class RunnerService:
             user: Authenticated user
 
         Returns:
-            Runner if found and owned by user, None otherwise
-
-        Note:
-            Ownership is determined by matching either:
-            - provisioned_by == user.identity (email or preferred_username)
-            - oidc_sub == user.sub (OIDC subject claim)
-            This handles cases where the same user authenticates with tokens
-            that have different claims (e.g., M2M vs user tokens).
+            Runner if found and authorized, None otherwise
         """
         from sqlalchemy import or_
 
-        # Build ownership filter: match by identity OR by OIDC sub
-        ownership_conditions = [Runner.provisioned_by == user.identity]
-        if user.sub:
-            ownership_conditions.append(Runner.oidc_sub == user.sub)
-
-        runner = (
-            self.db.query(Runner)
-            .filter(
-                Runner.runner_name == runner_name,
-                or_(*ownership_conditions),
-                Runner.status != "deleted",
-            )
-            .order_by(Runner.created_at.desc())
-            .first()
+        query = self.db.query(Runner).filter(
+            Runner.runner_name == runner_name,
+            Runner.status != "deleted",
         )
 
-        return runner
+        # If not admin, enforce ownership
+        if not user.is_admin:
+            ownership_conditions = [Runner.provisioned_by == user.identity]
+            if user.sub:
+                ownership_conditions.append(Runner.oidc_sub == user.sub)
+            query = query.filter(or_(*ownership_conditions))
+
+        return query.order_by(Runner.created_at.desc()).first()
 
     async def list_runners(self, user: AuthenticatedUser) -> List[Runner]:
         """
-        List all runners provisioned by user.
+        List all runners.
+
+        For standard users, only returns runners they provisioned.
+        For admins, returns all runners.
 
         Args:
             user: Authenticated user
@@ -561,22 +550,19 @@ class RunnerService:
             Ownership is determined by matching either:
             - provisioned_by == user.identity (email or preferred_username)
             - oidc_sub == user.sub (OIDC subject claim)
-            This handles cases where the same user authenticates with tokens
-            that have different claims (e.g., M2M vs user tokens).
         """
         from sqlalchemy import or_
 
-        # Build ownership filter: match by identity OR by OIDC sub
-        ownership_conditions = [Runner.provisioned_by == user.identity]
-        if user.sub:
-            ownership_conditions.append(Runner.oidc_sub == user.sub)
+        query = self.db.query(Runner).filter(Runner.status != "deleted")
 
-        runners = (
-            self.db.query(Runner)
-            .filter(or_(*ownership_conditions), Runner.status != "deleted")
-            .order_by(Runner.created_at.desc())
-            .all()
-        )
+        # If not admin, enforce ownership
+        if not user.is_admin:
+            ownership_conditions = [Runner.provisioned_by == user.identity]
+            if user.sub:
+                ownership_conditions.append(Runner.oidc_sub == user.sub)
+            query = query.filter(or_(*ownership_conditions))
+
+        runners = query.order_by(Runner.created_at.desc()).all()
 
         return runners
 

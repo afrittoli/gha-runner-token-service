@@ -1054,3 +1054,78 @@ async def batch_delete_runners(
         comment=request.comment,
         details=affected + failed if affected or failed else None,
     )
+
+
+@router.get("/stats")
+async def get_admin_stats(
+    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """
+    Get comprehensive system statistics for the admin console.
+
+    **Required Authentication:** Admin privileges
+    """
+    from app.models import Runner, User, SecurityEvent, AuditLog, LabelPolicy
+
+    return {
+        "runners": {
+            "total": db.query(Runner).filter(Runner.status != "deleted").count(),
+            "active": db.query(Runner).filter(Runner.status == "active").count(),
+            "offline": db.query(Runner).filter(Runner.status == "offline").count(),
+            "pending": db.query(Runner).filter(Runner.status == "pending").count(),
+        },
+        "users": {
+            "total": db.query(User).count(),
+            "active": db.query(User).filter(User.is_active).count(),
+            "admins": db.query(User).filter(User.is_admin).count(),
+        },
+        "policies": {
+            "total": db.query(LabelPolicy).count(),
+        },
+        "security": {
+            "total_events": db.query(SecurityEvent).count(),
+            "critical_events": db.query(SecurityEvent)
+            .filter(SecurityEvent.severity == "critical")
+            .count(),
+            "high_events": db.query(SecurityEvent)
+            .filter(SecurityEvent.severity == "high")
+            .count(),
+        },
+        "audit": {
+            "total_logs": db.query(AuditLog).count(),
+            "failed_operations": db.query(AuditLog)
+            .filter(not AuditLog.success)
+            .count(),
+        },
+    }
+
+
+@router.get("/config")
+async def get_admin_config(
+    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get system configuration (sanitized).
+
+    **Required Authentication:** Admin privileges
+    """
+    # Define sensitive fields to mask
+    sensitive_fields = {
+        "github_token",
+        "app_key",
+        "oidc_client_secret",
+        "database_url",
+        "admin_identities",
+    }
+
+    config = {}
+    for field in settings.model_fields:
+        value = getattr(settings, field)
+        if field in sensitive_fields and value:
+            config[field] = "********"
+        else:
+            config[field] = value
+
+    return config

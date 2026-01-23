@@ -21,6 +21,7 @@ from structlog.stdlib import LoggerFactory, ProcessorFormatter
 from app import __version__
 from app.api.v1 import admin
 from app.api.v1 import auth
+from app.api.v1 import audit
 from app.api.v1 import runners
 from app.api.v1 import webhooks
 from app.config import get_settings
@@ -386,6 +387,7 @@ async def favicon():
 app.include_router(runners.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(audit.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
 
 

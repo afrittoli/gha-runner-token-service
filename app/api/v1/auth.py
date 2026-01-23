@@ -94,13 +94,16 @@ async def get_dashboard_stats(
 
     for event in recent_events:
         recent_events_list: list[dict[str, Any]] = stats["recent_events"]
-        runner_name = event.runner_name or "unknown"
         recent_events_list.append(
             {
+                "id": str(event.id),
                 "timestamp": event.timestamp.isoformat(),
                 "event_type": event.event_type,
                 "severity": event.severity,
-                "description": f"{event.event_type}: {runner_name}",
+                "user_identity": event.user_identity,
+                "runner_id": event.runner_id,
+                "runner_name": event.runner_name,
+                "action_taken": event.action_taken,
             }
         )
 
