@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import LabelPolicy, SecurityEvent
+from app.models import AuditLog, LabelPolicy, SecurityEvent
 from app.schemas import (
     BatchActionResponse,
     BatchDeleteRunnersRequest,
@@ -828,6 +828,28 @@ async def batch_disable_users(
         action_taken=f"disabled {len(affected)} users",
     )
 
+    # Also log to audit log for compliance tracking
+    audit_entry = AuditLog(
+        event_type="batch_disable_users",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=len(failed) == 0,
+        error_message=f"{len(failed)} failures" if failed else None,
+        event_data=json.dumps(
+            {
+                "comment": request.comment,
+                "affected_count": len(affected),
+                "failed_count": len(failed),
+                "user_ids": [u["user_id"] for u in affected],
+                "exclude_admins": request.exclude_admins,
+            }
+        ),
+    )
+    db.add(audit_entry)
+    db.commit()
+
     return BatchActionResponse(
         success=len(failed) == 0,
         action="disable_users",
@@ -1045,6 +1067,32 @@ async def batch_delete_runners(
         },
         action_taken=f"deleted {len(affected)} runners",
     )
+
+    # Also log to audit log for compliance tracking
+    audit_entry = AuditLog(
+        event_type="batch_delete_runners",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=len(failed) == 0,
+        error_message=f"{len(failed)} failures" if failed else None,
+        event_data=json.dumps(
+            {
+                "comment": request.comment,
+                "affected_count": len(affected),
+                "failed_count": len(failed),
+                "runner_ids": [r["runner_id"] for r in affected],
+                "runner_names": [r["runner_name"] for r in affected],
+                "target_user": request.user_identity,
+                "scope": "specific"
+                if request.runner_ids
+                else ("user" if request.user_identity else "all"),
+            }
+        ),
+    )
+    db.add(audit_entry)
+    db.commit()
 
     return BatchActionResponse(
         success=len(failed) == 0,
