@@ -419,6 +419,17 @@ class UserUpdate(BaseModel):
     )
 
 
+class DeactivateUserRequest(BaseModel):
+    """Request to deactivate a user."""
+
+    comment: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="Reason for deactivating the user (required for audit trail)",
+    )
+
+
 class UserResponse(BaseModel):
     """User information response."""
 

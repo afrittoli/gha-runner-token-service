@@ -16,6 +16,7 @@ from app.schemas import (
     BatchDeleteRunnersRequest,
     BatchDisableUsersRequest,
     BatchRestoreUsersRequest,
+    DeactivateUserRequest,
     LabelPolicyCreate,
     LabelPolicyListResponse,
     LabelPolicyResponse,
@@ -652,7 +653,8 @@ async def update_user(
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: str,
-    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    request: DeactivateUserRequest,
+    admin: AuthenticatedUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -663,6 +665,9 @@ async def delete_user(
     **Parameters:**
     - **user_id**: User UUID
 
+    **Request Body:**
+    - **comment**: Required reason for deactivation (10-500 chars)
+
     **Returns:**
     204 No Content on success
 
@@ -672,8 +677,26 @@ async def delete_user(
     **Note:**
     This performs a soft delete by setting `is_active=False`.
     The user can be reactivated using the `/users/{user_id}/activate` endpoint.
+
+    **Example:**
+    ```json
+    {
+      "comment": "User left the organization"
+    }
+    ```
     """
     service = UserService(db)
+    label_policy_service = LabelPolicyService(db)
+
+    # Get user info before deactivation for logging
+    user = service.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found: {user_id}",
+        )
+
+    # Deactivate the user
     deactivated = service.deactivate_user(user_id)
 
     if not deactivated:
@@ -681,6 +704,44 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User not found: {user_id}",
         )
+
+    # Log security event
+    label_policy_service.log_security_event(
+        event_type="user_deactivated",
+        severity="medium",
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        runner_id=None,
+        runner_name=None,
+        violation_data={
+            "comment": request.comment,
+            "deactivated_user_id": user_id,
+            "deactivated_user_email": user.email,
+            "deactivated_user_oidc_sub": user.oidc_sub,
+        },
+        action_taken=f"deactivated user {user.email or user.oidc_sub}",
+    )
+
+    # Log to audit log for compliance tracking
+    audit_entry = AuditLog(
+        event_type="user_deactivated",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=True,
+        error_message=None,
+        event_data=json.dumps(
+            {
+                "comment": request.comment,
+                "deactivated_user_id": user_id,
+                "deactivated_user_email": user.email,
+                "deactivated_user_oidc_sub": user.oidc_sub,
+            }
+        ),
+    )
+    db.add(audit_entry)
+    db.commit()
 
 
 @router.post("/users/{user_id}/activate", response_model=UserResponse)

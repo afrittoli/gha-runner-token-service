@@ -624,12 +624,28 @@ class TestUserAdminEndpoints:
         app.dependency_overrides[get_settings] = lambda: mock_settings
 
         try:
-            response = client.delete(f"/api/v1/admin/users/{target_user.id}")
+            response = client.request(
+                "DELETE",
+                f"/api/v1/admin/users/{target_user.id}",
+                json={"comment": "Test deactivation for user management testing"},
+            )
             assert response.status_code == 204
 
             # Verify user is deactivated
             deactivated = user_service.get_user_by_id(target_user.id)
             assert deactivated.is_active is False
+
+            # Verify audit log entry was created
+            from app.models import AuditLog
+
+            audit_entry = (
+                test_db.query(AuditLog)
+                .filter(AuditLog.event_type == "user_deactivated")
+                .first()
+            )
+            assert audit_entry is not None
+            assert audit_entry.success is True
+            assert "Test deactivation" in audit_entry.event_data
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(require_admin, None)
