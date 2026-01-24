@@ -28,9 +28,10 @@ export default function AuditLogPage() {
         <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
       </div>
 
-      <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-white shadow border border-gray-200 sm:rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Timestamp
@@ -84,13 +85,14 @@ export default function AuditLogPage() {
                 </td>
               </tr>
             ))}
-          </tbody>
-        </table>
-        {data?.logs.length === 0 && (
-          <div className="px-6 py-8 text-center text-gray-500">
-            No audit logs found.
-          </div>
-        )}
+            </tbody>
+          </table>
+          {data?.logs.length === 0 && (
+            <div className="px-6 py-8 text-center text-gray-500">
+              No audit logs found.
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Details Modal */}
