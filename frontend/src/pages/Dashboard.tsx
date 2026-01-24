@@ -36,22 +36,22 @@ export default function Dashboard() {
   const statCards = [
     {
       name: 'Total Runners',
-      value: stats?.total_runners || 0,
+      value: stats?.total || 0,
       color: 'bg-blue-500',
     },
     {
       name: 'Active',
-      value: stats?.active_runners || 0,
+      value: stats?.active || 0,
       color: 'bg-green-500',
     },
     {
       name: 'Offline',
-      value: stats?.offline_runners || 0,
+      value: stats?.offline || 0,
       color: 'bg-gray-500',
     },
     {
       name: 'Pending',
-      value: stats?.pending_runners || 0,
+      value: stats?.pending || 0,
       color: 'bg-yellow-500',
     },
   ]

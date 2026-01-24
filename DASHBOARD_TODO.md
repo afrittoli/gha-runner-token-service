@@ -916,3 +916,9 @@ This allows 1-2 minute recovery time without code changes.
 - **New:** Dual dashboard deployment strategy
 - **New:** Vite + FastAPI integration
 - **New:** Rollover and rollback procedures
+
+
+- [ ] Deactivate user does not ask for reason
+- [ ] Bulk deprovision in security event instead of audit log
+- [ ] Audit log details: "Allowed patterns: []"??
+- [x] Counters in main dashboard broken - **FIXED**: React dashboard was using wrong field names (`total_runners` instead of `total`). Updated `frontend/src/api/client.ts` and `frontend/src/pages/Dashboard.tsx` to match API response structure.
