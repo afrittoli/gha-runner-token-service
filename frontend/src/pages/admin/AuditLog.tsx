@@ -2,6 +2,23 @@ import { useState } from 'react'
 import { useAuditLogs, AuditLog } from '@hooks/useAdmin'
 import { formatDate } from '@utils/formatters'
 
+// Format event data for display, hiding empty arrays
+function formatEventData(data: Record<string, any> | null): Record<string, any> {
+  if (!data) return {}
+  
+  const formatted: Record<string, any> = {}
+  
+  for (const [key, value] of Object.entries(data)) {
+    // Skip empty arrays
+    if (Array.isArray(value) && value.length === 0) {
+      continue
+    }
+    formatted[key] = value
+  }
+  
+  return formatted
+}
+
 export default function AuditLogPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const { data, isLoading, error } = useAuditLogs({ limit: 50 })
@@ -150,7 +167,7 @@ export default function AuditLogPage() {
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Event Data</h4>
                     <div className="mt-1 bg-gray-50 rounded-md p-3 border border-gray-200 overflow-auto max-h-64">
                       <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                        {JSON.stringify(selectedLog.event_data, null, 2)}
+                        {JSON.stringify(formatEventData(selectedLog.event_data), null, 2)}
                       </pre>
                     </div>
                   </div>
