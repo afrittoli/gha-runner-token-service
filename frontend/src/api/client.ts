@@ -111,10 +111,10 @@ export interface RunnerListResponse {
 }
 
 export interface DashboardStats {
-  total_runners: number
-  active_runners: number
-  offline_runners: number
-  pending_runners: number
+  total: number
+  active: number
+  offline: number
+  pending: number
   recent_events: SecurityEvent[]
 }
 
