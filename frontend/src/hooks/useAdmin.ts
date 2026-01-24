@@ -130,11 +130,20 @@ export function useUpdateUser() {
   })
 }
 
+export interface DeactivateUserRequest {
+  userId: string
+  comment: string
+}
+
 export function useDeleteUser() {
   const queryClient = useQueryClient()
-  return useMutation<void, Error, string>({
-    mutationFn: async (userId: string) => {
-      await apiClient.delete(`/api/v1/admin/users/${userId}`)
+  return useMutation<void, Error, DeactivateUserRequest>({
+    mutationFn: async ({ userId, comment }: DeactivateUserRequest) => {
+      await apiClient.request({
+        method: 'DELETE',
+        url: `/api/v1/admin/users/${userId}`,
+        data: { comment }
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })

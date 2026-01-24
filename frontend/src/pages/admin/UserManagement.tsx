@@ -10,6 +10,11 @@ export default function UserManagement() {
     display_name: '',
     is_admin: false,
   })
+  const [deactivateDialog, setDeactivateDialog] = useState<{
+    userId: string
+    userName: string
+  } | null>(null)
+  const [deactivateComment, setDeactivateComment] = useState('')
 
   const { data, isLoading, error } = useUsers(true) // Include inactive
   const updateUser = useUpdateUser()
@@ -28,16 +33,40 @@ export default function UserManagement() {
     }
   }
 
-  const handleToggleStatus = async (userId: string, isActive: boolean) => {
-    try {
-      if (isActive) {
-        await deleteUser.mutateAsync(userId)
-      } else {
+  const handleToggleStatus = async (userId: string, userName: string, isActive: boolean) => {
+    if (isActive) {
+      // Show confirmation dialog for deactivation
+      setDeactivateDialog({ userId, userName })
+    } else {
+      // Activate without confirmation
+      try {
         await activateUser.mutateAsync(userId)
+      } catch (err) {
+        console.error('Failed to activate user:', err)
       }
-    } catch (err) {
-      console.error('Failed to update user status:', err)
     }
+  }
+
+  const handleConfirmDeactivate = async () => {
+    if (!deactivateDialog || !deactivateComment.trim()) {
+      return
+    }
+
+    try {
+      await deleteUser.mutateAsync({
+        userId: deactivateDialog.userId,
+        comment: deactivateComment.trim()
+      })
+      setDeactivateDialog(null)
+      setDeactivateComment('')
+    } catch (err) {
+      console.error('Failed to deactivate user:', err)
+    }
+  }
+
+  const handleCancelDeactivate = () => {
+    setDeactivateDialog(null)
+    setDeactivateComment('')
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -181,7 +210,7 @@ export default function UserManagement() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
-                    onClick={() => handleToggleStatus(user.id, user.is_active)}
+                    onClick={() => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active)}
                     className={`${user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
                   >
                     {user.is_active ? 'Deactivate' : 'Activate'}
@@ -197,6 +226,73 @@ export default function UserManagement() {
           </div>
         )}
       </div>
+
+      {/* Deactivate Confirmation Dialog */}
+      {deactivateDialog && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={handleCancelDeactivate}></div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+              <div>
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                  <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="mt-3 text-center sm:mt-5">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                    Deactivate User
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to deactivate <strong>{deactivateDialog.userName}</strong>?
+                      Please provide a reason for this action.
+                    </p>
+                  </div>
+                  <div className="mt-4">
+                    <label htmlFor="deactivate-comment" className="block text-sm font-medium text-gray-700 text-left">
+                      Reason (required, 10-500 characters)
+                    </label>
+                    <textarea
+                      id="deactivate-comment"
+                      rows={3}
+                      value={deactivateComment}
+                      onChange={(e) => setDeactivateComment(e.target.value)}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                      placeholder="e.g., User left the organization"
+                      minLength={10}
+                      maxLength={500}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 text-left">
+                      {deactivateComment.length}/500 characters
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                <button
+                  type="button"
+                  onClick={handleConfirmDeactivate}
+                  disabled={deactivateComment.trim().length < 10}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:col-start-2 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Deactivate
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelDeactivate}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gh-blue sm:mt-0 sm:col-start-1 sm:text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
