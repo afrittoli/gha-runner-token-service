@@ -13,6 +13,9 @@ This service acts as a secure intermediary between authenticated third parties a
 - ✅ Provides audit trails for runner provisioning
 - ✅ Supports automatic cleanup of ephemeral runners
 
+> [!WARNING]  
+> This repo contains an MVP developed as proof-of-concept. It is not ready for production use.
+
 ## Documentation
 
 ### Getting Started
@@ -34,6 +37,18 @@ This service acts as a secure intermediary between authenticated third parties a
 - 🔧 [CLI Commands](docs/DEVELOPMENT.md#cli-commands) - Administrative commands
 - 🐛 [Troubleshooting](docs/QUICKSTART.md#troubleshooting) - Common issues and solutions
 - 📋 [Project Summary](docs/README.md) - Project overview and key features
+
+## Development Methodology
+
+This project was developed using **AI-assisted coding** (also known as "vibe coding") with various AI-based coding assistants.
+
+The AI assistants helped with:
+- Documentation of the design and structure in TODOs
+- Implementation of the backend and frontend
+- Code generation and refactoring
+- Test creation and debugging
+- Documentation writing
+- Best practices and security considerations
 
 ## License
 
