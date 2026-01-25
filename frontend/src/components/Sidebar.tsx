@@ -128,7 +128,11 @@ export default function Sidebar() {
             </span>
           )}
           <button
-            onClick={toggleSidebarCollapse}
+            onClick={() => {
+              console.log('Toggle clicked, current state:', sidebarCollapsed)
+              toggleSidebarCollapse()
+            }}
+            type="button"
             className="p-2 text-gray-700 hover:text-white hover:bg-gh-blue rounded-lg transition-all shadow-sm hover:shadow-md border border-gray-300 bg-white ml-auto"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
