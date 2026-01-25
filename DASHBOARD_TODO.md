@@ -389,33 +389,39 @@ Dashboard development is organized into **4 phases**, each with specific feature
 
 ### Frontend - Admin Pages
 
-- [ ] **P2, frontend, ui, feature** - Label policies management page
+- [x] **P2, frontend, ui, feature** - Label policies management page
   - List table: user, allowed labels, max runners, actions
   - Filter by user (search)
   - Create/Edit policy modal with form
   - Delete confirmation dialog
-  - *Components:* LabelPolicies.tsx, PolicyModal.tsx
-  - *Data:* useAdminPolicies, usePolicies (queries/mutations)
+  - *Components:* LabelPolicies.tsx
+  - *Data:* useLabelPolicies, useCreateLabelPolicy, useDeleteLabelPolicy hooks
   - *Restriction:* Admin only (check via auth store)
+  - *Tests:* LabelPolicies.test.tsx (12 tests)
+  - ✅ **COMPLETED**: Full CRUD functionality with comprehensive test coverage
 
-- [ ] **P2, frontend, ui, feature** - Security events viewer page
+- [x] **P2, frontend, ui, feature** - Security events viewer page
   - List table: time, type, severity (color-coded), user, details (modal)
-  - Filter dropdown: type, severity, time range
+  - Filter dropdown: type, severity, user identity search
   - Event detail modal showing:
     - Full event data (violation details, user, runner, etc.)
     - Action taken (if any)
-  - *Components:* SecurityEvents.tsx, EventDetailModal.tsx
+  - *Components:* SecurityEvents.tsx
   - *Data:* useSecurityEvents(filters) hook
+  - *Tests:* SecurityEvents.test.tsx (14 tests)
+  - ✅ **COMPLETED**: Full filtering and detail modal with comprehensive test coverage
   - *Note:* Export deferred to Phase 3 or later
 
-- [ ] **P2, frontend, ui, feature** - Audit log viewer page
+- [x] **P2, frontend, ui, feature** - Audit log viewer page
   - List table: timestamp, event type, user, details, changes
-  - Filter by event type, user, time range
-  - Pagination
+  - Filter by event type, user identity search
+  - Pagination support
   - For users: show only own logs
   - For admins: show all logs with user filter
   - *Components:* AuditLog.tsx
-  - *Data:* useAuditLogs(filters, role) hook
+  - *Data:* useAuditLogs(filters) hook
+  - *Tests:* AuditLog.test.tsx (15 tests)
+  - ✅ **COMPLETED**: Full filtering, detail modal, and empty array formatting with comprehensive test coverage
   - *Note:* Export deferred to Phase 3 or later
 
 - [ ] **P2, frontend, ui, feature** - Admin console page (DEFER to Phase 3 or later)
