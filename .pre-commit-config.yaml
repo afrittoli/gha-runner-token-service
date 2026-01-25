@@ -7,7 +7,7 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  # Run unit tests
+  # Backend tests
   - repo: local
     hooks:
       - id: pytest
@@ -18,3 +18,27 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
+
+  # Frontend checks
+  - repo: local
+    hooks:
+      - id: frontend-lint
+        name: Frontend ESLint
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+        
+      - id: frontend-typecheck
+        name: Frontend TypeScript
+        entry: bash -c 'cd frontend && npm run typecheck'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+        
+      - id: frontend-test
+        name: Frontend Tests
+        entry: bash -c 'cd frontend && npm run test:run'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
