@@ -15,8 +15,17 @@ export default function UserManagement() {
     userName: string
   } | null>(null)
   const [deactivateComment, setDeactivateComment] = useState('')
+  const [showAdmins, setShowAdmins] = useState(false) // Hide admins by default
+  const [showInactive, setShowInactive] = useState(true) // Show inactive users
 
   const { data, isLoading, error } = useUsers(true) // Include inactive
+  
+  // Filter users based on admin status and active status
+  const filteredUsers = data?.users.filter(user => {
+    if (!showAdmins && user.is_admin) return false
+    if (!showInactive && !user.is_active) return false
+    return true
+  })
   const updateUser = useUpdateUser()
   const activateUser = useActivateUser()
   const deleteUser = useDeleteUser()
@@ -164,6 +173,37 @@ export default function UserManagement() {
         </div>
       )}
 
+      {/* Filter Controls */}
+      <div className="bg-white shadow border border-gray-200 sm:rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-6">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showAdmins}
+                onChange={(e) => setShowAdmins(e.target.checked)}
+                className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-700">Show Admin Users</span>
+            </label>
+            
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+              />
+              <span className="ml-2 text-gray-700">Show Inactive Users</span>
+            </label>
+          </div>
+          
+          <div className="text-sm text-gray-500">
+            Showing {filteredUsers?.length || 0} of {data?.users.length || 0} users
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -186,7 +226,7 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data?.users.map((user) => (
+            {filteredUsers?.map((user) => (
               <tr key={user.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex flex-col">
@@ -220,9 +260,9 @@ export default function UserManagement() {
             ))}
           </tbody>
         </table>
-        {data?.users.length === 0 && (
+        {filteredUsers?.length === 0 && (
           <div className="px-6 py-8 text-center text-gray-500">
-            No users found.
+            {data?.users.length === 0 ? 'No users found.' : 'No users match the current filters.'}
           </div>
         )}
       </div>
