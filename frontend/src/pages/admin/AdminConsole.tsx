@@ -3,8 +3,8 @@ import { useAdminStats, useAdminConfig } from '@hooks/useAdmin'
 
 export default function AdminConsole() {
   const [showSensitive, setShowSensitive] = useState(false)
-  const { data: stats, isLoading: statsLoading, error: statsError } = useAdminStats()
-  const { data: config, isLoading: configLoading, error: configError } = useAdminConfig(showSensitive)
+  const { data: stats, isLoading: statsLoading } = useAdminStats()
+  const { data: config, isLoading: configLoading } = useAdminConfig(showSensitive)
 
   if (statsLoading || configLoading) {
     return (

@@ -125,7 +125,7 @@ export interface SecurityEvent {
   user_identity: string
   runner_id: string | null
   runner_name: string | null
-  violation_data: Record<string, any>
+  violation_data: Record<string, unknown>
   action_taken: string | null
   timestamp: string
 }
