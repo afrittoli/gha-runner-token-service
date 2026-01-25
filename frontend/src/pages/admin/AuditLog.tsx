@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuditLogs, AuditLog } from '@hooks/useAdmin'
+import { useAuditLogs, AuditLog, AuditLogFilters } from '@hooks/useAdmin'
 import { formatDate } from '@utils/formatters'
 
 // Format event data for display, hiding empty arrays
@@ -21,7 +21,13 @@ function formatEventData(data: Record<string, any> | null): Record<string, any> 
 
 export default function AuditLogPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
-  const { data, isLoading, error } = useAuditLogs({ limit: 50 })
+  const [filters, setFilters] = useState<AuditLogFilters>({
+    limit: 50,
+    offset: 0,
+  })
+  const [searchTerm, setSearchTerm] = useState('')
+  
+  const { data, isLoading, error } = useAuditLogs(filters)
 
   if (isLoading) {
     return (
@@ -39,10 +45,89 @@ export default function AuditLogPage() {
     )
   }
 
+  const handleFilterChange = (key: keyof AuditLogFilters, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value || undefined,
+      offset: 0, // Reset pagination when filters change
+    }))
+  }
+
+  const handleSearch = () => {
+    setFilters(prev => ({
+      ...prev,
+      user_identity: searchTerm || undefined,
+      offset: 0,
+    }))
+  }
+
+  const handleClearFilters = () => {
+    setFilters({ limit: 50, offset: 0 })
+    setSearchTerm('')
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white shadow border border-gray-200 sm:rounded-lg p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+            <select
+              value={filters.event_type || ''}
+              onChange={(e) => handleFilterChange('event_type', e.target.value)}
+              className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+            >
+              <option value="">All Events</option>
+              <option value="provision_runner">Provision Runner</option>
+              <option value="deprovision_runner">Deprovision Runner</option>
+              <option value="register_runner">Register Runner</option>
+              <option value="update_runner">Update Runner</option>
+              <option value="create_label_policy">Create Label Policy</option>
+              <option value="update_label_policy">Update Label Policy</option>
+              <option value="delete_label_policy">Delete Label Policy</option>
+              <option value="create_user">Create User</option>
+              <option value="update_user">Update User</option>
+              <option value="deactivate_user">Deactivate User</option>
+              <option value="activate_user">Activate User</option>
+              <option value="batch_disable_users">Batch Disable Users</option>
+              <option value="batch_delete_runners">Batch Delete Runners</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">User Identity</label>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Search by user..."
+                className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+              />
+              <button
+                onClick={handleSearch}
+                className="px-3 py-2 bg-gh-blue text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={handleClearFilters}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white shadow border border-gray-200 sm:rounded-lg overflow-hidden">
