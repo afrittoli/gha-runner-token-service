@@ -125,11 +125,11 @@ The React frontend requires these environment variables in `frontend/.env.local`
 | `VITE_OIDC_AUTHORITY` | Yes | OIDC provider's base URL (without trailing slash) | `https://provider.example.com` |
 | `VITE_OIDC_CLIENT_ID` | Yes | Client ID for the web application | `abc123def456` |
 | `VITE_OIDC_AUDIENCE` | Yes | API audience identifier (must match backend `OIDC_AUDIENCE`) | `runner-token-service` |
-| `VITE_OIDC_REDIRECT_URI` | Yes | Callback URL after login | `http://localhost:5173/app/callback` |
-| `VITE_OIDC_POST_LOGOUT_REDIRECT_URI` | Yes | Redirect URL after logout | `http://localhost:5173/app` |
+| `VITE_OIDC_REDIRECT_URI` | Yes | Callback URL after login | `http://localhost:5173/callback` |
+| `VITE_OIDC_POST_LOGOUT_REDIRECT_URI` | Yes | Redirect URL after logout | `http://localhost:5173` |
 | `VITE_API_BASE_URL` | No | API base URL (defaults to same origin) | `http://localhost:8000` |
 
-Example `frontend/.env.local`:
+Example `frontend/.env.local` (development):
 
 ```bash
 # OIDC Provider
@@ -138,12 +138,16 @@ VITE_OIDC_CLIENT_ID=your-client-id
 VITE_OIDC_AUDIENCE=runner-token-service
 
 # Redirect URIs (must be registered with OIDC provider)
-VITE_OIDC_REDIRECT_URI=http://localhost:5173/app/callback
-VITE_OIDC_POST_LOGOUT_REDIRECT_URI=http://localhost:5173/app
+VITE_OIDC_REDIRECT_URI=http://localhost:5173/callback
+VITE_OIDC_POST_LOGOUT_REDIRECT_URI=http://localhost:5173
 
 # API URL (optional - defaults to same origin)
 # VITE_API_BASE_URL=http://localhost:8000
 ```
+
+**Note:** For production, use your production domain with `/app` path:
+- `VITE_OIDC_REDIRECT_URI=https://your-domain.com/app/callback`
+- `VITE_OIDC_POST_LOGOUT_REDIRECT_URI=https://your-domain.com/app`
 
 ### OIDC Provider Requirements
 
@@ -240,12 +244,12 @@ The **Identifier** becomes your `OIDC_AUDIENCE` value.
 
 **Allowed Callback URLs:**
 ```
-http://localhost:5173/app/callback
+http://localhost:5173/callback
 ```
 
 **Allowed Logout URLs:**
 ```
-http://localhost:5173/app
+http://localhost:5173
 ```
 
 **Allowed Web Origins:**
@@ -305,9 +309,9 @@ VITE_OIDC_AUTHORITY=https://your-tenant.region.auth0.com
 VITE_OIDC_CLIENT_ID=your-spa-client-id-from-step-3
 VITE_OIDC_AUDIENCE=runner-token-service
 
-# Redirect URIs
-VITE_OIDC_REDIRECT_URI=http://localhost:5173/app/callback
-VITE_OIDC_POST_LOGOUT_REDIRECT_URI=http://localhost:5173/app
+# Redirect URIs (development)
+VITE_OIDC_REDIRECT_URI=http://localhost:5173/callback
+VITE_OIDC_POST_LOGOUT_REDIRECT_URI=http://localhost:5173
 ```
 
 #### CLI Scripts (Environment Variables)
