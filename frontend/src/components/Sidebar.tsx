@@ -120,24 +120,27 @@ export default function Sidebar() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         ${sidebarCollapsed ? 'w-16' : 'w-64'}
       `}>
-        {/* Collapse Toggle Button - BRIGHT RED FOR VISIBILITY */}
-        <div className="flex items-center justify-between p-4 border-b-4 border-red-500 bg-yellow-100">
+        {/* Collapse Toggle Button */}
+        <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white">
           {!sidebarCollapsed && (
-            <span className="text-sm font-bold text-black uppercase">
-              MENU
+            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              Menu
             </span>
           )}
           <button
-            onClick={() => {
-              console.log('Toggle clicked, current state:', sidebarCollapsed)
-              toggleSidebarCollapse()
-            }}
+            onClick={toggleSidebarCollapse}
             type="button"
-            className="px-4 py-3 text-white bg-red-600 hover:bg-red-700 rounded-lg font-bold text-lg border-4 border-black ml-auto"
+            className="p-2 text-gray-600 hover:text-white hover:bg-gh-blue rounded-lg transition-all shadow-sm hover:shadow-md border border-gray-300 bg-white ml-auto"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {sidebarCollapsed ? '→→' : '←←'}
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {sidebarCollapsed ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              )}
+            </svg>
           </button>
         </div>
 
