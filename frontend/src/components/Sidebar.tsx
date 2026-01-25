@@ -76,7 +76,7 @@ const adminNavigation = [
 export default function Sidebar() {
   const location = useLocation()
   const { user } = useAuthStore()
-  const { sidebarOpen, closeSidebar } = useUIStore()
+  const { sidebarOpen, closeSidebar, sidebarCollapsed, toggleSidebarCollapse } = useUIStore()
 
   // Close sidebar on route change (for mobile)
   useEffect(() => {
@@ -89,16 +89,17 @@ export default function Sidebar() {
       <Link
         key={item.name}
         to={item.href}
-        className={`flex items-center space-x-3 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+        className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-4'} py-2 text-sm font-medium rounded-md transition-colors ${
           isActive
             ? 'bg-gh-gray-100 text-gh-blue'
             : 'text-gray-600 hover:bg-gh-gray-100 hover:text-gh-gray-900'
         }`}
+        title={sidebarCollapsed ? item.name : undefined}
       >
         <span className={isActive ? 'text-gh-blue' : 'text-gray-400'}>
           {item.icon}
         </span>
-        <span>{item.name}</span>
+        {!sidebarCollapsed && <span>{item.name}</span>}
       </Link>
     )
   }
@@ -107,44 +108,75 @@ export default function Sidebar() {
     <>
       {/* Mobile Backdrop */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-20 md:hidden" 
+        <div
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
           onClick={closeSidebar}
         />
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-gray-200 flex flex-col h-full overflow-y-auto transition-transform duration-300 transform
+        fixed inset-y-0 left-0 z-10 bg-white border-r border-gray-200 flex flex-col h-full overflow-y-auto transition-all duration-300 transform
         md:translate-x-0 md:static md:inset-auto
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${sidebarCollapsed ? 'w-16' : 'w-64'}
       `}>
+        {/* Collapse Toggle Button (Desktop only) */}
+        <div className="hidden md:flex justify-end p-2 border-b border-gray-200">
+          <button
+            onClick={toggleSidebarCollapse}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gh-gray-100 rounded-md transition-colors"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {sidebarCollapsed ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              )}
+            </svg>
+          </button>
+        </div>
+
         <div className="flex-1 py-6 space-y-8">
           <nav className="px-4 space-y-1">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-4">
-              General
-            </div>
+            {!sidebarCollapsed && (
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-4">
+                General
+              </div>
+            )}
             {navigation.map(renderLink)}
           </nav>
 
           {user?.is_admin && (
             <nav className="px-4 space-y-1">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-4">
-                Administration
-              </div>
+              {!sidebarCollapsed && (
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-4">
+                  Administration
+                </div>
+              )}
               {adminNavigation.map(renderLink)}
             </nav>
           )}
         </div>
         
-        <div className="p-4 border-t border-gray-200">
-          <div className="bg-gh-gray-50 rounded-lg p-3">
-            <p className="text-xs text-gray-500 mb-1">Status</p>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-xs font-medium text-gray-700">Service Operational</span>
+        {!sidebarCollapsed && (
+          <div className="p-4 border-t border-gray-200">
+            <div className="bg-gh-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-1">Status</p>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span className="text-xs font-medium text-gray-700">Service Operational</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+        
+        {/* Collapsed Status Indicator */}
+        {sidebarCollapsed && (
+          <div className="p-2 border-t border-gray-200 flex justify-center">
+            <div className="w-2 h-2 rounded-full bg-green-500" title="Service Operational"></div>
+          </div>
+        )}
       </aside>
     </>
   )
