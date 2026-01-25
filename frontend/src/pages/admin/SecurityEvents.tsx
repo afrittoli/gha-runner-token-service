@@ -1,11 +1,17 @@
 import { useState } from 'react'
-import { useSecurityEvents } from '@hooks/useAdmin'
+import { useSecurityEvents, SecurityEventFilters } from '@hooks/useAdmin'
 import { formatDate } from '@utils/formatters'
 import { SecurityEvent } from '@api/client'
 
 export default function SecurityEvents() {
   const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null)
-  const { data, isLoading, error } = useSecurityEvents({ limit: 50 })
+  const [filters, setFilters] = useState<SecurityEventFilters>({
+    limit: 50,
+    offset: 0,
+  })
+  const [searchTerm, setSearchTerm] = useState('')
+  
+  const { data, isLoading, error } = useSecurityEvents(filters)
 
   if (isLoading) {
     return (
@@ -26,6 +32,7 @@ export default function SecurityEvents() {
   const getSeverityClass = (severity: string) => {
     switch (severity.toLowerCase()) {
       case 'critical':
+        return 'bg-red-200 text-red-900 font-bold'
       case 'high':
         return 'bg-red-100 text-red-800'
       case 'medium':
@@ -37,10 +44,96 @@ export default function SecurityEvents() {
     }
   }
 
+  const handleFilterChange = (key: keyof SecurityEventFilters, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value || undefined,
+      offset: 0, // Reset pagination when filters change
+    }))
+  }
+
+  const handleSearch = () => {
+    setFilters(prev => ({
+      ...prev,
+      user_identity: searchTerm || undefined,
+      offset: 0,
+    }))
+  }
+
+  const handleClearFilters = () => {
+    setFilters({ limit: 50, offset: 0 })
+    setSearchTerm('')
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Security Events</h1>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white shadow border border-gray-200 sm:rounded-lg p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+            <select
+              value={filters.event_type || ''}
+              onChange={(e) => handleFilterChange('event_type', e.target.value)}
+              className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+            >
+              <option value="">All Types</option>
+              <option value="label_violation">Label Violation</option>
+              <option value="quota_exceeded">Quota Exceeded</option>
+              <option value="unauthorized_access">Unauthorized Access</option>
+              <option value="batch_disable_users">Batch Disable Users</option>
+              <option value="batch_delete_runners">Batch Delete Runners</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+            <select
+              value={filters.severity || ''}
+              onChange={(e) => handleFilterChange('severity', e.target.value)}
+              className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+            >
+              <option value="">All Severities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">User Identity</label>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Search by user..."
+                className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+              />
+              <button
+                onClick={handleSearch}
+                className="px-3 py-2 bg-gh-blue text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={handleClearFilters}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white shadow border border-gray-200 sm:rounded-lg overflow-hidden">
