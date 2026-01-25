@@ -114,7 +114,7 @@ export default function Sidebar() {
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 flex flex-col h-full overflow-y-auto transition-transform duration-300 transform
+        fixed inset-y-0 left-0 z-10 w-64 bg-white border-r border-gray-200 flex flex-col h-full overflow-y-auto transition-transform duration-300 transform
         md:translate-x-0 md:static md:inset-auto
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
