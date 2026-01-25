@@ -38,14 +38,11 @@ export default function TopNav() {
           </svg>
         </button>
         <Link to="/" className="flex items-center space-x-2">
-          <svg
-            className="h-8 w-8"
-            viewBox="0 0 256 310"
-            fill="none"
-          >
-            <path d="M218.343 178.552L192.234 152.443L218.343 126.334C232.506 112.171 232.506 89.2285 218.343 75.0654C204.18 60.9023 181.237 60.9023 167.074 75.0654L140.965 101.174L114.856 75.0654C100.693 60.9023 77.7502 60.9023 63.5871 75.0654C49.424 89.2285 49.424 112.171 63.5871 126.334L89.6961 152.443L63.5871 178.552C49.424 192.715 49.424 215.658 63.5871 229.821C77.7502 243.984 100.693 243.984 114.856 229.821L140.965 203.712L167.074 229.821C181.237 243.984 204.18 243.984 218.343 229.821C232.506 215.658 232.506 192.715 218.343 178.552Z" fill="#EE4C2C"/>
-            <ellipse cx="140.965" cy="27.9307" rx="27.9307" ry="27.9307" fill="#EE4C2C"/>
-          </svg>
+          <img
+            src="https://avatars.githubusercontent.com/u/124737001?s=200&v=4"
+            alt="PyTorch Logo"
+            className="h-8 w-8 rounded"
+          />
           <span className="font-semibold text-lg hidden md:inline">
             GitHub Actions Runner Service
           </span>
