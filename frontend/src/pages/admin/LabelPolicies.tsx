@@ -1,11 +1,19 @@
 import { useState } from 'react'
-import { useLabelPolicies, useDeleteLabelPolicy, useCreateLabelPolicy } from '@hooks/useAdmin'
+import { useLabelPolicies, useDeleteLabelPolicy, useCreateLabelPolicy, LabelPolicy } from '@hooks/useAdmin'
 import LabelPill from '@components/LabelPill'
 import { formatDate } from '@utils/formatters'
 
+interface PolicyFormData {
+  user_identity: string
+  allowed_labels: string
+  description: string
+  max_runners: number
+}
+
 export default function LabelPolicies() {
   const [showAddForm, setShowAddForm] = useState(false)
-  const [newPolicy, setNewPolicy] = useState({
+  const [editingPolicy, setEditingPolicy] = useState<string | null>(null)
+  const [newPolicy, setNewPolicy] = useState<PolicyFormData>({
     user_identity: '',
     allowed_labels: '',
     description: '',
@@ -15,6 +23,28 @@ export default function LabelPolicies() {
   const { data, isLoading, error } = useLabelPolicies()
   const deletePolicy = useDeleteLabelPolicy()
   const createPolicy = useCreateLabelPolicy()
+
+  const handleEdit = (policy: LabelPolicy) => {
+    setEditingPolicy(policy.user_identity)
+    setNewPolicy({
+      user_identity: policy.user_identity,
+      allowed_labels: policy.allowed_labels.join(', '),
+      description: policy.description || '',
+      max_runners: policy.max_runners,
+    })
+    setShowAddForm(true)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingPolicy(null)
+    setShowAddForm(false)
+    setNewPolicy({
+      user_identity: '',
+      allowed_labels: '',
+      description: '',
+      max_runners: 5,
+    })
+  }
 
   const handleDelete = async (userIdentity: string) => {
     if (window.confirm(`Are you sure you want to delete the policy for ${userIdentity}?`)) {
@@ -26,7 +56,7 @@ export default function LabelPolicies() {
     }
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       await createPolicy.mutateAsync({
@@ -35,15 +65,9 @@ export default function LabelPolicies() {
         description: newPolicy.description,
         max_runners: newPolicy.max_runners,
       })
-      setShowAddForm(false)
-      setNewPolicy({
-        user_identity: '',
-        allowed_labels: '',
-        description: '',
-        max_runners: 5,
-      })
+      handleCancelEdit()
     } catch (err) {
-      console.error('Failed to create policy:', err)
+      console.error(`Failed to ${editingPolicy ? 'update' : 'create'} policy:`, err)
     }
   }
 
@@ -77,8 +101,10 @@ export default function LabelPolicies() {
 
       {showAddForm && (
         <div className="bg-white shadow sm:rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Create New Policy</h2>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">
+            {editingPolicy ? 'Edit Policy' : 'Create New Policy'}
+          </h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">User Identity (Email or Sub)</label>
@@ -87,9 +113,13 @@ export default function LabelPolicies() {
                   required
                   value={newPolicy.user_identity}
                   onChange={(e) => setNewPolicy({ ...newPolicy, user_identity: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                  disabled={!!editingPolicy}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue disabled:bg-gray-100 disabled:cursor-not-allowed"
                   placeholder="user@example.com"
                 />
+                {editingPolicy && (
+                  <p className="mt-1 text-xs text-gray-500">User identity cannot be changed when editing</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Max Runners</label>
@@ -124,12 +154,22 @@ export default function LabelPolicies() {
                 placeholder="Team A runners"
               />
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gh-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={createPolicy.isPending}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gh-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                Create Policy
+                {createPolicy.isPending
+                  ? (editingPolicy ? 'Updating...' : 'Creating...')
+                  : (editingPolicy ? 'Save Changes' : 'Create Policy')}
               </button>
             </div>
           </form>
@@ -152,7 +192,13 @@ export default function LabelPolicies() {
                       </p>
                     )}
                   </div>
-                  <div className="ml-2 flex-shrink-0 flex">
+                  <div className="ml-2 flex-shrink-0 flex space-x-3">
+                    <button
+                      onClick={() => handleEdit(policy)}
+                      className="text-gh-blue hover:text-blue-900 text-sm font-medium"
+                    >
+                      Edit
+                    </button>
                     <button
                       onClick={() => handleDelete(policy.user_identity)}
                       className="text-red-600 hover:text-red-900 text-sm font-medium"
