@@ -285,11 +285,13 @@ export function useAdminStats() {
   })
 }
 
-export function useAdminConfig() {
+export function useAdminConfig(showSensitive = false) {
   return useQuery({
-    queryKey: ['admin', 'config'],
+    queryKey: ['admin', 'config', { showSensitive }],
     queryFn: async () => {
-      const response = await apiClient.get('/api/v1/admin/config')
+      const response = await apiClient.get('/api/v1/admin/config', {
+        params: { show_sensitive: showSensitive }
+      })
       return response.data
     },
   })

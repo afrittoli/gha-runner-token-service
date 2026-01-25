@@ -918,7 +918,12 @@ This allows 1-2 minute recovery time without code changes.
 - **New:** Rollover and rollback procedures
 
 
-- [ ] Deactivate user does not ask for reason
+- [x] Deactivate user does not ask for reason - **FIXED**: Already implemented
 - [x] Bulk deprovision in security event instead of audit log - **FIXED**: Added AuditLog entries for both `batch_disable_users` and `batch_delete_runners` operations. These admin actions now appear in both SecurityEvent (for security monitoring) and AuditLog (for compliance tracking).
-- [ ] Audit log details: "Allowed patterns: []"??
+- [x] Audit log details: "Allowed patterns: []"?? - **FIXED**: Already implemented
 - [x] Counters in main dashboard broken - **FIXED**: React dashboard was using wrong field names (`total_runners` instead of `total`). Updated `frontend/src/api/client.ts` and `frontend/src/pages/Dashboard.tsx` to match API response structure.
+
+## Notes
+
+- **Search box in TopNav**: This is a placeholder for Phase 3 "Global Search" feature (lines 48-58 in `frontend/src/components/TopNav.tsx`). Not functional yet.
+- **User Impersonation**: Backend endpoints added to `app/api/v1/admin.py` (lines 1243-1397), but frontend UI not yet implemented. Need to add user switcher component to TopNav.
