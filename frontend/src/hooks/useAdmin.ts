@@ -200,7 +200,7 @@ export interface AuditLog {
   oidc_sub: string | null
   request_ip: string | null
   user_agent: string | null
-  event_data: Record<string, any> | null
+  event_data: Record<string, unknown> | null
   success: boolean
   error_message: string | null
   timestamp: string

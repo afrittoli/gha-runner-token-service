@@ -3,10 +3,10 @@ import { useAuditLogs, AuditLog, AuditLogFilters } from '@hooks/useAdmin'
 import { formatDate } from '@utils/formatters'
 
 // Format event data for display, hiding empty arrays
-function formatEventData(data: Record<string, any> | null): Record<string, any> {
+function formatEventData(data: Record<string, unknown> | null): Record<string, unknown> {
   if (!data) return {}
   
-  const formatted: Record<string, any> = {}
+  const formatted: Record<string, unknown> = {}
   
   for (const [key, value] of Object.entries(data)) {
     // Skip empty arrays
