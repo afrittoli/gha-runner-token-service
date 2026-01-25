@@ -121,10 +121,11 @@ export interface DashboardStats {
 export interface SecurityEvent {
   id: string
   event_type: string
-  severity: 'low' | 'medium' | 'high'
+  severity: 'low' | 'medium' | 'high' | 'critical'
   user_identity: string
   runner_id: string | null
   runner_name: string | null
+  violation_data: Record<string, any>
   action_taken: string | null
   timestamp: string
 }
