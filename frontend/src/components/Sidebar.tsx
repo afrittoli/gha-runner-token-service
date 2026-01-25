@@ -121,11 +121,12 @@ export default function Sidebar() {
         ${sidebarCollapsed ? 'w-16' : 'w-64'}
       `}>
         {/* Collapse Toggle Button (Desktop only) */}
-        <div className="hidden md:flex justify-end p-2 border-b border-gray-200">
+        <div className="hidden md:flex justify-end p-3 border-b border-gray-200 bg-gray-50">
           <button
             onClick={toggleSidebarCollapse}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gh-gray-100 rounded-md transition-colors"
+            className="p-2 text-gray-600 hover:text-gh-blue hover:bg-white rounded-lg transition-all shadow-sm hover:shadow border border-gray-200"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {sidebarCollapsed ? (
