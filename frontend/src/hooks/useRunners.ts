@@ -21,6 +21,9 @@ export function useRunners(filters: RunnerFilters = {}) {
       const response = await apiClient.get('/api/v1/runners', { params: filters })
       return response.data
     },
+    // Aggressive polling for demo: refetch every 5 seconds
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false, // Only when tab is active
   })
 }
 
@@ -32,6 +35,9 @@ export function useRunner(runnerId: string | undefined) {
       return response.data
     },
     enabled: !!runnerId,
+    // Aggressive polling for demo: refetch every 5 seconds
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false, // Only when tab is active
   })
 }
 
