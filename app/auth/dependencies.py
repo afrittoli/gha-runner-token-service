@@ -128,8 +128,34 @@ async def get_current_user(
     token = credentials.credentials
     validator = OIDCValidator(settings)
 
-    # Validate token
-    payload = await validator.validate_token(token)
+    # Check if this is an impersonation token (demo feature)
+    # Impersonation tokens are signed with HS256 and have is_impersonation=True
+    try:
+        from jose import jwt
+
+        # Try to decode without verification first to check if it's an impersonation token
+        unverified_payload = jwt.get_unverified_claims(token)
+        if unverified_payload.get("is_impersonation"):
+            # This is an impersonation token - validate with our secret
+            payload = jwt.decode(
+                token,
+                "demo-impersonation-secret",  # TODO: Move to settings
+                algorithms=["HS256"],
+                audience=settings.oidc_audience,
+                issuer=settings.oidc_issuer,
+            )
+            # Impersonation token validated successfully
+            logger.info(
+                "impersonation_token_validated",
+                impersonated_by=payload.get("impersonated_by"),
+                target_user=payload.get("email"),
+            )
+        else:
+            # Regular OIDC token - validate normally
+            payload = await validator.validate_token(token)
+    except Exception:
+        # If impersonation check fails, try OIDC validation
+        payload = await validator.validate_token(token)
 
     # Extract user identity
     identity = validator.get_user_identity(payload)

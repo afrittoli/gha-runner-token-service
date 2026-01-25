@@ -153,3 +153,22 @@ export interface AuthInfo {
   can_use_jit: boolean
   roles: string[]
 }
+
+// Impersonation types
+export interface ImpersonationResponse {
+  impersonation_token: string
+  user: User
+  original_admin: string
+  expires_at: string
+}
+
+// Impersonation API functions
+export const impersonateUser = async (userId: string): Promise<ImpersonationResponse> => {
+  const response = await apiClient.post(`/api/v1/admin/impersonate/${userId}`)
+  return response.data
+}
+
+export const stopImpersonation = async (): Promise<{ message: string; admin_identity: string }> => {
+  const response = await apiClient.post('/api/v1/admin/stop-impersonation')
+  return response.data
+}
