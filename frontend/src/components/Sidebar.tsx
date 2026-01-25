@@ -120,11 +120,16 @@ export default function Sidebar() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         ${sidebarCollapsed ? 'w-16' : 'w-64'}
       `}>
-        {/* Collapse Toggle Button (Desktop only) */}
-        <div className="hidden md:flex justify-end p-3 border-b border-gray-200 bg-gray-50">
+        {/* Collapse Toggle Button */}
+        <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50">
+          {!sidebarCollapsed && (
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Menu
+            </span>
+          )}
           <button
             onClick={toggleSidebarCollapse}
-            className="p-2 text-gray-600 hover:text-gh-blue hover:bg-white rounded-lg transition-all shadow-sm hover:shadow border border-gray-200"
+            className="p-2 text-gray-700 hover:text-white hover:bg-gh-blue rounded-lg transition-all shadow-sm hover:shadow-md border border-gray-300 bg-white ml-auto"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
