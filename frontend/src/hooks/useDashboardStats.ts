@@ -8,7 +8,8 @@ export function useDashboardStats() {
       const response = await apiClient.get('/api/v1/dashboard/stats')
       return response.data
     },
-    // Refetch stats every 60 seconds by default
-    refetchInterval: 60_000,
+    // Aggressive polling for demo: refetch every 5 seconds
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false, // Only when tab is active
   })
 }
