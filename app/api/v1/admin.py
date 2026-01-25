@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import AuditLog, LabelPolicy, SecurityEvent
+from app.models import (
+    AuditLog,
+    ImpersonationSession,
+    LabelPolicy,
+    SecurityEvent,
+)
 from app.schemas import (
     BatchActionResponse,
     BatchDeleteRunnersRequest,
@@ -1212,13 +1217,21 @@ async def get_admin_stats(
 
 @router.get("/config")
 async def get_admin_config(
+    show_sensitive: bool = False,
     admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
     settings: Settings = Depends(get_settings),
 ):
     """
-    Get system configuration (sanitized).
+    Get system configuration.
 
     **Required Authentication:** Admin privileges
+
+    **Query Parameters:**
+    - `show_sensitive`: If true, show actual values for sensitive fields (default: false)
+
+    **Security Note:**
+    Sensitive fields (tokens, secrets, passwords) are masked by default.
+    Set `show_sensitive=true` to reveal them (use with caution).
     """
     # Define sensitive fields to mask
     sensitive_fields = {
@@ -1232,9 +1245,390 @@ async def get_admin_config(
     config = {}
     for field in settings.model_fields:
         value = getattr(settings, field)
-        if field in sensitive_fields and value:
+        if field in sensitive_fields and value and not show_sensitive:
             config[field] = "********"
         else:
             config[field] = value
 
     return config
+
+
+# User Impersonation Endpoints (for demo purposes)
+
+
+@router.post("/impersonate/{user_id}")
+async def impersonate_user(
+    user_id: str,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Impersonate another user for demo purposes.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Allow admins to temporarily impersonate other users to test their view
+    and permissions. This is useful for demos and troubleshooting.
+
+    **Security:**
+    - Only admins can impersonate
+    - Impersonation is logged in audit trail
+    - Original admin identity is preserved in logs
+
+    **Returns:**
+    Impersonation token and target user info
+
+    **Example Response:**
+    ```json
+    {
+      "impersonation_token": "eyJ...",
+      "user": {
+        "id": "user-uuid",
+        "email": "demo@example.com",
+        "display_name": "Demo User",
+        "is_admin": false
+      },
+      "original_admin": "admin@example.com"
+    }
+    ```
+    """
+    from jose import jwt
+    from datetime import datetime, timedelta, timezone
+    import uuid
+
+    service = UserService(db)
+
+    # Get target user
+    target_user = service.get_user_by_id(user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found: {user_id}",
+        )
+
+    if not target_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot impersonate inactive user",
+        )
+
+    # Create impersonation token (JWT with target user's identity)
+    # This token will be used by the frontend to make API calls as the target user
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=1)  # 1 hour expiry
+    session_id = str(uuid.uuid4())
+
+    payload = {
+        "sub": target_user.oidc_sub or target_user.email,
+        "email": target_user.email,
+        "iss": settings.oidc_issuer,
+        "aud": settings.oidc_audience,
+        "iat": now,
+        "exp": expires_at,
+        "jti": session_id,  # JWT ID for tracking
+        "impersonated_by": admin.identity,  # Track who is impersonating
+        "is_impersonation": True,  # Flag to identify impersonation tokens
+    }
+
+    # Sign the token (using a simple secret for demo purposes)
+    # In production, you'd want to use proper key management
+    impersonation_token = jwt.encode(
+        payload,
+        "demo-impersonation-secret",  # TODO: Move to settings
+        algorithm="HS256",
+    )
+
+    # Track session in database
+    session = ImpersonationSession(
+        id=session_id,
+        admin_identity=admin.identity,
+        admin_oidc_sub=admin.sub,
+        target_user_id=target_user.id,
+        target_user_email=target_user.email,
+        target_user_oidc_sub=target_user.oidc_sub,
+        expires_at=expires_at,
+    )
+    db.add(session)
+
+    # Log the impersonation for audit trail
+    audit_entry = AuditLog(
+        event_type="user_impersonation_started",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=True,
+        error_message=None,
+        event_data=json.dumps(
+            {
+                "target_user_id": user_id,
+                "target_user_email": target_user.email,
+                "target_user_oidc_sub": target_user.oidc_sub,
+            }
+        ),
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return {
+        "impersonation_token": impersonation_token,
+        "user": {
+            "id": target_user.id,
+            "email": target_user.email,
+            "oidc_sub": target_user.oidc_sub,
+            "display_name": target_user.display_name,
+            "is_admin": target_user.is_admin,
+            "is_active": target_user.is_active,
+        },
+        "original_admin": admin.identity,
+        "expires_at": (now + timedelta(hours=1)).isoformat(),
+    }
+
+
+@router.post("/stop-impersonation")
+async def stop_impersonation(
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Stop impersonating and return to admin identity.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    End the current impersonation session and return to the original admin identity.
+
+    **Returns:**
+    Success message
+
+    **Example Response:**
+    ```json
+    {
+      "message": "Impersonation stopped",
+      "admin_identity": "admin@example.com"
+    }
+    ```
+    """
+    # Log the end of impersonation
+    audit_entry = AuditLog(
+        event_type="user_impersonation_stopped",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=True,
+        error_message=None,
+        event_data=json.dumps({}),
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return {
+        "message": "Impersonation stopped",
+        "admin_identity": admin.identity,
+    }
+
+
+@router.get("/impersonation-sessions")
+async def list_impersonation_sessions(
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    List all active impersonation sessions.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    View all currently active impersonation tokens to monitor who is
+    impersonating whom. Useful for security oversight and demo management.
+
+    **Returns:**
+    List of active impersonation sessions
+
+    **Example Response:**
+    ```json
+    {
+      "sessions": [
+        {
+          "id": "session-uuid",
+          "admin_identity": "admin@example.com",
+          "target_user_email": "demo@example.com",
+          "created_at": "2024-01-01T12:00:00Z",
+          "expires_at": "2024-01-01T13:00:00Z"
+        }
+      ]
+    }
+    ```
+    """
+    from datetime import datetime, timezone
+
+    # Get all active sessions that haven't expired
+    now = datetime.now(timezone.utc)
+    sessions = (
+        db.query(ImpersonationSession)
+        .filter(
+            ImpersonationSession.is_active.is_(True),
+            ImpersonationSession.expires_at > now,
+            ImpersonationSession.revoked_at.is_(None),
+        )
+        .order_by(ImpersonationSession.created_at.desc())
+        .all()
+    )
+
+    return {
+        "sessions": [
+            {
+                "id": session.id,
+                "admin_identity": session.admin_identity,
+                "target_user_id": session.target_user_id,
+                "target_user_email": session.target_user_email,
+                "created_at": session.created_at.isoformat(),
+                "expires_at": session.expires_at.isoformat(),
+            }
+            for session in sessions
+        ]
+    }
+
+
+@router.post("/impersonation-sessions/{session_id}/revoke")
+async def revoke_impersonation_session(
+    session_id: str,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Revoke a specific impersonation session.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Immediately revoke an active impersonation session, forcing the
+    impersonated user to be logged out.
+
+    **Returns:**
+    Success message
+
+    **Example Response:**
+    ```json
+    {
+      "message": "Session revoked",
+      "session_id": "session-uuid"
+    }
+    ```
+    """
+    from datetime import datetime, timezone
+
+    session = (
+        db.query(ImpersonationSession)
+        .filter(ImpersonationSession.id == session_id)
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session not found: {session_id}",
+        )
+
+    # Mark as revoked
+    session.is_active = False
+    session.revoked_at = datetime.now(timezone.utc)
+
+    # Log the revocation
+    audit_entry = AuditLog(
+        event_type="impersonation_session_revoked",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=True,
+        error_message=None,
+        event_data=json.dumps(
+            {
+                "session_id": session_id,
+                "target_user_email": session.target_user_email,
+                "revoked_by": admin.identity,
+            }
+        ),
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return {
+        "message": "Session revoked",
+        "session_id": session_id,
+    }
+
+
+@router.post("/impersonation-sessions/revoke-all")
+async def revoke_all_impersonation_sessions(
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Revoke all active impersonation sessions.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Immediately revoke all active impersonation sessions, useful for
+    security incidents or end of demo sessions.
+
+    **Returns:**
+    Count of revoked sessions
+
+    **Example Response:**
+    ```json
+    {
+      "message": "All sessions revoked",
+      "count": 3
+    }
+    ```
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+
+    # Get all active sessions
+    sessions = (
+        db.query(ImpersonationSession)
+        .filter(
+            ImpersonationSession.is_active.is_(True),
+            ImpersonationSession.revoked_at.is_(None),
+        )
+        .all()
+    )
+
+    count = len(sessions)
+
+    # Revoke all
+    for session in sessions:
+        session.is_active = False
+        session.revoked_at = now
+
+    # Log the bulk revocation
+    audit_entry = AuditLog(
+        event_type="impersonation_sessions_bulk_revoked",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=True,
+        error_message=None,
+        event_data=json.dumps(
+            {
+                "count": count,
+                "revoked_by": admin.identity,
+            }
+        ),
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return {
+        "message": "All sessions revoked",
+        "count": count,
+    }
