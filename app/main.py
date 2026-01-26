@@ -2,11 +2,10 @@
 
 import asyncio
 import json
+import time
 from datetime import datetime, timezone
-import logging
 from pathlib import Path
 from typing import Optional
-import sys
 
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -16,7 +15,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 import structlog
-from structlog.stdlib import LoggerFactory, ProcessorFormatter
 
 from app import __version__
 from app.api.v1 import admin
@@ -26,6 +24,7 @@ from app.api.v1 import runners
 from app.api.v1 import webhooks
 from app.config import get_settings
 from app.database import get_db, init_db, SessionLocal
+from app.logging_config import setup_logging, log_access
 from app.models import Runner, SecurityEvent
 from app.schemas import ErrorResponse, HealthResponse
 from app.services.sync_service import SyncService
@@ -36,60 +35,12 @@ favicon_path = current_file_path / "favicon.ico"
 # Get settings
 settings = get_settings()
 
-
-def setup_logging():
-    # 1. Main shared processors (everything before the final renderer)
-    shared_processors = [
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-    ]
-
-    file_processors = [structlog.processors.TimeStamper(fmt="iso"), *shared_processors]
-
-    console_processors = [structlog.stdlib.filter_by_level, *shared_processors]
-
-    # 2. Structlog configuration
-    structlog.configure(
-        processors=console_processors
-        + [
-            # This prepares the event for the standard library's ProcessorFormatter
-            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-        ],
-        logger_factory=LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
-
-    # 3. Setup Standard Library Handlers
-    # Console Handler (Pretty Output)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(
-        ProcessorFormatter(
-            processor=structlog.dev.ConsoleRenderer(),
-            foreign_pre_chain=shared_processors,
-        )
-    )
-
-    # File Handler (JSON Output)
-    file_handler = logging.FileHandler("app.log")
-    file_handler.setFormatter(
-        ProcessorFormatter(
-            processor=structlog.processors.JSONRenderer(),
-            foreign_pre_chain=file_processors,
-        )
-    )
-
-    # 4. Attach to Root Logger
-    root_logger = logging.getLogger()
-    root_logger.handlers = [console_handler, file_handler]
-    root_logger.setLevel(logging.INFO)
-
-
-setup_logging()
+# Setup logging with new configuration
+setup_logging(
+    log_level=settings.log_level,
+    log_dir=settings.log_dir,
+    access_log_tracing=settings.access_log_tracing,
+)
 logger = structlog.get_logger()
 
 
@@ -191,29 +142,38 @@ templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 @app.middleware("http")
-async def log_requests_incoming(request: Request, call_next):
-    sensitive = {"authorization", "cookie", "proxy-authorization"}
-    safe_headers = {
-        k: ("*****" if k.lower() in sensitive else v)
-        for k, v in request.headers.items()
-    }
-
-    log = logger.bind(
-        method=request.method,
-        path=request.url.path,
-        client=request.client.host if request.client else None,
-        headers=safe_headers,
-    )
-
-    log.info("HTTP Request (incoming)")
+async def log_requests(request: Request, call_next):
+    """Log HTTP requests with access logging."""
+    start_time = time.time()
 
     try:
         response = await call_next(request)
+
+        # Calculate duration
+        duration_ms = (time.time() - start_time) * 1000
+
+        # Log access
+        log_access(
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            client=request.client.host if request.client else None,
+            headers=dict(request.headers),
+            duration_ms=duration_ms,
+        )
+
         return response
 
     except Exception as e:
-        # Log the failure if the app crashes
-        log.exception("HTTP Request failed", error=str(e))
+        # Log the failure
+        duration_ms = (time.time() - start_time) * 1000
+        logger.exception(
+            "request_failed",
+            method=request.method,
+            path=request.url.path,
+            error=str(e),
+            duration_ms=duration_ms,
+        )
         raise
 
 

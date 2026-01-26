@@ -44,7 +44,15 @@ class Settings(BaseSettings):
     # Service Configuration
     service_host: str = Field(default="0.0.0.0", description="Service host")
     service_port: int = Field(default=8000, description="Service port")
-    log_level: str = Field(default="INFO", description="Logging level")
+    log_level: str = Field(
+        default="INFO",
+        description="Application logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
+    access_log_tracing: bool = Field(
+        default=False,
+        description="Enable detailed tracing in access logs (headers, payloads)",
+    )
+    log_dir: Path = Field(default=Path("logs"), description="Directory for log files")
 
     # Security
     api_key_header: str = Field(default="X-API-Key", description="API key header name")
