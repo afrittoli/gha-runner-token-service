@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { AxiosError } from 'axios'
-import { useProvisionRunnerJit } from '@hooks/useRunners'
+import { useProvisionRunnerJit, useMyLabelPolicy } from '@hooks/useRunners'
 import { copyToClipboard } from '@utils/clipboard'
 
 export default function ProvisionRunner() {
   const navigate = useNavigate()
   const provisionMutation = useProvisionRunnerJit()
+  const { data: labelPolicy, isLoading: policyLoading } = useMyLabelPolicy()
   
   const [namePrefix, setNamePrefix] = useState('')
   const [labels, setLabels] = useState('')
@@ -166,6 +167,54 @@ export default function ProvisionRunner() {
             System labels (self-hosted, OS, architecture) are added automatically.
           </p>
         </div>
+
+        {/* Label Policy Information */}
+        {!policyLoading && labelPolicy && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 space-y-3">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-blue-800">Your Label Policy</h3>
+                {labelPolicy.description && (
+                  <p className="mt-1 text-sm text-blue-700">{labelPolicy.description}</p>
+                )}
+                <div className="mt-2 space-y-2">
+                  {labelPolicy.allowed_labels && labelPolicy.allowed_labels.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-blue-800 mb-1">Allowed Labels:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {labelPolicy.allowed_labels.map((label) => (
+                          <span key={label} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {labelPolicy.label_patterns && labelPolicy.label_patterns.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-blue-800 mb-1">Allowed Patterns:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {labelPolicy.label_patterns.map((pattern) => (
+                          <span key={pattern} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-purple-100 text-purple-800 border border-purple-200">
+                            {pattern}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-blue-600 mt-2">
+                    Max runners: {labelPolicy.max_runners}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
           <div className="flex">

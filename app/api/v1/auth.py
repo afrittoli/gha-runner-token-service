@@ -1,5 +1,6 @@
 """Authentication endpoints for dashboard."""
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, status
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.database import get_db
 from app.models import Runner, SecurityEvent
+from app.services.label_policy_service import LabelPolicyService
 
 
 router = APIRouter()
@@ -108,3 +110,45 @@ async def get_dashboard_stats(
         )
 
     return stats
+
+
+@router.get("/auth/my-label-policy")
+async def get_my_label_policy(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any] | None:
+    """Get the current user's label policy.
+
+    Returns the label policy configured for the authenticated user,
+    including allowed labels and label patterns. This helps users
+    understand what labels they can use when provisioning runners.
+
+    Returns:
+        {
+            "user_identity": "user@example.com",
+            "allowed_labels": ["gpu", "high-mem"],
+            "label_patterns": ["team-.*", "project-[a-z]+"],
+            "max_runners": 10,
+            "description": "Policy description"
+        }
+
+    Returns null if no policy is configured for the user.
+    """
+    service = LabelPolicyService(db)
+    policy = service.get_policy(current_user.identity)
+
+    if not policy:
+        return None
+
+    allowed_labels_str: str = policy.allowed_labels  # type: ignore
+    label_patterns_str: str | None = policy.label_patterns  # type: ignore
+
+    return {
+        "user_identity": policy.user_identity,
+        "allowed_labels": json.loads(allowed_labels_str),
+        "label_patterns": (
+            json.loads(label_patterns_str) if label_patterns_str else None
+        ),
+        "max_runners": policy.max_runners,
+        "description": policy.description,
+    }

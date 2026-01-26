@@ -1,11 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { 
-  apiClient, 
-  Runner, 
-  RunnerListResponse, 
-  ProvisionRunnerResponse, 
-  JitProvisionResponse 
+import {
+  apiClient,
+  Runner,
+  RunnerListResponse,
+  ProvisionRunnerResponse,
+  JitProvisionResponse
 } from '@api/client'
+
+export interface UserLabelPolicy {
+  user_identity: string
+  allowed_labels: string[]
+  label_patterns: string[] | null
+  max_runners: number
+  description: string | null
+}
 
 export interface RunnerFilters {
   status?: string
@@ -108,6 +116,16 @@ export function useRefreshRunnerStatus() {
     },
     onSuccess: (_, runnerId) => {
       queryClient.invalidateQueries({ queryKey: ['runner', runnerId] })
+    },
+  })
+}
+
+export function useMyLabelPolicy() {
+  return useQuery<UserLabelPolicy | null>({
+    queryKey: ['my-label-policy'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/v1/auth/my-label-policy')
+      return response.data
     },
   })
 }

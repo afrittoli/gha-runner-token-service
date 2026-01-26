@@ -14,7 +14,7 @@ get_oidc_token() {
   local CLIENT_ID="$AUTH0_NATIVE_CLIENT_ID"
   local DEVICE_AUTH_ENDPOINT="https://$AUTH0_DOMAIN/oauth/device/code"
   local TOKEN_ENDPOINT="https://$AUTH0_DOMAIN/oauth/token"
-  local REDIRECT_URI="http://localhost:$NC_PORT"
+  local REDIRECT_URI="http://localhost:8080"
 
   # Request code from Auth0
   RESPONSE=$(curl -s --request POST \
