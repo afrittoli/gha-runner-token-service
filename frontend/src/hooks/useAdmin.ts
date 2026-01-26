@@ -164,6 +164,57 @@ export function useActivateUser() {
   })
 }
 
+export interface BatchDisableUsersRequest {
+  comment: string
+  user_ids?: string[]
+  exclude_admins?: boolean
+}
+
+export interface BatchRestoreUsersRequest {
+  comment: string
+  user_ids?: string[]
+}
+
+export interface BatchActionResponse {
+  success: boolean
+  action: string
+  affected_count: number
+  failed_count: number
+  comment: string
+  details?: Array<{
+    user_id: string
+    email: string
+    status: string
+    error?: string
+  }>
+}
+
+export function useBatchDisableUsers() {
+  const queryClient = useQueryClient()
+  return useMutation<BatchActionResponse, Error, BatchDisableUsersRequest>({
+    mutationFn: async (data: BatchDisableUsersRequest) => {
+      const response = await apiClient.post('/api/v1/admin/batch/disable-users', data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+    },
+  })
+}
+
+export function useBatchRestoreUsers() {
+  const queryClient = useQueryClient()
+  return useMutation<BatchActionResponse, Error, BatchRestoreUsersRequest>({
+    mutationFn: async (data: BatchRestoreUsersRequest) => {
+      const response = await apiClient.post('/api/v1/admin/batch/restore-users', data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+    },
+  })
+}
+
 // --- Security Events ---
 
 export interface SecurityEventListResponse {
