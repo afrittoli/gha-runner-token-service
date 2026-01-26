@@ -89,7 +89,7 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
 # Expected: 403 Forbidden - labels not permitted by policy
 ```
 
-### Show Audit Log
+### Show the Security Log
 
 ```bash
 # Check security events for the violation

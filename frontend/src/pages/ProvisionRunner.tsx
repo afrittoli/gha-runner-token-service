@@ -164,7 +164,7 @@ export default function ProvisionRunner() {
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gh-blue focus:border-transparent outline-none"
           />
           <p className="text-xs text-gray-500">
-            System labels (self-hosted, OS, architecture) are added automatically.
+            System labels (e.g. self-hosted) are added automatically.
           </p>
         </div>
 
