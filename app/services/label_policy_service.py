@@ -71,9 +71,9 @@ class LabelPolicyService:
             return
 
         # Parse label patterns if configured
-        label_patterns = []
-        if policy.label_patterns:
-            label_patterns = json.loads(policy.label_patterns)
+        label_patterns = (
+            json.loads(policy.label_patterns) if policy.label_patterns else None
+        )
 
         # Filter out system labels - they are always allowed
         user_labels = [
@@ -89,23 +89,29 @@ class LabelPolicyService:
 
             # Check pattern match
             matched = False
-            for pattern in label_patterns:
-                try:
-                    if re.match(pattern, label):
-                        matched = True
-                        break
-                except re.error:
-                    # Invalid regex pattern - log and skip
-                    continue
+            if label_patterns:
+                for pattern in label_patterns:
+                    try:
+                        if re.match(pattern, label):
+                            matched = True
+                            break
+                    except re.error:
+                        # Invalid regex pattern - log and skip
+                        continue
 
             if not matched:
                 invalid_labels.add(label)
 
         if invalid_labels:
+            patterns_msg = (
+                f"Allowed patterns: {label_patterns}"
+                if label_patterns
+                else "No patterns configured"
+            )
             raise LabelPolicyViolation(
                 f"Labels {invalid_labels} not permitted by policy. "
                 f"Allowed labels: {allowed_labels}. "
-                f"Allowed patterns: {label_patterns}",
+                f"{patterns_msg}",
                 invalid_labels=invalid_labels,
             )
 
