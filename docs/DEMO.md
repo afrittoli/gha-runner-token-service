@@ -6,7 +6,8 @@ Demonstrate the system capabilities and its security and central management and 
 
 Before starting the demo, ensure:
 - The service is running (see DEVELOPMENT.md or QUICKSTART.md)
-- You have the [`docs/scripts/get_oidc_token`](./scripts/oidc.sh) function installed and configured
+- You have the [`docs/scripts/oidc.sh`](./scripts/oidc.sh) function installed and configured
+- Source the CLI credentials `source docs/.cli.env`
 - Label policies are configured for the users
 - The GitHub organization has self-hosted runners enabled
 - Alias `alias curl="curl -sw '%{stderr}Response: %{http_code}\n'"`
@@ -108,12 +109,10 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -d '{
     "runner_name_prefix": "alice-demo",
     "labels": ["linux", "arm64", "alice"]
-  }' | tee /tmp/alice-runner.json | jq
+  }' | tee /tmp/alice-runner.json | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
 
 # Save the JIT config for later
 export ALICE_JIT_CONFIG=$(jq -r '.encoded_jit_config' /tmp/alice-runner.json)
-export ALICE_RUNNER_NAME=$(jq -r '.runner_name' /tmp/alice-runner.json)
-export ALICE_LABELS=$(jq -r '.labels' /tmp/alice-runner.json)
 ```
 
 ### Show JIT Config Content
@@ -124,9 +123,7 @@ export ALICE_LABELS=$(jq -r '.labels' /tmp/alice-runner.json)
 # Runner:
 echo $ALICE_JIT_CONFIG | base64 -d | jq -r '.[".runner"]' | base64 -D | jq .
 
-# Labels:
-jq -r '.labels' /tmp/alice-runner.json
-```
+# Mention the labels
 
 ### Explain System Labels
 
@@ -138,10 +135,11 @@ The response shows the full label list including system labels:
 
 ```bash
 # On the runner machine (or container):
-cd /path/to/actions-runner
+export ALICE_JIT_CONFIG=$(jq -r '.encoded_jit_config' /tmp/alice-runner.json)
 
-# Start using JIT config (no ./config.sh needed!)
-./run.sh --jitconfig "$ALICE_JIT_CONFIG"
+podman run -it --rm \
+  ghcr.io/actions/actions-runner:latest \
+  ./run.sh --jitconfig "$ALICE_JIT_CONFIG"
 ```
 
 ### Show Runner in GitHub UI
@@ -160,6 +158,21 @@ cd /path/to/actions-runner
    - Updates status from GitHub
    - Detects deleted/orphaned runners
 
+### Bob Steals Alice's JIT Config (Failed)
+
+
+```bash
+# On the runner machine (or container):
+export ALICE_JIT_CONFIG=$(jq -r '.encoded_jit_config' /tmp/alice-runner.json)
+
+podman run -it --rm \
+  ghcr.io/actions/actions-runner:latest \
+  ./run.sh --jitconfig "$ALICE_JIT_CONFIG"
+```
+
+Run a job to consume the first runner.
+Bob's attempt fails.
+
 ---
 
 ## Demo Label Change Prevention
@@ -175,6 +188,22 @@ cd /path/to/actions-runner
 
 ## Demo Multi-User
 
+### Provision Runner for Alice
+
+```bash
+curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
+  -H "Authorization: Bearer $ALICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name_prefix": "alice-demo",
+    "labels": ["linux", "arm64", "alice"]
+  }' | tee /tmp/alice-runner.json | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
+```
+
+# Save the JIT config for later
+export ALICE_JIT_CONFIG=$(jq -r '.encoded_jit_config' /tmp/alice-runner.json)
+export ALICE_RUNNER_NAME=$(jq -r '.runner_name' /tmp/alice-runner.json)
+
 ### Provision Runner for Bob
 
 ```bash
@@ -185,7 +214,7 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -d '{
     "runner_name_prefix": "bob-demo",
     "labels": ["linux", "arm64", "bob"]
-  }' | tee /tmp/bob-runner.json | jq
+  }' | tee /tmp/bob-runner.json | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
 
 export BOB_RUNNER_ID=$(jq -r '.runner_id' /tmp/bob-runner.json)
 ```
@@ -245,21 +274,10 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -H "Content-Type: application/json" \
   -d "{
     \"runner_name\": \"$ALICE_RUNNER_NAME\",
-    \"labels\": [\"linux\", \"x64\", \"team-b\"]
+    \"labels\": [\"linux\", \"arm64\", \"bob\"]
   }"
 
 # Expected: 400 Bad Request - runner name already exists
-```
-
-### Bob Steals Alice's JIT Config (Failed)
-
-```bash
-# Bob tries to use Alice's JIT config
-# On runner machine:
-./run.sh --jitconfig "$ALICE_JIT_CONFIG"
-
-# Expected: Fails - JIT config can only be used once and is tied to the runner name
-# GitHub rejects reuse of JIT configs
 ```
 
 ### Runner Group Isolation
@@ -278,8 +296,8 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
   -H "Content-Type: application/json" \
   -d '{
     "runner_name_prefix": "bob-new",
-    "labels": ["linux", "arm64", "team-b"]
-  }' | jq
+    "labels": ["linux", "arm64", "bob"]
+  }' | tee /tmp/bob-runner.json | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
 ```
 
 ---
@@ -290,23 +308,15 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
 
 Use the demo workflow (requires runner to be started):
 
-1. Go to GitHub repository → Actions → "Demo Ephemeral Runner"
+1. Go to GitHub repository → Actions → "Hello for Bob"
 2. Click "Run workflow"
-3. Enter runner labels: `self-hosted,linux,x64,team-a` (matching Alice's runner)
-4. Click "Run workflow"
 
 Or via CLI:
-
-```bash
-gh workflow run demo-ephemeral.yaml \
-  --field runner_labels="self-hosted,linux,team-a" \
-  --field message="Demo ephemeral runner!"
-```
 
 ### Watch the Job Run
 
 1. Observe the workflow starting
-2. Job picks up on Alice's runner
+2. Job picks up on Bob's runner
 3. Workflow completes
 
 ### Show Runner Auto-Deletion
@@ -318,7 +328,7 @@ curl -X POST "$SERVICE_URL/api/v1/admin/sync/trigger" \
 
 # Check runner status - should be "deleted"
 curl -s "$SERVICE_URL/api/v1/runners" \
-  -H "Authorization: Bearer $ALICE_TOKEN" | jq '.runners[] | {runner_name, status}'
+  -H "Authorization: Bearer $BOB_TOKEN" | jq '.runners[] | {runner_name, status}'
 ```
 
 ### Show Audit Log
@@ -341,7 +351,7 @@ for i in 1 2 3; do
   curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
     -H "Authorization: Bearer $ALICE_TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"runner_name_prefix\": \"alice-batch-$i\", \"labels\": [\"linux\", \"team-a\"]}"
+    -d "{\"runner_name_prefix\": \"alice-batch-$i\", \"labels\": [\"linux\", \"alice\"]}" | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
 done
 
 # Bob provisions a few runners (not started)
@@ -349,9 +359,13 @@ for i in 1 2; do
   curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
     -H "Authorization: Bearer $BOB_TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"runner_name_prefix\": \"bob-batch-$i\", \"labels\": [\"linux\", \"team-b\"]}"
+    -d "{\"runner_name_prefix\": \"bob-batch-$i\", \"labels\": [\"linux\", \"bob\"]}" | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
 done
 ```
+
+### Admin Concole
+
+Show GitHub App config
 
 ### Alter Label Policy
 
@@ -362,9 +376,9 @@ curl -X POST "$SERVICE_URL/api/v1/admin/label-policies" \
   -H "Content-Type: application/json" \
   -d '{
     "user_identity": "alice@example.com",
-    "allowed_labels": ["linux", "arm64", "team-a", "gpu"],
+    "allowed_labels": ["linux", "arm64", "alice", "gpu"],
     "max_runners": 10,
-    "description": "Team A runners with GPU support"
+    "description": "Alice runners with GPU support"
   }' | jq
 ```
 
@@ -386,6 +400,9 @@ curl -X POST "$SERVICE_URL/api/v1/admin/users" \
 
 ### Disable a User
 
+Disable Alice via dashboard.
+Try to provision a runner.
+
 ```bash
 # Disable a specific user (soft delete)
 export CHARLIE_ID=$(curl -s "$SERVICE_URL/api/v1/admin/users" \
@@ -398,6 +415,8 @@ curl -X DELETE "$SERVICE_URL/api/v1/admin/users/$CHARLIE_ID" \
 ```
 
 ### Disable All Users (Emergency)
+
+Disable all users. Note how explanation is noted.
 
 ```bash
 # Security incident: disable all non-admin users
@@ -450,6 +469,8 @@ curl -X POST "$SERVICE_URL/api/v1/admin/batch/delete-runners" \
 
 ### Delete All Runners
 
+Note how a reason is needed
+
 ```bash
 # Emergency: delete all runners
 curl -X POST "$SERVICE_URL/api/v1/admin/batch/delete-runners" \
@@ -477,6 +498,9 @@ curl -s "$SERVICE_URL/api/v1/admin/security-events?severity=high" \
 ```
 
 Dashboard also shows security events in the "Security Events" section with filtering options.
+
+### View Security Events
+
 
 ---
 
