@@ -16,6 +16,7 @@ Before starting the demo, ensure:
 ```bash
 # Service URL
 export SERVICE_URL="http://localhost:8000"  # or your deployed URL
+export DASHBOARD_URL="http://localhost:5173/app/"
 
 # OIDC tokens (obtain from your identity provider)
 export ALICE_TOKEN=$(get_oidc_token)
@@ -47,11 +48,10 @@ curl -s "$SERVICE_URL/api/v1/runners" \
 
 ### Show Dashboard
 
-1. Open the dashboard at `$SERVICE_URL/dashboard`
-2. Enter admin token in the "Admin Actions" section
-3. Click on the **Users** tab to show pre-provisioned users
-4. Click on the **Label Policies** tab to show configured policies
-5. Point out the empty Runners table
+1. Open the dashboard at `$DASHBOARD_URL/dashboard`
+2. Click on the **Users** tab to show pre-provisioned users
+3. Click on the **Label Policies** tab to show configured policies
+4. Point out the empty Runners table
 
 ### List Users (API)
 
