@@ -121,7 +121,7 @@ export default function Sidebar() {
         ${sidebarCollapsed ? 'w-16' : 'w-64'}
       `}>
         {/* Collapse Toggle Button */}
-        <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white">
+        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-2 border-b border-gray-200`}>
           {!sidebarCollapsed && (
             <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
               Menu
@@ -130,17 +130,19 @@ export default function Sidebar() {
           <button
             onClick={toggleSidebarCollapse}
             type="button"
-            className="p-2 text-gray-600 hover:text-white hover:bg-gh-blue rounded-lg transition-all shadow-sm hover:shadow-md border border-gray-300 bg-white ml-auto"
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'px-4'} py-2 text-sm font-medium rounded-md transition-colors text-gray-600 hover:bg-gh-gray-100 hover:text-gh-gray-900`}
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {sidebarCollapsed ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              )}
-            </svg>
+            <span className="text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {sidebarCollapsed ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                )}
+              </svg>
+            </span>
           </button>
         </div>
 

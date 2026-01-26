@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import { AxiosError } from 'axios'
 import { AuthInfo, apiClient, setAccessToken, User, impersonateUser, stopImpersonation } from '../api/client'
+import { QueryClient } from '@tanstack/react-query'
+
+// Create a query client instance that can be used by the store
+let queryClient: QueryClient | null = null
+
+export function setQueryClient(client: QueryClient) {
+  queryClient = client
+}
 
 interface ImpersonationState {
   isImpersonating: boolean
@@ -95,6 +103,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       })
       
+      // Immediately invalidate all queries to refetch with new user context
+      if (queryClient) {
+        await queryClient.invalidateQueries()
+      }
+      
       // Fetch the impersonated user's info
       await get().fetchUser()
     } catch (err: unknown) {
@@ -132,6 +145,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           originalOidcToken: null,
         }
       })
+      
+      // Immediately invalidate all queries to refetch with original user context
+      if (queryClient) {
+        await queryClient.invalidateQueries()
+      }
       
       // Fetch user info with original token
       await get().fetchUser()

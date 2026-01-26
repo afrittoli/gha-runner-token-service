@@ -5,6 +5,7 @@ import { AuthProvider } from 'react-oidc-context'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
+import { setQueryClient } from './store/authStore'
 
 // Configure React Query
 const queryClient = new QueryClient({
@@ -17,6 +18,9 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// Make queryClient available to authStore for immediate cache invalidation
+setQueryClient(queryClient)
 
 // OIDC configuration
 // In production, these values should come from environment variables
