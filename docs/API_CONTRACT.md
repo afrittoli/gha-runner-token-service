@@ -60,7 +60,14 @@ This document defines the API contract between frontend dashboard(s) and the bac
   - Jinja2 dashboard doesn't call this (read-only)
 
 ### Admin (new endpoints, gated by RBAC)
-- `GET /api/v1/admin/policies` - Label policies list (NEW, admin only)
+- `GET /api/v1/admin/label-policies` - Label policies list (NEW, admin only)
+  - Returns: `{ policies: [{ user_identity, allowed_labels: [], label_patterns: [], max_runners, description, ... }], total }`
+  - `label_patterns`: Optional array of regex patterns for dynamic label matching
+  - Used by: React dashboard admin console
+- `POST /api/v1/admin/label-policies` - Create/update label policy (NEW, admin only)
+  - Body: `{ user_identity, allowed_labels: [], label_patterns?: [], max_runners?, description? }`
+  - `label_patterns`: Optional regex patterns (e.g., "team-.*", "project-[a-z]+")
+- `DELETE /api/v1/admin/label-policies/{user_identity}` - Delete policy (NEW, admin only)
 - `GET /api/v1/admin/security-events` - Security events (NEW, admin only)
 - `GET /api/v1/audit-logs` - Audit logs (NEW, admin only, with user filtering)
 
