@@ -431,7 +431,7 @@ if __name__ == "__main__":
         "port": settings.service_port,
         "reload": True,
         "log_level": settings.log_level.lower(),
-        "access_log": False,
+        "access_log": True,  # Enable uvicorn's access logs on console
     }
 
     # Add HTTPS configuration if enabled

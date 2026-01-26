@@ -15,6 +15,7 @@ Dashboard development is organized into **4 phases**, each with specific feature
 
 ### High Priority
 
+- [ ] **Fix access log tracing** - ACCESS_LOG_TRACING=true not logging headers/payloads in access.log
 - [ ] **Remove legacy Jinja2 dashboard** - Clean up all docs, backend, frontend, tests, and TODOs related to old dashboard
   - Remove `app/templates/dashboard.html`
   - Remove Jinja2 template rendering code from `app/main.py`
