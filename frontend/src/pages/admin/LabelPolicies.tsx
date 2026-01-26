@@ -6,6 +6,7 @@ import { formatDate } from '@utils/formatters'
 interface PolicyFormData {
   user_identity: string
   allowed_labels: string
+  label_patterns: string
   description: string
   max_runners: number
 }
@@ -16,6 +17,7 @@ export default function LabelPolicies() {
   const [newPolicy, setNewPolicy] = useState<PolicyFormData>({
     user_identity: '',
     allowed_labels: '',
+    label_patterns: '',
     description: '',
     max_runners: 5,
   })
@@ -29,6 +31,7 @@ export default function LabelPolicies() {
     setNewPolicy({
       user_identity: policy.user_identity,
       allowed_labels: policy.allowed_labels.join(', '),
+      label_patterns: policy.label_patterns?.join(', ') || '',
       description: policy.description || '',
       max_runners: policy.max_runners,
     })
@@ -41,6 +44,7 @@ export default function LabelPolicies() {
     setNewPolicy({
       user_identity: '',
       allowed_labels: '',
+      label_patterns: '',
       description: '',
       max_runners: 5,
     })
@@ -59,9 +63,15 @@ export default function LabelPolicies() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      const patterns = newPolicy.label_patterns
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p)
+      
       await createPolicy.mutateAsync({
         user_identity: newPolicy.user_identity,
         allowed_labels: newPolicy.allowed_labels.split(',').map(l => l.trim()).filter(l => l),
+        label_patterns: patterns.length > 0 ? patterns : undefined,
         description: newPolicy.description,
         max_runners: newPolicy.max_runners,
       })
@@ -145,6 +155,21 @@ export default function LabelPolicies() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Label Patterns (regex, comma separated, optional)
+              </label>
+              <input
+                type="text"
+                value={newPolicy.label_patterns}
+                onChange={(e) => setNewPolicy({ ...newPolicy, label_patterns: e.target.value })}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                placeholder="team-.*, project-[a-z]+"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Regex patterns for dynamic label matching (e.g., "team-.*" matches "team-alpha", "team-beta")
+              </p>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700">Description</label>
               <input
                 type="text"
@@ -208,12 +233,30 @@ export default function LabelPolicies() {
                   </div>
                 </div>
                 <div className="mt-2 sm:flex sm:justify-between">
-                  <div className="sm:flex">
-                    <div className="flex flex-wrap gap-1">
-                      {policy.allowed_labels.map((label) => (
-                        <LabelPill key={label} label={label} />
-                      ))}
+                  <div className="sm:flex sm:flex-col space-y-2">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Allowed Labels:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {policy.allowed_labels.map((label) => (
+                          <LabelPill key={label} label={label} />
+                        ))}
+                      </div>
                     </div>
+                    {policy.label_patterns && policy.label_patterns.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Label Patterns:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {policy.label_patterns.map((pattern) => (
+                            <span
+                              key={pattern}
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-purple-100 text-purple-800 border border-purple-200"
+                            >
+                              {pattern}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-2 flex items-center text-xs text-gray-500 sm:mt-0">
                     <p>
