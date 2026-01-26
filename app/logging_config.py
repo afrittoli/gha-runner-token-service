@@ -1,13 +1,12 @@
 """Logging configuration for the runner token service.
 
 This module provides:
-- Console: Minimalistic access logs (no timestamps, like uvicorn default)
-- File: access.log with complete access logs (optional tracing for headers/payloads)
+- Console: Application logs only (uvicorn handles access logs)
+- File: access.log with complete access logs (optional tracing)
 - File: app.log with application logs (configurable level, default INFO)
 """
 
 import logging
-import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -15,25 +14,13 @@ import structlog
 from structlog.stdlib import LoggerFactory, ProcessorFormatter
 
 
-class MinimalisticAccessLogFormatter(logging.Formatter):
-    """Minimalistic formatter for console access logs (no timestamps)."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        """Format log record without timestamp, similar to uvicorn default."""
-        if hasattr(record, "method") and hasattr(record, "path"):
-            # Access log format: METHOD /path STATUS_CODE
-            status = getattr(record, "status_code", "???")
-            return f"{record.method} {record.path} {status}"
-        # Fallback for non-access logs
-        return record.getMessage()
-
-
 class AccessLogFilter(logging.Filter):
     """Filter to separate access logs from application logs."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Only allow records that are access logs."""
-        return hasattr(record, "is_access_log") and record.is_access_log
+        is_access = getattr(record, "is_access_log", False)
+        return is_access  # type: ignore[return-value]
 
 
 class AppLogFilter(logging.Filter):
@@ -41,7 +28,53 @@ class AppLogFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Only allow records that are NOT access logs."""
-        return not (hasattr(record, "is_access_log") and record.is_access_log)
+        is_access = getattr(record, "is_access_log", False)
+        return not is_access
+
+
+def extract_log_record_attributes(
+    logger: logging.Logger, method_name: str, event_dict: dict
+) -> dict:
+    """
+    Extract custom attributes from LogRecord into event_dict.
+
+    This processor extracts attributes we set on the LogRecord
+    (like method, path, status_code) and adds them to the event_dict
+    so they appear in the final log output.
+    """
+    record = event_dict.get("_record")
+    if record:
+        # Extract all custom attributes from the record
+        for attr in dir(record):
+            if not attr.startswith("_") and attr not in (
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "message",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "getMessage",
+                "taskName",
+            ):
+                value = getattr(record, attr, None)
+                if value is not None and not callable(value):
+                    event_dict[attr] = value
+    return event_dict
 
 
 def setup_logging(
@@ -53,9 +86,9 @@ def setup_logging(
     Configure logging for the application.
 
     Args:
-        log_level: Application log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_level: Application log level
         log_dir: Directory for log files
-        access_log_tracing: Enable detailed tracing in access logs (headers, payloads)
+        access_log_tracing: Enable detailed tracing in access logs
     """
     # Create log directory if it doesn't exist
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -64,8 +97,8 @@ def setup_logging(
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
 
     # ===== Shared Processors =====
-    # These are used by both console and file handlers
     shared_processors = [
+        extract_log_record_attributes,  # Extract LogRecord attrs to event_dict
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
@@ -74,21 +107,15 @@ def setup_logging(
         structlog.processors.UnicodeDecoder(),
     ]
 
-    # File processors include timestamps
+    # File processors include timestamps (added AFTER extraction)
     file_processors = [
+        *shared_processors,
         structlog.processors.TimeStamper(fmt="iso"),
-        *shared_processors,
-    ]
-
-    # Console processors don't include timestamps for access logs
-    console_processors = [
-        structlog.stdlib.filter_by_level,
-        *shared_processors,
     ]
 
     # ===== Configure Structlog =====
     structlog.configure(
-        processors=console_processors
+        processors=shared_processors
         + [
             # Prepare event for standard library's ProcessorFormatter
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
@@ -98,13 +125,8 @@ def setup_logging(
         cache_logger_on_first_use=True,
     )
 
-    # ===== Console Handler (Access Logs Only, Minimalistic) =====
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)  # Always INFO for access logs
-    console_handler.addFilter(AccessLogFilter())
-    console_handler.setFormatter(MinimalisticAccessLogFormatter())
-
     # ===== File Handler: access.log (Complete Access Logs) =====
+    # Note: Console logging is handled by uvicorn, we only log to files
     access_file_handler = logging.FileHandler(log_dir / "access.log")
     access_file_handler.setLevel(logging.INFO)
     access_file_handler.addFilter(AccessLogFilter())
@@ -128,11 +150,21 @@ def setup_logging(
 
     # ===== Configure Root Logger =====
     root_logger = logging.getLogger()
-    root_logger.handlers = [console_handler, access_file_handler, app_file_handler]
-    root_logger.setLevel(logging.DEBUG)  # Capture everything, handlers will filter
+    root_logger.handlers = [
+        access_file_handler,  # Access logs to file
+        app_file_handler,  # App logs to file
+    ]
+    # Capture everything, handlers will filter
+    root_logger.setLevel(logging.DEBUG)
+
+    # ===== Silence Noisy Third-Party Loggers on Console =====
+    # httpx logs every HTTP request at INFO level, which clutters console
+    # We still want these in app.log file, so we only raise console level
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     # Store tracing setting for use in middleware
-    root_logger.access_log_tracing = access_log_tracing  # type: ignore[attr-defined]
+    setattr(root_logger, "access_log_tracing", access_log_tracing)
 
 
 def log_access(
@@ -146,7 +178,7 @@ def log_access(
     duration_ms: float | None = None,
 ) -> None:
     """
-    Log an access event.
+    Log an access event to file only (console shows uvicorn's access logs).
 
     Args:
         method: HTTP method
@@ -158,7 +190,8 @@ def log_access(
         response_body: Response body (only logged if tracing enabled)
         duration_ms: Request duration in milliseconds
     """
-    logger = structlog.get_logger()
+    # Use standard library logger directly for access logs
+    access_logger = logging.getLogger("access")
 
     # Check if tracing is enabled
     root_logger = logging.getLogger()
@@ -166,7 +199,7 @@ def log_access(
 
     # Build log data
     log_data: Dict[str, Any] = {
-        "is_access_log": True,
+        "event": "http_access",
         "method": method,
         "path": path,
         "status_code": status_code,
@@ -195,7 +228,26 @@ def log_access(
         if response_body:
             log_data["response_body"] = response_body
 
-    logger.info("access", **log_data)
+    # Create a LogRecord with all data as attributes
+    record = access_logger.makeRecord(
+        access_logger.name,
+        logging.INFO,
+        "(access)",
+        0,
+        "http_access",  # Message for the event
+        (),
+        None,
+    )
+
+    # Mark as access log for filtering
+    record.is_access_log = True  # type: ignore[attr-defined]
+
+    # Add all log data as record attributes
+    # The extract_log_record_attributes processor will extract these
+    for key, value in log_data.items():
+        setattr(record, key, value)
+
+    access_logger.handle(record)
 
 
 # Made with Bob
