@@ -212,7 +212,7 @@ class RunnerService:
         team = self.db.query(Team).filter(Team.id == team_id).first()
         if not team:
             raise ValueError(f"Team {team_id} not found")
-        
+
         team_name = team.name
 
         # Determine runner group
@@ -429,7 +429,7 @@ class RunnerService:
         team = self.db.query(Team).filter(Team.id == team_id).first()
         if not team:
             raise ValueError(f"Team {team_id} not found")
-        
+
         team_name = team.name
 
         # Determine runner group
