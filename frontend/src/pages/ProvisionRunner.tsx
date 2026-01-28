@@ -2,15 +2,18 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { useProvisionRunnerJit, useMyLabelPolicy } from '@hooks/useRunners'
+import { useTeams } from '@hooks/useTeams'
 import { copyToClipboard } from '@utils/clipboard'
 
 export default function ProvisionRunner() {
   const navigate = useNavigate()
   const provisionMutation = useProvisionRunnerJit()
   const { data: labelPolicy, isLoading: policyLoading } = useMyLabelPolicy()
+  const { data: teamsData, isLoading: teamsLoading } = useTeams()
   
   const [namePrefix, setNamePrefix] = useState('')
   const [labels, setLabels] = useState('')
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
   const [copySuccess, setCopySuccess] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,6 +27,7 @@ export default function ProvisionRunner() {
     provisionMutation.mutate({
       runner_name_prefix: namePrefix || undefined,
       labels: labelList,
+      team_id: selectedTeamId || undefined,
     })
   }
 
@@ -131,6 +135,34 @@ export default function ProvisionRunner() {
         {provisionMutation.isError && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
             Failed to provision runner: {error?.response?.data?.detail || provisionMutation.error.message}
+          </div>
+        )}
+
+        {/* Team Selection */}
+        {!teamsLoading && teamsData && teamsData.teams.length > 0 && (
+          <div className="space-y-2">
+            <label htmlFor="team" className="block text-sm font-medium text-gray-700">
+              Team <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="team"
+              required
+              value={selectedTeamId}
+              onChange={(e) => setSelectedTeamId(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gh-blue focus:border-transparent outline-none"
+            >
+              <option value="">Select a team...</option>
+              {teamsData.teams
+                .filter(team => team.is_active)
+                .map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name} {team.description ? `- ${team.description}` : ''}
+                  </option>
+                ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              Select the team this runner will belong to. Team policies will be enforced.
+            </p>
           </div>
         )}
 

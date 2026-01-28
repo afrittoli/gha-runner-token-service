@@ -58,6 +58,7 @@ export interface ProvisionRunnerRequest {
 export interface ProvisionRunnerJitRequest {
   runner_name_prefix?: string
   labels?: string[]
+  team_id?: string
 }
 
 export function useProvisionRunner() {
