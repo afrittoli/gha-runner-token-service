@@ -1214,6 +1214,267 @@ This makes it clear:
 
 ---
 
+## Team-Based Authorization Considerations
+
+### Overview
+
+GHARTS has a proposed design for team-based authorization (see [`team_based_authorization.md`](team_based_authorization.md)) that would replace the current user-based label policy model. If/when this proposal is implemented, the ARC integration will require updates to support team-scoped runner provisioning.
+
+### Current State (User-Based)
+
+Currently, ARC authenticates with GHARTS using a service account's OIDC token, and GHARTS enforces label policies based on the authenticated user identity:
+
+```yaml
+# Current ARC configuration
+spec:
+  githartConfig:
+    endpoint: "https://gharts.example.com"
+    oidcTokenPath: "/var/run/secrets/tokens/oidc-token"
+```
+
+The service account's label policy determines which labels can be used for runners provisioned by that ARC instance.
+
+### Proposed State (Team-Based)
+
+With team-based authorization, ARC would need to specify which team to use when provisioning runners. This requires:
+
+1. **Configuration Changes**: Add team specification to ARC's GHARTS configuration
+2. **API Changes**: Include `team_name` parameter in JIT provisioning requests
+3. **Service Account Mapping**: Map service accounts to teams in GHARTS
+
+### Required ARC Changes
+
+#### 1. Configuration Schema Update
+
+Add team configuration to the `GHARTSConfig` struct:
+
+```go
+// pkg/gharts/config.go
+type GHARTSConfig struct {
+    Endpoint      string `json:"endpoint"`
+    OIDCTokenPath string `json:"oidcTokenPath"`
+    TeamName      string `json:"teamName"`  // NEW: Team to use for provisioning
+}
+```
+
+#### 2. JIT Request Update
+
+Update the JIT provisioning request to include team name:
+
+```go
+// pkg/gharts/client.go
+type JITProvisionRequest struct {
+    TeamName          string   `json:"team_name"`           // NEW: Required team name
+    RunnerNamePrefix  string   `json:"runner_name_prefix"`
+    Labels            []string `json:"labels"`
+    RunnerGroupID     int      `json:"runner_group_id,omitempty"`
+    WorkFolder        string   `json:"work_folder,omitempty"`
+}
+```
+
+#### 3. CRD Update
+
+Update the `AutoscalingRunnerSet` CRD to support team configuration:
+
+```yaml
+apiVersion: actions.github.com/v1alpha1
+kind: AutoscalingRunnerSet
+metadata:
+  name: backend-runners
+spec:
+  githubConfigUrl: "https://github.com/myorg"
+  githartConfig:
+    endpoint: "https://gharts.example.com"
+    oidcTokenPath: "/var/run/secrets/tokens/oidc-token"
+    teamName: "backend-team"  # NEW: Specify team for this runner set
+  runnerScaleSetName: "backend-runners"
+  template:
+    spec:
+      containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+```
+
+#### 4. Label Handling
+
+With team-based authorization, label handling changes:
+
+- **Required Labels**: Automatically added by GHARTS based on team configuration
+- **Optional Labels**: ARC can specify labels that match the team's optional patterns
+- **Validation**: GHARTS validates optional labels against team patterns
+
+ARC should:
+- Remove any labels that duplicate the team's required labels (GHARTS ignores them anyway)
+- Only send labels that are expected to match the team's optional patterns
+- Handle 403 errors when labels don't match team patterns
+
+### Configuration Examples
+
+#### Example 1: Backend Team
+
+```yaml
+apiVersion: actions.github.com/v1alpha1
+kind: AutoscalingRunnerSet
+metadata:
+  name: backend-dev-runners
+spec:
+  githubConfigUrl: "https://github.com/myorg"
+  githartConfig:
+    endpoint: "https://gharts.example.com"
+    oidcTokenPath: "/var/run/secrets/tokens/oidc-token"
+    teamName: "backend-team"
+  runnerScaleSetName: "backend-dev"
+  template:
+    metadata:
+      labels:
+        # These will be validated against backend-team's optional patterns
+        runner-type: "backend-dev"
+        environment: "development"
+```
+
+#### Example 2: Multiple Teams
+
+Different runner sets can use different teams:
+
+```yaml
+---
+apiVersion: actions.github.com/v1alpha1
+kind: AutoscalingRunnerSet
+metadata:
+  name: backend-runners
+spec:
+  githartConfig:
+    teamName: "backend-team"
+  # Backend team's required labels: ["backend", "linux"]
+  # Optional patterns: ["backend-.*", "dev-.*", "staging-.*"]
+---
+apiVersion: actions.github.com/v1alpha1
+kind: AutoscalingRunnerSet
+metadata:
+  name: ml-runners
+spec:
+  githartConfig:
+    teamName: "ml-platform"
+  # ML team's required labels: ["ml", "gpu"]
+  # Optional patterns: ["ml-.*", "cuda-.*"]
+```
+
+### Service Account to Team Mapping
+
+In GHARTS, administrators must:
+
+1. Create teams with appropriate label policies
+2. Add service accounts (by OIDC `sub` claim) to teams
+3. Ensure service accounts belong to the teams specified in ARC configurations
+
+Example GHARTS setup:
+
+```bash
+# Create team
+curl -X POST https://gharts.example.com/api/v1/admin/teams \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{
+    "name": "backend-team",
+    "description": "Backend development runners",
+    "required_labels": ["backend", "linux"],
+    "optional_label_patterns": ["backend-.*", "dev-.*", "staging-.*"],
+    "max_runners": 50
+  }'
+
+# Add service account to team
+curl -X POST https://gharts.example.com/api/v1/admin/teams/backend-team/members \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{
+    "user_id": "service-account-uuid"
+  }'
+```
+
+### Error Handling
+
+ARC must handle new team-related errors:
+
+1. **Team Not Found (404)**
+   ```
+   Team 'backend-team' does not exist
+   ```
+   Action: Log error, mark runner set as degraded
+
+2. **Not Team Member (403)**
+   ```
+   User not authorized for team 'backend-team'
+   ```
+   Action: Log error, check service account team membership
+
+3. **Team Deactivated (403)**
+   ```
+   Team 'backend-team' is deactivated: Team restructuring in progress
+   ```
+   Action: Log error with reason, mark runner set as degraded
+
+4. **Invalid Labels (403)**
+   ```
+   Labels ['invalid-label'] not permitted. Allowed patterns: ['backend-.*', 'dev-.*']
+   ```
+   Action: Log error, review runner set label configuration
+
+### Migration Path
+
+When GHARTS implements team-based authorization:
+
+1. **Phase 1: Backward Compatibility**
+   - GHARTS supports both user-based and team-based authorization
+   - ARC works with both models (team_name optional)
+   - Existing ARC deployments continue working
+
+2. **Phase 2: ARC Update**
+   - Update ARC to support team configuration
+   - Deploy updated ARC version
+   - Update runner set configurations to include team names
+
+3. **Phase 3: GHARTS Migration**
+   - GHARTS migrates from user-based to team-based
+   - All ARC configurations must specify team names
+   - Remove backward compatibility code
+
+### Testing Considerations
+
+When team-based authorization is implemented, test:
+
+1. **Team Membership**: Service account belongs to specified team
+2. **Label Validation**: Optional labels match team patterns
+3. **Team Deactivation**: Graceful handling when team is deactivated
+4. **Multi-Team**: Multiple runner sets using different teams
+5. **Error Scenarios**: All team-related error conditions
+
+### Estimated Effort
+
+If/when team-based authorization is implemented:
+
+- **ARC Code Changes**: 2-3 days
+  - Configuration schema updates
+  - API client updates
+  - Error handling
+  
+- **Testing**: 2-3 days
+  - Unit tests for team configuration
+  - Integration tests with team-based GHARTS
+  - E2E tests for error scenarios
+
+- **Documentation**: 1-2 days
+  - Update configuration examples
+  - Document team setup process
+  - Update troubleshooting guide
+
+**Total Estimated Effort**: 5-8 days
+
+### References
+
+- Team-Based Authorization Design: [`team_based_authorization.md`](team_based_authorization.md)
+- GHARTS API Documentation: [`../API_CONTRACT.md`](../API_CONTRACT.md)
+- JIT Provisioning Design: [`jit_provisioning.md`](jit_provisioning.md)
+
+---
+
 ## Conclusion
 
 ### Summary
