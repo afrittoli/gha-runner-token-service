@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import AuthenticatedUser
 from app.config import Settings
 from app.github.client import GitHubClient
-from app.models import AuditLog, Runner
+from app.models import AuditLog, Runner, Team
 from app.schemas import (
     JitProvisionRequest,
     JitProvisionResponse,
@@ -112,9 +112,25 @@ class RunnerService:
         # Initialize label policy service
         label_policy_service = LabelPolicyService(self.db)
 
-        # Validate labels against policy (Phase 1: Prevention)
+        # Get team ID for provisioning (team-based authorization)
         try:
-            label_policy_service.validate_labels(user.identity, request.labels)
+            team_id = label_policy_service.get_user_team_for_provisioning(
+                user_id=user.db_user.id if user.db_user else None,
+                team_id=request.team_id,
+            )
+        except ValueError as e:
+            self._log_audit(
+                event_type="provision_failed",
+                runner_name=runner_name,
+                user=user,
+                success=False,
+                error_message=str(e),
+            )
+            raise
+
+        # Validate labels against team policy (Phase 1: Prevention)
+        try:
+            label_policy_service.validate_labels_for_team(team_id, request.labels)
         except LabelPolicyViolation as e:
             # Log security event
             label_policy_service.log_security_event(
@@ -127,6 +143,7 @@ class RunnerService:
                 violation_data={
                     "requested_labels": request.labels,
                     "invalid_labels": list(e.invalid_labels),
+                    "team_id": team_id,
                 },
                 action_taken="rejected",
             )
@@ -140,18 +157,18 @@ class RunnerService:
             )
             raise
 
-        # Check runner quota
+        # Check team runner quota
         active_runner_count = (
             self.db.query(Runner)
             .filter(
-                Runner.provisioned_by == user.identity,
+                Runner.team_id == team_id,
                 Runner.status.in_(["pending", "active", "offline"]),
             )
             .count()
         )
 
         try:
-            label_policy_service.check_runner_quota(user.identity, active_runner_count)
+            label_policy_service.check_team_quota(team_id, active_runner_count)
         except ValueError as e:
             # Log security event
             label_policy_service.log_security_event(
@@ -161,7 +178,10 @@ class RunnerService:
                 oidc_sub=user.sub,
                 runner_id=None,
                 runner_name=runner_name,
-                violation_data={"current_count": active_runner_count},
+                violation_data={
+                    "current_count": active_runner_count,
+                    "team_id": team_id,
+                },
                 action_taken="rejected",
             )
 
@@ -188,6 +208,13 @@ class RunnerService:
             )
             raise
 
+        # Get team name for denormalization
+        team = self.db.query(Team).filter(Team.id == team_id).first()
+        if not team:
+            raise ValueError(f"Team {team_id} not found")
+        
+        team_name = team.name
+
         # Determine runner group
         runner_group_id = (
             request.runner_group_id or self.settings.default_runner_group_id
@@ -202,6 +229,8 @@ class RunnerService:
             disable_update=request.disable_update,
             provisioned_by=user.identity,
             oidc_sub=user.sub,
+            team_id=team_id,
+            team_name=team_name,
             status="pending",
             registration_token=token,  # Store temporarily
             registration_token_expires_at=expires_at,
@@ -314,9 +343,25 @@ class RunnerService:
         # Initialize label policy service
         label_policy_service = LabelPolicyService(self.db)
 
-        # Validate labels against policy
+        # Get team ID for provisioning (team-based authorization)
         try:
-            label_policy_service.validate_labels(user.identity, request.labels)
+            team_id = label_policy_service.get_user_team_for_provisioning(
+                user_id=user.db_user.id if user.db_user else None,
+                team_id=request.team_id,
+            )
+        except ValueError as e:
+            self._log_audit(
+                event_type="provision_jit_failed",
+                runner_name=runner_name,
+                user=user,
+                success=False,
+                error_message=str(e),
+            )
+            raise
+
+        # Validate labels against team policy
+        try:
+            label_policy_service.validate_labels_for_team(team_id, request.labels)
         except LabelPolicyViolation as e:
             label_policy_service.log_security_event(
                 event_type="label_policy_violation",
@@ -329,6 +374,7 @@ class RunnerService:
                     "requested_labels": request.labels,
                     "invalid_labels": list(e.invalid_labels),
                     "provisioning_method": "jit",
+                    "team_id": team_id,
                 },
                 action_taken="rejected",
             )
@@ -342,18 +388,18 @@ class RunnerService:
             )
             raise
 
-        # Check runner quota
+        # Check team runner quota
         active_runner_count = (
             self.db.query(Runner)
             .filter(
-                Runner.provisioned_by == user.identity,
+                Runner.team_id == team_id,
                 Runner.status.in_(["pending", "active", "offline"]),
             )
             .count()
         )
 
         try:
-            label_policy_service.check_runner_quota(user.identity, active_runner_count)
+            label_policy_service.check_team_quota(team_id, active_runner_count)
         except ValueError as e:
             label_policy_service.log_security_event(
                 event_type="quota_exceeded",
@@ -365,6 +411,7 @@ class RunnerService:
                 violation_data={
                     "current_count": active_runner_count,
                     "provisioning_method": "jit",
+                    "team_id": team_id,
                 },
                 action_taken="rejected",
             )
@@ -377,6 +424,13 @@ class RunnerService:
                 error_message=str(e),
             )
             raise
+
+        # Get team name for denormalization
+        team = self.db.query(Team).filter(Team.id == team_id).first()
+        if not team:
+            raise ValueError(f"Team {team_id} not found")
+        
+        team_name = team.name
 
         # Determine runner group
         runner_group_id = (
@@ -429,10 +483,12 @@ class RunnerService:
             disable_update=False,
             provisioned_by=user.identity,
             oidc_sub=user.sub,
+            team_id=team_id,
+            team_name=team_name,
             status="pending",
             provisioning_method="jit",
             provisioned_labels=json.dumps(provision_label),
-            github_runner_id=jit_response.runner_id,  # Set immediately for JIT
+            github_runner_id=jit_response.runner_id,  # Set immediately
             github_url=f"https://github.com/{self.settings.github_org}",
         )
 

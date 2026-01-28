@@ -28,6 +28,10 @@ class ProvisionRunnerRequest(BaseModel):
     runner_group_id: Optional[int] = Field(
         default=None, description="Runner group ID (uses default if not specified)"
     )
+    team_id: Optional[str] = Field(
+        default=None,
+        description="Team ID for team-based authorization (optional, uses user's teams if not specified)",
+    )
     ephemeral: bool = Field(
         default=True,
         description="Whether runner auto-deletes after one job (recommended: true)",
@@ -279,6 +283,10 @@ class JitProvisionRequest(BaseModel):
     runner_group_id: Optional[int] = Field(
         default=None,
         description="Runner group ID (uses default if not specified)",
+    )
+    team_id: Optional[str] = Field(
+        default=None,
+        description="Team ID for team-based authorization (optional, uses user's teams if not specified)",
     )
     work_folder: str = Field(
         default="_work",
