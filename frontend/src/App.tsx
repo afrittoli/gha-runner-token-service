@@ -6,6 +6,7 @@ import Dashboard from '@pages/Dashboard'
 import RunnersList from '@pages/RunnersList'
 import RunnerDetail from '@pages/RunnerDetail'
 import ProvisionRunner from '@pages/ProvisionRunner'
+import Teams from '@pages/admin/Teams'
 import LabelPolicies from '@pages/admin/LabelPolicies'
 import UserManagement from '@pages/admin/UserManagement'
 import SecurityEvents from '@pages/admin/SecurityEvents'
@@ -105,6 +106,7 @@ function App() {
         
         {/* Admin routes */}
         <Route path="admin" element={<AdminConsole />} />
+        <Route path="admin/teams" element={<Teams />} />
         <Route path="admin/policies" element={<LabelPolicies />} />
         <Route path="admin/users" element={<UserManagement />} />
         <Route path="admin/security" element={<SecurityEvents />} />
