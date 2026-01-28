@@ -539,3 +539,159 @@ class BatchActionResponse(BaseModel):
         default=None,
         description="Details of each affected item (success/failure)",
     )
+
+
+# Team Management Schemas
+
+
+class TeamCreate(BaseModel):
+    """Request to create a new team."""
+
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=50,
+        description="Team name (kebab-case, e.g., 'platform-team')",
+    )
+    description: Optional[str] = Field(
+        default=None, max_length=500, description="Team description"
+    )
+    required_labels: List[str] = Field(
+        ..., description="Labels that are always added to team runners"
+    )
+    optional_label_patterns: Optional[List[str]] = Field(
+        default=None,
+        description="Regex patterns for optional labels (e.g., 'feature-.*')",
+    )
+    max_runners: Optional[int] = Field(
+        default=None, ge=0, description="Maximum concurrent runners (null = unlimited)"
+    )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate team name is kebab-case."""
+        import re
+
+        if not re.match(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$", v):
+            raise ValueError(
+                "Team name must be kebab-case (lowercase, alphanumeric, hyphens)"
+            )
+        return v
+
+    @field_validator("optional_label_patterns")
+    @classmethod
+    def validate_patterns(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Validate regex patterns."""
+        if v:
+            import re
+
+            for pattern in v:
+                try:
+                    re.compile(pattern)
+                except re.error as e:
+                    raise ValueError(f"Invalid regex pattern '{pattern}': {e}")
+        return v
+
+
+class TeamUpdate(BaseModel):
+    """Request to update a team."""
+
+    description: Optional[str] = Field(
+        default=None, max_length=500, description="Team description"
+    )
+    required_labels: Optional[List[str]] = Field(
+        default=None, description="Labels that are always added to team runners"
+    )
+    optional_label_patterns: Optional[List[str]] = Field(
+        default=None,
+        description="Regex patterns for optional labels (e.g., 'feature-.*')",
+    )
+    max_runners: Optional[int] = Field(
+        default=None, ge=0, description="Maximum concurrent runners (null = unlimited)"
+    )
+
+    @field_validator("optional_label_patterns")
+    @classmethod
+    def validate_patterns(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Validate regex patterns."""
+        if v:
+            import re
+
+            for pattern in v:
+                try:
+                    re.compile(pattern)
+                except re.error as e:
+                    raise ValueError(f"Invalid regex pattern '{pattern}': {e}")
+        return v
+
+
+class TeamDeactivate(BaseModel):
+    """Request to deactivate a team."""
+
+    reason: str = Field(..., min_length=1, description="Reason for deactivation")
+
+
+class TeamResponse(BaseModel):
+    """Team information."""
+
+    id: str
+    name: str
+    description: Optional[str]
+    required_labels: List[str]
+    optional_label_patterns: Optional[List[str]]
+    max_runners: Optional[int]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    created_by: Optional[str]
+    deactivated_at: Optional[datetime] = None
+    deactivated_by: Optional[str] = None
+    deactivation_reason: Optional[str] = None
+    # Runtime stats
+    member_count: Optional[int] = Field(
+        default=None, description="Number of users in team"
+    )
+    active_runner_count: Optional[int] = Field(
+        default=None, description="Number of active/pending runners"
+    )
+
+
+class TeamListResponse(BaseModel):
+    """List of teams."""
+
+    teams: List[TeamResponse]
+    total: int
+
+
+class TeamMemberResponse(BaseModel):
+    """Team member information."""
+
+    user_id: str
+    email: Optional[str]
+    display_name: Optional[str]
+    joined_at: datetime
+    added_by: Optional[str]
+
+
+class TeamMembersListResponse(BaseModel):
+    """List of team members."""
+
+    team_id: str
+    team_name: str
+    members: List[TeamMemberResponse]
+    total: int
+
+
+class AddTeamMemberRequest(BaseModel):
+    """Request to add a user to a team."""
+
+    user_id: str = Field(..., description="User ID to add to team")
+
+
+class UserTeamsResponse(BaseModel):
+    """List of teams a user belongs to."""
+
+    user_id: str
+    teams: List[TeamResponse]
+    total: int

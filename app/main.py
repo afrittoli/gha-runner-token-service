@@ -21,6 +21,7 @@ from app.api.v1 import admin
 from app.api.v1 import auth
 from app.api.v1 import audit
 from app.api.v1 import runners
+from app.api.v1 import teams
 from app.api.v1 import webhooks
 from app.config import get_settings
 from app.database import get_db, init_db, SessionLocal
@@ -348,6 +349,7 @@ app.include_router(runners.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
+app.include_router(teams.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
 
 
