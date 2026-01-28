@@ -3,7 +3,16 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, Index
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Index,
+)
 
 from app.database import Base
 
@@ -37,6 +46,10 @@ class Runner(Base):
     provisioned_by = Column(String, nullable=False, index=True)  # OIDC identity
     oidc_sub = Column(String, nullable=True)  # OIDC subject claim
 
+    # Team association (nullable for backward compatibility)
+    team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
+    team_name = Column(String, nullable=True)  # Denormalized for queries
+
     # State
     status = Column(
         String, nullable=False, default="pending", index=True
@@ -67,6 +80,7 @@ class Runner(Base):
     __table_args__ = (
         Index("ix_runners_status_created", "status", "created_at"),
         Index("ix_runners_provisioned_by_status", "provisioned_by", "status"),
+        Index("ix_runners_team_status", "team_id", "status"),
     )
 
 
@@ -258,4 +272,70 @@ class ImpersonationSession(Base):
     __table_args__ = (
         Index("ix_impersonation_admin_active", "admin_identity", "is_active"),
         Index("ix_impersonation_target_active", "target_user_id", "is_active"),
+    )
+
+
+class Team(Base):
+    """Team for organizing users and managing runner policies."""
+
+    __tablename__ = "teams"
+
+    # Primary key
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    # Team identification
+    name = Column(String, nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=True)
+
+    # Label policy
+    required_labels = Column(Text, nullable=False)  # JSON array: always included
+    optional_label_patterns = Column(Text, nullable=True)  # JSON array: regex patterns
+
+    # Quota
+    max_runners = Column(Integer, nullable=True)  # Team-wide quota
+
+    # Status
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    deactivation_reason = Column(Text, nullable=True)
+    deactivated_at = Column(DateTime, nullable=True)
+    deactivated_by = Column(String, nullable=True)  # Admin who deactivated
+
+    # Metadata
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
+    created_by = Column(String, nullable=True)  # Admin who created team
+
+    __table_args__ = (Index("ix_teams_name_active", "name", "is_active"),)
+
+
+class UserTeamMembership(Base):
+    """Many-to-many relationship between users and teams."""
+
+    __tablename__ = "user_team_memberships"
+
+    # Primary key
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    # Foreign keys
+    user_id = Column(
+        String,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    team_id = Column(
+        String,
+        ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Membership metadata
+    joined_at = Column(DateTime, nullable=False, default=utcnow)
+    added_by = Column(String, nullable=True)  # Admin who added user to team
+
+    __table_args__ = (
+        Index("ix_user_team_user", "user_id"),
+        Index("ix_user_team_team", "team_id"),
+        Index("ix_user_team_unique", "user_id", "team_id", unique=True),
     )
