@@ -215,9 +215,26 @@ def mock_github_runner():
 
 # Authentication override fixtures
 @pytest.fixture
-def auth_override(mock_user: AuthenticatedUser):
-    """Override authentication to return mock user."""
+def auth_override(test_db: Session, mock_user: AuthenticatedUser):
+    """Override authentication to return mock user with db_user."""
     from app.auth.dependencies import get_current_user
+    from app.models import User
+
+    # Create regular user in database
+    db_user = User(
+        email=mock_user.identity,
+        oidc_sub=mock_user.claims.get("sub"),
+        is_admin=False,
+        is_active=True,
+    )
+    test_db.add(db_user)
+    test_db.commit()
+    test_db.refresh(db_user)
+
+    # Attach db_user to AuthenticatedUser
+    mock_user.db_user = db_user
+    mock_user.user_id = db_user.id
+    mock_user.is_admin = False
 
     async def override_get_current_user():
         return mock_user
@@ -228,10 +245,29 @@ def auth_override(mock_user: AuthenticatedUser):
 
 
 @pytest.fixture
-def admin_auth_override(mock_admin_user: AuthenticatedUser, mock_settings):
-    """Override authentication to return admin user."""
+def admin_auth_override(
+    test_db: Session, mock_admin_user: AuthenticatedUser, mock_settings
+):
+    """Override authentication to return admin user with db_user."""
     from app.auth.dependencies import get_current_user
     from app.config import get_settings
+    from app.models import User
+
+    # Create admin user in database
+    admin_db_user = User(
+        email=mock_admin_user.identity,
+        oidc_sub=mock_admin_user.claims.get("sub"),
+        is_admin=True,
+        is_active=True,
+    )
+    test_db.add(admin_db_user)
+    test_db.commit()
+    test_db.refresh(admin_db_user)
+
+    # Attach db_user to AuthenticatedUser
+    mock_admin_user.db_user = admin_db_user
+    mock_admin_user.user_id = admin_db_user.id
+    mock_admin_user.is_admin = True
 
     async def override_get_current_user():
         return mock_admin_user
