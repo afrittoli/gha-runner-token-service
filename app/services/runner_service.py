@@ -252,6 +252,8 @@ class RunnerService:
                 "runner_group_id": runner_group_id,
                 "labels": provision_labels,
                 "ephemeral": request.ephemeral,
+                "team_id": team_id,
+                "team_name": team_name,
             },
         )
 
@@ -508,6 +510,8 @@ class RunnerService:
                 "labels": provision_label,
                 "github_runner_id": jit_response.runner_id,
                 "provisioning_method": "jit",
+                "team_id": team_id,
+                "team_name": team_name,
             },
         )
 
