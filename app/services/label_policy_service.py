@@ -231,6 +231,178 @@ class LabelPolicyService:
 
         return event
 
+    # Team-based authorization methods
+
+    def validate_labels_for_team(
+        self, team_id: str, requested_labels: List[str]
+    ) -> None:
+        """
+        Validate requested labels against team's policy.
+
+        System labels (self-hosted, OS, architecture) are automatically allowed
+        and excluded from policy validation.
+
+        Args:
+            team_id: Team ID
+            requested_labels: Labels requested for runner
+
+        Raises:
+            LabelPolicyViolation: If labels violate team policy
+            ValueError: If team not found or not active
+        """
+        from app.models import Team
+
+        team = self.db.query(Team).filter(Team.id == team_id).first()
+
+        if not team:
+            raise ValueError(f"Team not found: {team_id}")
+
+        if not team.is_active:
+            raise ValueError(f"Team '{team.name}' is not active")
+
+        # Parse required labels from JSON
+        required_labels = set(json.loads(team.required_labels))
+
+        # Parse optional label patterns if configured
+        optional_patterns = (
+            json.loads(team.optional_label_patterns)
+            if team.optional_label_patterns
+            else []
+        )
+
+        # Filter out system labels - they are always allowed
+        user_labels = [
+            label for label in requested_labels if self._is_user_label(label)
+        ]
+
+        # Check that all required labels are present
+        missing_required = required_labels - set(user_labels)
+        if missing_required:
+            raise LabelPolicyViolation(
+                f"Missing required labels for team '{team.name}': {missing_required}",
+                invalid_labels=missing_required,
+            )
+
+        # Validate each user-defined label against allowed patterns
+        invalid_labels = set()
+        for label in user_labels:
+            # Required labels are always valid
+            if label in required_labels:
+                continue
+
+            # Check optional pattern match
+            matched = False
+            if optional_patterns:
+                for pattern in optional_patterns:
+                    try:
+                        if re.match(pattern, label):
+                            matched = True
+                            break
+                    except re.error:
+                        # Invalid regex pattern - log and skip
+                        continue
+
+            if not matched:
+                invalid_labels.add(label)
+
+        if invalid_labels:
+            patterns_msg = (
+                f"Allowed patterns: {optional_patterns}"
+                if optional_patterns
+                else "No optional patterns configured"
+            )
+            raise LabelPolicyViolation(
+                f"Labels {invalid_labels} not permitted by team '{team.name}' policy. "
+                f"Required labels: {required_labels}. "
+                f"{patterns_msg}",
+                invalid_labels=invalid_labels,
+            )
+
+    def check_team_quota(self, team_id: str, current_count: int) -> None:
+        """
+        Check if team has exceeded runner quota.
+
+        Args:
+            team_id: Team ID
+            current_count: Current number of active runners for the team
+
+        Raises:
+            ValueError: If quota exceeded or team not found
+        """
+        from app.models import Team
+
+        team = self.db.query(Team).filter(Team.id == team_id).first()
+
+        if not team:
+            raise ValueError(f"Team not found: {team_id}")
+
+        if team.max_runners is not None:
+            if current_count >= team.max_runners:
+                raise ValueError(
+                    f"Team '{team.name}' runner quota exceeded. "
+                    f"Maximum allowed: {team.max_runners}, current: {current_count}"
+                )
+
+    def get_user_team_for_provisioning(
+        self, user_id: str, team_id: Optional[str] = None
+    ) -> str:
+        """
+        Get the team ID to use for provisioning.
+
+        If team_id is provided, validates that user is a member.
+        If not provided, returns the first active team the user belongs to.
+
+        Args:
+            user_id: User ID
+            team_id: Optional team ID to use
+
+        Returns:
+            Team ID to use for provisioning
+
+        Raises:
+            ValueError: If user not in team or has no teams
+        """
+        from app.models import Team, UserTeamMembership
+
+        if team_id:
+            # Validate user is member of specified team
+            membership = (
+                self.db.query(UserTeamMembership)
+                .join(Team)
+                .filter(
+                    UserTeamMembership.user_id == user_id,
+                    UserTeamMembership.team_id == team_id,
+                    Team.is_active == True,  # noqa: E712
+                )
+                .first()
+            )
+
+            if not membership:
+                raise ValueError(
+                    f"User is not a member of team {team_id} or team is not active"
+                )
+
+            return team_id
+        else:
+            # Get first active team user belongs to
+            membership = (
+                self.db.query(UserTeamMembership)
+                .join(Team)
+                .filter(
+                    UserTeamMembership.user_id == user_id,
+                    Team.is_active == True,  # noqa: E712
+                )
+                .first()
+            )
+
+            if not membership:
+                raise ValueError(
+                    "User is not a member of any active team. "
+                    "Please contact an administrator to be added to a team."
+                )
+
+            return membership.team_id
+
     def create_policy(
         self,
         user_identity: str,
