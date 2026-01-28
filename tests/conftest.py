@@ -77,6 +77,7 @@ _temp_key_path = _setup_test_environment()
 from app.auth.dependencies import AuthenticatedUser  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models import Team, User, UserTeamMembership  # noqa: E402
 
 
 def pytest_sessionfinish(session, exitstatus):  # noqa: ARG001
@@ -166,6 +167,57 @@ def mock_other_user() -> AuthenticatedUser:
             "aud": "runner-token-service",
         },
     )
+
+
+# Team fixtures
+@pytest.fixture
+def test_team(test_db: Session) -> Team:
+    """Create a test team with default settings."""
+    import json
+
+    team = Team(
+        name="test-team",
+        description="Test team for unit tests",
+        required_labels=json.dumps(["test"]),
+        optional_label_patterns=json.dumps(["custom-.*"]),
+        max_runners=10,
+        is_active=True,
+        created_by="admin@example.com",
+    )
+    test_db.add(team)
+    test_db.commit()
+    test_db.refresh(team)
+    return team
+
+
+@pytest.fixture
+def test_team_membership(test_db: Session, mock_user, test_team) -> UserTeamMembership:
+    """Create a team membership for the test user."""
+
+    # Create or get the user
+    user = test_db.query(User).filter(User.email == mock_user.identity).first()
+    if not user:
+        user = User(
+            email=mock_user.identity,
+            oidc_sub=mock_user.sub,
+            display_name="Test User",
+            is_active=True,
+            can_provision_registration_token=True,
+            can_provision_jit=True,
+        )
+        test_db.add(user)
+        test_db.commit()
+        test_db.refresh(user)
+
+    # Create membership
+    membership = UserTeamMembership(
+        user_id=user.id,
+        team_id=test_team.id,
+    )
+    test_db.add(membership)
+    test_db.commit()
+    test_db.refresh(membership)
+    return membership
 
 
 # Mock settings fixture
