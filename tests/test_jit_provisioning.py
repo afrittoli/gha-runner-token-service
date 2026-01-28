@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.github.client import JitConfigResponse
-from app.models import Runner, LabelPolicy
+from app.models import Runner
 from app.schemas import JitProvisionRequest
 
 
@@ -75,7 +75,13 @@ class TestJitProvisionEndpoint:
     """Tests for JIT provisioning endpoint."""
 
     def test_jit_provision_success(
-        self, client: TestClient, test_db: Session, auth_override, mock_user
+        self,
+        client: TestClient,
+        test_db: Session,
+        auth_override,
+        mock_user,
+        test_team,
+        test_team_membership,
     ):
         """Test successful JIT provisioning."""
         mock_jit_response = JitConfigResponse(
@@ -113,7 +119,13 @@ class TestJitProvisionEndpoint:
         assert runner.github_runner_id == 12345
 
     def test_jit_provision_with_prefix(
-        self, client: TestClient, test_db: Session, auth_override, mock_user
+        self,
+        client: TestClient,
+        test_db: Session,
+        auth_override,
+        mock_user,
+        test_team,
+        test_team_membership,
     ):
         """Test JIT provisioning with runner name prefix."""
         mock_jit_response = JitConfigResponse(
@@ -131,7 +143,7 @@ class TestJitProvisionEndpoint:
 
             response = client.post(
                 "/api/v1/runners/jit",
-                json={"runner_name_prefix": "my-prefix", "labels": []},
+                json={"runner_name_prefix": "my-prefix", "labels": ["test"]},
             )
 
         assert response.status_code == 201
@@ -164,16 +176,18 @@ class TestJitProvisionEndpoint:
         assert "currently active" in response.json()["detail"].lower()
 
     def test_jit_provision_label_policy_violation(
-        self, client: TestClient, test_db: Session, auth_override, mock_user
+        self,
+        client: TestClient,
+        test_db: Session,
+        auth_override,
+        mock_user,
+        test_team,
+        test_team_membership,
     ):
         """Test that JIT provisioning enforces label policies."""
-        # Create restrictive label policy
-        policy = LabelPolicy(
-            user_identity=mock_user.identity,
-            allowed_labels=json.dumps(["allowed-label"]),
-            label_patterns=None,
-        )
-        test_db.add(policy)
+        # Update team with restrictive label policy
+        test_team.required_labels = json.dumps(["allowed-label"])
+        test_team.optional_label_patterns = json.dumps([])
         test_db.commit()
 
         with patch("app.services.runner_service.GitHubClient"):
@@ -183,7 +197,8 @@ class TestJitProvisionEndpoint:
             )
 
         assert response.status_code == 403
-        assert "not permitted" in response.json()["detail"].lower()
+        detail = response.json()["detail"].lower()
+        assert "missing required labels" in detail or "not permitted" in detail
 
 
 class TestJitLabelDriftDetection:
