@@ -225,6 +225,9 @@ __marimo__/
 # Frontend
 **/.env.local
 
+# VSCode
+**/*.code-workspace
+
 # Other files
 *.db
 runner_service.db.*
