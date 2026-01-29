@@ -67,7 +67,7 @@ class TeamService:
         # Validate team name format (kebab-case)
         if not re.match(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$", name):
             raise ValueError(
-                "Team name must be kebab-case (lowercase, " "alphanumeric, hyphens)"
+                "Team name must be kebab-case (lowercase, alphanumeric, hyphens)"
             )
 
         # Check if team already exists

@@ -276,16 +276,13 @@ def update_runners_with_teams(session, user_team_map, dry_run=False):
 
         if not user:
             print(
-                f"  ⚠ Runner {runner_name}: "
-                f"user {provisioned_by} not found, skipping"
+                f"  ⚠ Runner {runner_name}: user {provisioned_by} not found, skipping"
             )
             skipped_count += 1
             continue
 
         if user.id not in user_team_map:
-            print(
-                f"  ⚠ Runner {runner_name}: " f"no team for user {user.email}, skipping"
-            )
+            print(f"  ⚠ Runner {runner_name}: no team for user {user.email}, skipping")
             skipped_count += 1
             continue
 
