@@ -56,11 +56,13 @@ export interface AddTeamMemberRequest {
 
 // --- Team Hooks ---
 
-export function useTeams() {
+export function useTeams(includeInactive = false) {
   return useQuery<TeamListResponse>({
-    queryKey: ['admin', 'teams'],
+    queryKey: ['admin', 'teams', { includeInactive }],
     queryFn: async () => {
-      const response = await apiClient.get('/api/v1/admin/teams')
+      const response = await apiClient.get('/api/v1/admin/teams', {
+        params: { include_inactive: includeInactive }
+      })
       return response.data
     },
   })
