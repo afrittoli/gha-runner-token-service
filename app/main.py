@@ -349,7 +349,7 @@ app.include_router(runners.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
-app.include_router(teams.router, prefix="/api/v1")
+app.include_router(teams.router, prefix="/api/v1/admin")
 app.include_router(webhooks.router, prefix="/api/v1")
 
 
