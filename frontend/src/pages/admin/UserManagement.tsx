@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useUsers, useUpdateUser, useActivateUser, useDeleteUser, useCreateUser, useBatchDisableUsers, useBatchRestoreUsers } from '@hooks/useAdmin'
+import { useTeams } from '@hooks/useTeams'
 import StatusBadge from '@components/StatusBadge'
 import { formatDate } from '@utils/formatters'
 
@@ -9,6 +10,7 @@ export default function UserManagement() {
     email: '',
     display_name: '',
     is_admin: false,
+    team_ids: [] as string[],
   })
   const [deactivateDialog, setDeactivateDialog] = useState<{
     userId: string
@@ -25,6 +27,10 @@ export default function UserManagement() {
   const [batchComment, setBatchComment] = useState('')
 
   const { data, isLoading, error } = useUsers(true) // Include inactive
+  const { data: teamsData } = useTeams(false) // Only active teams
+  
+  // Filter out admin team from selection
+  const availableTeams = teamsData?.teams.filter(t => t.name.toLowerCase() !== 'admin') || []
   
   // Filter users based on admin status and active status
   const filteredUsers = data?.users.filter(user => {
@@ -95,9 +101,19 @@ export default function UserManagement() {
         email: '',
         display_name: '',
         is_admin: false,
+        team_ids: [],
       })
     } catch (err) {
       console.error('Failed to create user:', err)
+    }
+  }
+
+  const handleToggleTeam = (teamId: string) => {
+    const currentTeams = newUser.team_ids
+    if (currentTeams.includes(teamId)) {
+      setNewUser({ ...newUser, team_ids: currentTeams.filter(id => id !== teamId) })
+    } else {
+      setNewUser({ ...newUser, team_ids: [...currentTeams, teamId] })
     }
   }
 
@@ -230,17 +246,58 @@ export default function UserManagement() {
                 type="checkbox"
                 id="is_admin"
                 checked={newUser.is_admin}
-                onChange={(e) => setNewUser({ ...newUser, is_admin: e.target.checked })}
+                onChange={(e) => setNewUser({ ...newUser, is_admin: e.target.checked, team_ids: e.target.checked ? [] : newUser.team_ids })}
                 className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
               />
               <label htmlFor="is_admin" className="ml-2 block text-sm text-gray-900">
                 Admin User
               </label>
             </div>
+            
+            {!newUser.is_admin && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Team Membership <span className="text-red-600">*</span>
+                </label>
+                <p className="text-xs text-gray-500 mb-2">Select at least one team for this user</p>
+                <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
+                  {availableTeams.length === 0 ? (
+                    <p className="text-sm text-gray-500">No teams available. Create a team first.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {availableTeams.map((team) => (
+                        <label key={team.id} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={newUser.team_ids.includes(team.id)}
+                            onChange={() => handleToggleTeam(team.id)}
+                            className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+                          />
+                          <span className="ml-2 text-sm text-gray-900">{team.name}</span>
+                          {team.description && (
+                            <span className="ml-2 text-xs text-gray-500">- {team.description}</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {newUser.is_admin && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Admin users</strong> are automatically added to the admin team and have full system access.
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gh-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={!newUser.is_admin && newUser.team_ids.length === 0}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gh-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create User
               </button>
