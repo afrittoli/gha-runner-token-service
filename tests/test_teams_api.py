@@ -20,7 +20,7 @@ class TestTeamManagementEndpoints:
     ):
         """Test creating a new team."""
         response = client.post(
-            "/api/v1/teams",
+            "/api/v1/admin/teams",
             json={
                 "name": "backend-team",
                 "description": "Backend development team",
@@ -64,7 +64,7 @@ class TestTeamManagementEndpoints:
 
         # Try to create duplicate
         response = client.post(
-            "/api/v1/teams",
+            "/api/v1/admin/teams",
             json={
                 "name": "existing-team",
                 "required_labels": ["test"],
@@ -79,7 +79,7 @@ class TestTeamManagementEndpoints:
     ):
         """Test that non-admin users cannot create teams."""
         response = client.post(
-            "/api/v1/teams",
+            "/api/v1/admin/teams",
             json={
                 "name": "test-team",
                 "required_labels": ["test"],
@@ -112,7 +112,7 @@ class TestTeamManagementEndpoints:
         test_db.commit()
 
         # List active teams only (default)
-        response = client.get("/api/v1/teams")
+        response = client.get("/api/v1/admin/teams")
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 2
@@ -120,7 +120,7 @@ class TestTeamManagementEndpoints:
         assert all(t["is_active"] for t in data["teams"])
 
         # List all teams including inactive
-        response = client.get("/api/v1/teams?include_inactive=true")
+        response = client.get("/api/v1/admin/teams?include_inactive=true")
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 3
@@ -142,7 +142,7 @@ class TestTeamManagementEndpoints:
         test_db.commit()
 
         # Get first page
-        response = client.get("/api/v1/teams?limit=2&offset=0")
+        response = client.get("/api/v1/admin/teams?limit=2&offset=0")
         assert response.status_code == 200
         data = response.json()
         total_teams = data["total"]
@@ -152,7 +152,7 @@ class TestTeamManagementEndpoints:
         assert "total" in data
 
         # Get second page - verify pagination works
-        response = client.get("/api/v1/teams?limit=2&offset=2")
+        response = client.get("/api/v1/admin/teams?limit=2&offset=2")
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == total_teams  # Total should be consistent
@@ -180,7 +180,7 @@ class TestTeamManagementEndpoints:
         test_db.commit()
         test_db.refresh(team)
 
-        response = client.get(f"/api/v1/teams/{team.id}")
+        response = client.get(f"/api/v1/admin/teams/{team.id}")
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == team.id
@@ -197,7 +197,7 @@ class TestTeamManagementEndpoints:
         admin_auth_override: AuthenticatedUser,
     ):
         """Test getting a non-existent team."""
-        response = client.get("/api/v1/teams/99999")
+        response = client.get("/api/v1/admin/teams/99999")
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
@@ -219,7 +219,7 @@ class TestTeamManagementEndpoints:
         test_db.refresh(team)
 
         response = client.patch(
-            f"/api/v1/teams/{team.id}",
+            f"/api/v1/admin/teams/{team.id}",
             json={
                 "description": "New description",
                 "required_labels": ["new", "updated"],
@@ -253,7 +253,7 @@ class TestTeamManagementEndpoints:
 
         # Update only description
         response = client.patch(
-            f"/api/v1/teams/{team.id}",
+            f"/api/v1/admin/teams/{team.id}",
             json={"description": "Updated description"},
         )
 
@@ -276,7 +276,7 @@ class TestTeamManagementEndpoints:
         test_db.refresh(team)
 
         response = client.post(
-            f"/api/v1/teams/{team.id}/deactivate",
+            f"/api/v1/admin/teams/{team.id}/deactivate",
             json={"reason": "Team no longer needed"},
         )
 
@@ -305,7 +305,7 @@ class TestTeamManagementEndpoints:
         test_db.refresh(team)
 
         response = client.post(
-            f"/api/v1/teams/{team.id}/deactivate",
+            f"/api/v1/admin/teams/{team.id}/deactivate",
             json={"reason": "Trying again"},
         )
 
@@ -329,7 +329,7 @@ class TestTeamManagementEndpoints:
         test_db.commit()
         test_db.refresh(team)
 
-        response = client.post(f"/api/v1/teams/{team.id}/reactivate")
+        response = client.post(f"/api/v1/admin/teams/{team.id}/reactivate")
 
         assert response.status_code == 200
         data = response.json()
@@ -352,7 +352,7 @@ class TestTeamManagementEndpoints:
         test_db.commit()
         test_db.refresh(team)
 
-        response = client.post(f"/api/v1/teams/{team.id}/reactivate")
+        response = client.post(f"/api/v1/admin/teams/{team.id}/reactivate")
 
         assert response.status_code == 400
         assert "already active" in response.json()["detail"]
@@ -378,7 +378,7 @@ class TestTeamMembershipEndpoints:
         test_db.refresh(team)
 
         response = client.post(
-            f"/api/v1/teams/{team.id}/members",
+            f"/api/v1/admin/teams/{team.id}/members",
             json={"user_id": user.id},
         )
 
@@ -422,7 +422,7 @@ class TestTeamMembershipEndpoints:
 
         # Try to add again
         response = client.post(
-            f"/api/v1/teams/{team.id}/members",
+            f"/api/v1/admin/teams/{team.id}/members",
             json={"user_id": user.id},
         )
 
@@ -442,7 +442,7 @@ class TestTeamMembershipEndpoints:
         test_db.refresh(team)
 
         response = client.post(
-            f"/api/v1/teams/{team.id}/members",
+            f"/api/v1/admin/teams/{team.id}/members",
             json={"user_id": "99999"},
         )
 
@@ -462,7 +462,7 @@ class TestTeamMembershipEndpoints:
         test_db.refresh(user)
 
         response = client.post(
-            "/api/v1/teams/99999/members",
+            "/api/v1/admin/teams/99999/members",
             json={"user_id": user.id},
         )
 
@@ -493,7 +493,7 @@ class TestTeamMembershipEndpoints:
             test_db.add(membership)
         test_db.commit()
 
-        response = client.get(f"/api/v1/teams/{team.id}/members")
+        response = client.get(f"/api/v1/admin/teams/{team.id}/members")
 
         assert response.status_code == 200
         data = response.json()
@@ -521,7 +521,7 @@ class TestTeamMembershipEndpoints:
         test_db.commit()
         test_db.refresh(team)
 
-        response = client.get(f"/api/v1/teams/{team.id}/members")
+        response = client.get(f"/api/v1/admin/teams/{team.id}/members")
 
         assert response.status_code == 200
         data = response.json()
@@ -548,7 +548,7 @@ class TestTeamMembershipEndpoints:
         test_db.add(membership)
         test_db.commit()
 
-        response = client.delete(f"/api/v1/teams/{team.id}/members/{user.id}")
+        response = client.delete(f"/api/v1/admin/teams/{team.id}/members/{user.id}")
 
         assert response.status_code == 204
 
@@ -578,7 +578,7 @@ class TestTeamMembershipEndpoints:
         test_db.refresh(user)
         test_db.refresh(team)
 
-        response = client.delete(f"/api/v1/teams/{team.id}/members/{user.id}")
+        response = client.delete(f"/api/v1/admin/teams/{team.id}/members/{user.id}")
 
         assert response.status_code == 400
         assert "not a member" in response.json()["detail"].lower()
@@ -597,17 +597,17 @@ class TestTeamMembershipEndpoints:
 
         # Try to add member
         response = client.post(
-            f"/api/v1/teams/{team.id}/members",
+            f"/api/v1/admin/teams/{team.id}/members",
             json={"user_id": user.id},
         )
         assert response.status_code == 403
 
         # Try to list members
-        response = client.get(f"/api/v1/teams/{team.id}/members")
+        response = client.get(f"/api/v1/admin/teams/{team.id}/members")
         assert response.status_code == 403
 
         # Try to remove member
-        response = client.delete(f"/api/v1/teams/{team.id}/members/{user.id}")
+        response = client.delete(f"/api/v1/admin/teams/{team.id}/members/{user.id}")
         assert response.status_code == 403
 
 
@@ -648,7 +648,7 @@ class TestUserTeamsEndpoint:
             test_db.add(membership)
         test_db.commit()
 
-        response = client.get(f"/api/v1/teams/users/{user.id}/teams")
+        response = client.get(f"/api/v1/admin/teams/users/{user.id}/teams")
 
         assert response.status_code == 200
         data = response.json()
@@ -672,7 +672,7 @@ class TestUserTeamsEndpoint:
             test_db.commit()
             test_db.refresh(user)
 
-        response = client.get(f"/api/v1/teams/users/{user.id}/teams")
+        response = client.get(f"/api/v1/admin/teams/users/{user.id}/teams")
 
         assert response.status_code == 200
         data = response.json()
@@ -683,7 +683,7 @@ class TestUserTeamsEndpoint:
         self, client: TestClient, test_db: Session, auth_override: AuthenticatedUser
     ):
         """Test getting teams for a non-existent user."""
-        response = client.get("/api/v1/teams/users/99999/teams")
+        response = client.get("/api/v1/admin/teams/users/99999/teams")
 
         assert response.status_code == 403
         assert "view your own teams" in response.json()["detail"]
@@ -698,7 +698,7 @@ class TestUserTeamsEndpoint:
         test_db.commit()
         test_db.refresh(other_user)
 
-        response = client.get(f"/api/v1/teams/users/{other_user.id}/teams")
+        response = client.get(f"/api/v1/admin/teams/users/{other_user.id}/teams")
 
         assert response.status_code == 403
         assert "view your own teams" in response.json()["detail"]
@@ -726,7 +726,7 @@ class TestUserTeamsEndpoint:
         test_db.add(membership)
         test_db.commit()
 
-        response = client.get(f"/api/v1/teams/users/{other_user.id}/teams")
+        response = client.get(f"/api/v1/admin/teams/users/{other_user.id}/teams")
 
         assert response.status_code == 200
         data = response.json()
