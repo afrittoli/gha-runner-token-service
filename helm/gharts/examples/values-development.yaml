@@ -1,0 +1,90 @@
+# Development Environment Values
+# Minimal configuration for local development and testing
+
+replicaCount:
+  backend: 1
+  frontend: 1
+
+image:
+  backend:
+    repository: ghcr.io/your-org/gha-runner-token-service-backend
+    tag: "latest"
+    pullPolicy: Always
+  frontend:
+    repository: ghcr.io/your-org/gha-runner-token-service-frontend
+    tag: "latest"
+    pullPolicy: Always
+
+backend:
+  autoscaling:
+    enabled: false
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  podDisruptionBudget:
+    enabled: false
+
+frontend:
+  autoscaling:
+    enabled: false
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  podDisruptionBudget:
+    enabled: false
+
+# Use built-in PostgreSQL for development
+postgresql:
+  enabled: true
+  auth:
+    username: gharts
+    password: devpassword
+    database: gharts
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+# Development configuration
+config:
+  githubAppId: "123456"
+  githubAppPrivateKey: |
+    -----BEGIN RSA PRIVATE KEY-----
+    Your development private key here
+    -----END RSA PRIVATE KEY-----
+  oidcClientId: "dev-client-id"
+  oidcClientSecret: "dev-client-secret"
+  oidcDiscoveryUrl: "https://dev-oidc.example.com/.well-known/openid-configuration"
+  logLevel: "DEBUG"
+  databasePoolSize: 5
+  databaseMaxOverflow: 5
+
+# Bootstrap admin for development
+bootstrap:
+  enabled: true
+  admin:
+    username: "admin"
+    password: "admin123"
+    email: "admin@dev.local"
+
+# No ingress for development (use port-forward)
+ingress:
+  enabled: false
+
+# No monitoring for development
+serviceMonitor:
+  enabled: false
+
+# Made with Bob

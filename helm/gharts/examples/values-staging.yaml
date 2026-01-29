@@ -1,0 +1,113 @@
+# Staging Environment Values
+# Production-like configuration with reduced resources
+
+replicaCount:
+  backend: 2
+  frontend: 1
+
+image:
+  backend:
+    repository: ghcr.io/your-org/gha-runner-token-service-backend
+    tag: "staging"
+    pullPolicy: Always
+  frontend:
+    repository: ghcr.io/your-org/gha-runner-token-service-frontend
+    tag: "staging"
+    pullPolicy: Always
+
+backend:
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 75
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+frontend:
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 75
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  podDisruptionBudget:
+    enabled: false
+
+# Use built-in PostgreSQL with persistence
+postgresql:
+  enabled: true
+  auth:
+    username: gharts
+    password: stagingpassword
+    database: gharts
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: "standard"
+
+# Staging configuration
+config:
+  githubAppId: "123456"
+  githubAppPrivateKey: |
+    -----BEGIN RSA PRIVATE KEY-----
+    Your staging private key here
+    -----END RSA PRIVATE KEY-----
+  oidcClientId: "staging-client-id"
+  oidcClientSecret: "staging-client-secret"
+  oidcDiscoveryUrl: "https://staging-auth.example.com/.well-known/openid-configuration"
+  logLevel: "INFO"
+  databasePoolSize: 20
+  databaseMaxOverflow: 10
+  corsOrigins: "https://staging.gharts.example.com"
+
+# Bootstrap admin for staging
+bootstrap:
+  enabled: true
+  admin:
+    username: "admin"
+    password: "staging-admin-password"
+    email: "admin@staging.example.com"
+
+# Staging ingress with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: staging.gharts.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: gharts-staging-tls
+      hosts:
+        - staging.gharts.example.com
+
+# Enable monitoring for staging
+serviceMonitor:
+  enabled: true
+  interval: 60s
+
+# Made with Bob

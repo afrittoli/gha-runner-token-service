@@ -1,0 +1,189 @@
+# Production Environment Values
+# High availability configuration with autoscaling and monitoring
+
+replicaCount:
+  backend: 3
+  frontend: 2
+
+image:
+  backend:
+    repository: ghcr.io/your-org/gha-runner-token-service-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: ghcr.io/your-org/gha-runner-token-service-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+# Pull from private registry if needed
+imagePullSecrets:
+  - name: ghcr-credentials
+
+backend:
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+  
+  nodeSelector:
+    workload: application
+  
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "application"
+      effect: "NoSchedule"
+  
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - backend
+            topologyKey: kubernetes.io/hostname
+
+frontend:
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  
+  nodeSelector:
+    workload: application
+  
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - frontend
+            topologyKey: kubernetes.io/hostname
+
+# Use external managed PostgreSQL
+postgresql:
+  enabled: false
+
+# Production configuration
+config:
+  # GitHub App credentials (use secrets in production)
+  githubAppId: "123456"
+  githubAppPrivateKey: ""  # Set via secret
+  
+  # OIDC configuration (use secrets in production)
+  oidcClientId: ""  # Set via secret
+  oidcClientSecret: ""  # Set via secret
+  oidcDiscoveryUrl: "https://auth.example.com/.well-known/openid-configuration"
+  
+  # External database connection
+  databaseUrl: "postgresql://user:pass@prod-db.example.com:5432/gharts?sslmode=require"
+  databasePoolSize: 50
+  databaseMaxOverflow: 20
+  databaseSslMode: "require"
+  
+  # Production logging
+  logLevel: "INFO"
+  
+  # Security
+  corsOrigins: "https://gharts.example.com"
+
+# Bootstrap admin (disable after initial setup)
+bootstrap:
+  enabled: true
+  admin:
+    username: "admin"
+    password: ""  # Set via secret
+    email: "admin@example.com"
+
+# Production ingress with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  hosts:
+    - host: gharts.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: gharts-tls
+      hosts:
+        - gharts.example.com
+
+# Enable Prometheus monitoring
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    prometheus: kube-prometheus
+
+# Service account with IRSA for AWS
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/gharts-role"
+  name: "gharts"
+
+# Security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+# Made with Bob

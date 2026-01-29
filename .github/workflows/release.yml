@@ -1,0 +1,245 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}-frontend
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Release ${{ steps.get_version.outputs.version }}
+            
+            ### Docker Images
+            - Backend: `${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ steps.get_version.outputs.version }}`
+            - Frontend: `${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ steps.get_version.outputs.version }}`
+            
+            ### Helm Chart
+            ```bash
+            helm install gharts ./helm/gharts \
+              --set image.backend.tag=${{ steps.get_version.outputs.version }} \
+              --set image.frontend.tag=${{ steps.get_version.outputs.version }}
+            ```
+            
+            ### Installation
+            See [deployment documentation](docs/deployment_checklist.md) for detailed instructions.
+
+  build-and-push-backend:
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-and-push-frontend:
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  package-helm-chart:
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+      
+      - name: Update Chart version
+        run: |
+          VERSION=${{ needs.create-release.outputs.version }}
+          sed -i "s/^version:.*/version: ${VERSION}/" helm/gharts/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/gharts/Chart.yaml
+      
+      - name: Package Helm chart
+        run: |
+          helm package helm/gharts
+      
+      - name: Upload Helm chart to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./gharts-${{ needs.create-release.outputs.version }}.tgz
+          asset_name: gharts-${{ needs.create-release.outputs.version }}.tgz
+          asset_content_type: application/gzip
+
+  verify-deployment:
+    runs-on: ubuntu-latest
+    needs: [build-and-push-backend, build-and-push-frontend, package-helm-chart]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up kind
+        uses: helm/kind-action@v1.8.0
+        with:
+          cluster_name: test-cluster
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+      
+      - name: Deploy to kind
+        run: |
+          VERSION=${{ needs.create-release.outputs.version }}
+          
+          # Update Chart version
+          sed -i "s/^version:.*/version: ${VERSION}/" helm/gharts/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/gharts/Chart.yaml
+          
+          # Create test values
+          cat > test-values.yaml <<EOF
+          image:
+            backend:
+              repository: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
+              tag: ${VERSION}
+            frontend:
+              repository: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+              tag: ${VERSION}
+          
+          postgresql:
+            enabled: true
+            auth:
+              username: testuser
+              password: testpass
+              database: testdb
+          
+          bootstrap:
+            enabled: true
+            admin:
+              username: admin
+              password: admin123
+              email: admin@example.com
+          
+          config:
+            githubAppId: "123456"
+            githubAppPrivateKey: "test-key"
+            oidcClientId: "test-client"
+            oidcClientSecret: "test-secret"
+            oidcDiscoveryUrl: "https://example.com/.well-known/openid-configuration"
+          EOF
+          
+          # Install chart
+          helm install gharts ./helm/gharts -f test-values.yaml --wait --timeout 5m
+          
+          # Run Helm tests
+          helm test gharts
+      
+      - name: Check deployment status
+        run: |
+          kubectl get all -A
+          kubectl describe pods -l app.kubernetes.io/name=gharts
+
+# Made with Bob
