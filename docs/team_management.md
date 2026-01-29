@@ -270,7 +270,7 @@ During migration:
 
 ## API Reference
 
-See [API_CONTRACT.md](API_CONTRACT.md) for complete API documentation.
+See [api_contract.md](api_contract.md) for complete API documentation.
 
 ### Quick Reference
 

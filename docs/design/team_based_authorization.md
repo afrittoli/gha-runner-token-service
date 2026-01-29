@@ -854,7 +854,7 @@ Add section on team-based authorization:
 - Team-based JIT flow
 - Transition from user-based to team-based authorization
 
-### 2. Update [`API_CONTRACT.md`](../API_CONTRACT.md)
+### 2. Update [`api_contract.md`](../api_contract.md)
 
 Document new endpoints:
 - Team management APIs
@@ -1095,7 +1095,7 @@ Add examples:
 ### Documentation
 
 - [ ] Update [`arc.md`](arc.md)
-- [ ] Update [`API_CONTRACT.md`](../API_CONTRACT.md)
+- [ ] Update [`api_contract.md`](../api_contract.md)
 - [ ] Update [`jit_provisioning.md`](jit_provisioning.md)
 - [ ] Create `team_management.md`
 - [ ] Update [`USAGE_EXAMPLES.md`](../USAGE_EXAMPLES.md)
