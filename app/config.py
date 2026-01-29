@@ -41,6 +41,34 @@ class Settings(BaseSettings):
         default="sqlite:///./runner_service.db", description="Database connection URL"
     )
 
+    # PostgreSQL Connection Pool Settings
+    db_pool_size: int = Field(
+        default=10, description="Database connection pool size (PostgreSQL only)"
+    )
+    db_max_overflow: int = Field(
+        default=20,
+        description="Maximum overflow connections beyond pool_size (PostgreSQL only)",
+    )
+    db_pool_recycle: int = Field(
+        default=3600,
+        description="Seconds before recycling connections (PostgreSQL only)",
+    )
+
+    # PostgreSQL SSL/TLS Settings
+    db_ssl_mode: Optional[str] = Field(
+        default=None,
+        description="PostgreSQL SSL mode: disable, allow, prefer, require, verify-ca, verify-full",
+    )
+    db_ssl_cert: Optional[str] = Field(
+        default=None, description="Path to client SSL certificate (PostgreSQL only)"
+    )
+    db_ssl_key: Optional[str] = Field(
+        default=None, description="Path to client SSL key (PostgreSQL only)"
+    )
+    db_ssl_root_cert: Optional[str] = Field(
+        default=None, description="Path to root SSL certificate (PostgreSQL only)"
+    )
+
     # Service Configuration
     service_host: str = Field(default="0.0.0.0", description="Service host")
     service_port: int = Field(default=8000, description="Service port")
@@ -112,6 +140,18 @@ class Settings(BaseSettings):
     https_key_file: Optional[Path] = Field(
         default=None,
         description="Path to SSL private key file (required if https_enabled=true)",
+    )
+
+    # Bootstrap Admin Configuration
+    bootstrap_admin_username: str = Field(
+        default="admin",
+        description="Bootstrap admin username (created on first startup)",
+    )
+    bootstrap_admin_password: str = Field(
+        default="", description="Bootstrap admin password (required for first startup)"
+    )
+    bootstrap_admin_email: Optional[str] = Field(
+        default=None, description="Bootstrap admin email (optional)"
     )
 
     # Dashboard Features
