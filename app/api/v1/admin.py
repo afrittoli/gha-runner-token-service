@@ -1180,7 +1180,7 @@ async def get_admin_stats(
 
     **Required Authentication:** Admin privileges
     """
-    from app.models import Runner, User, SecurityEvent, AuditLog, LabelPolicy
+    from app.models import Runner, User, SecurityEvent, AuditLog, LabelPolicy, Team
 
     return {
         "runners": {
@@ -1193,6 +1193,10 @@ async def get_admin_stats(
             "total": db.query(User).count(),
             "active": db.query(User).filter(User.is_active).count(),
             "admins": db.query(User).filter(User.is_admin).count(),
+        },
+        "teams": {
+            "total": db.query(Team).count(),
+            "active": db.query(Team).filter(Team.is_active).count(),
         },
         "policies": {
             "total": db.query(LabelPolicy).count(),
