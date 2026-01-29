@@ -44,10 +44,10 @@ export default function TopNav() {
             className="h-8 w-8 rounded"
           />
           <span className="font-semibold text-lg hidden md:inline">
-            GitHub Actions Runner Service
+            GitHub Actions Runner Token Service (GHARTS)
           </span>
           <span className="font-semibold text-lg md:hidden">
-            GHA Service
+            GHARTS
           </span>
         </Link>
       </div>
