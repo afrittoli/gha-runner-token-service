@@ -27,14 +27,21 @@ export default function UserManagement() {
   const [batchComment, setBatchComment] = useState('')
 
   const { data, isLoading, error } = useUsers(true) // Include inactive
-  const { data: teamsData } = useTeams(false) // Only active teams
+  const { data: teamsData } = useTeams(true) // Include inactive teams
   
-  // Filter out admin team from selection
-  const availableTeams = teamsData?.teams.filter(t => t.name.toLowerCase() !== 'admin') || []
+  // Filter out admin team (case-insensitive) and separate active/inactive
+  const allNonAdminTeams = teamsData?.teams.filter(t =>
+    !t.name.toLowerCase().includes('admin')
+  ) || []
+  const activeTeams = allNonAdminTeams.filter(t => t.is_active)
+  const inactiveTeams = allNonAdminTeams.filter(t => !t.is_active)
   
-  // Filter users based on admin status and active status
-  const filteredUsers = data?.users.filter(user => {
-    if (!showAdmins && user.is_admin) return false
+  // Separate admin and regular users
+  const adminUsers = data?.users.filter(user => user.is_admin) || []
+  const regularUsers = data?.users.filter(user => !user.is_admin) || []
+  
+  // Filter regular users based on active status
+  const filteredUsers = regularUsers.filter(user => {
     if (!showInactive && !user.is_active) return false
     return true
   })
@@ -204,11 +211,19 @@ export default function UserManagement() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage user accounts and permissions
+          </p>
+        </div>
         <button
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gh-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           onClick={() => setShowAddForm(!showAddForm)}
         >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
           {showAddForm ? 'Cancel' : 'Add User'}
         </button>
       </div>
@@ -260,25 +275,63 @@ export default function UserManagement() {
                   Team Membership <span className="text-red-600">*</span>
                 </label>
                 <p className="text-xs text-gray-500 mb-2">Select at least one team for this user</p>
-                <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
-                  {availableTeams.length === 0 ? (
+                <div className="border border-gray-300 rounded-md p-3 max-h-64 overflow-y-auto">
+                  {activeTeams.length === 0 && inactiveTeams.length === 0 ? (
                     <p className="text-sm text-gray-500">No teams available. Create a team first.</p>
                   ) : (
-                    <div className="space-y-2">
-                      {availableTeams.map((team) => (
-                        <label key={team.id} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={newUser.team_ids.includes(team.id)}
-                            onChange={() => handleToggleTeam(team.id)}
-                            className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
-                          />
-                          <span className="ml-2 text-sm text-gray-900">{team.name}</span>
-                          {team.description && (
-                            <span className="ml-2 text-xs text-gray-500">- {team.description}</span>
-                          )}
-                        </label>
-                      ))}
+                    <div className="space-y-3">
+                      {/* Active Teams */}
+                      {activeTeams.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                            Active Teams
+                          </div>
+                          <div className="space-y-2">
+                            {activeTeams.map((team) => (
+                              <label key={team.id} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="checkbox"
+                                  checked={newUser.team_ids.includes(team.id)}
+                                  onChange={() => handleToggleTeam(team.id)}
+                                  className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-900">{team.name}</span>
+                                {team.description && (
+                                  <span className="ml-2 text-xs text-gray-500">- {team.description}</span>
+                                )}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Inactive Teams */}
+                      {inactiveTeams.length > 0 && (
+                        <div className="pt-3 border-t border-gray-200">
+                          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                            Inactive Teams
+                          </div>
+                          <div className="space-y-2">
+                            {inactiveTeams.map((team) => (
+                              <label key={team.id} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded opacity-60">
+                                <input
+                                  type="checkbox"
+                                  checked={newUser.team_ids.includes(team.id)}
+                                  onChange={() => handleToggleTeam(team.id)}
+                                  className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-500">{team.name}</span>
+                                {team.description && (
+                                  <span className="ml-2 text-xs text-gray-400">- {team.description}</span>
+                                )}
+                                <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">
+                                  Inactive
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -308,8 +361,18 @@ export default function UserManagement() {
 
       {/* Filter Controls */}
       <div className="bg-white shadow border border-gray-200 sm:rounded-lg p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-700">Show Inactive Users</span>
+            </label>
+            
             <label className="flex items-center">
               <input
                 type="checkbox"
@@ -319,55 +382,117 @@ export default function UserManagement() {
               />
               <span className="ml-2 text-sm text-gray-700">Show Admin Users</span>
             </label>
-            
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={(e) => setShowInactive(e.target.checked)}
-                className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
-              />
-              <span className="ml-2 text-gray-700">Show Inactive Users</span>
-            </label>
           </div>
           
           <div className="text-sm text-gray-500">
-            Showing {filteredUsers?.length || 0} of {data?.users.length || 0} users
+            Showing {filteredUsers?.length || 0} {showAdmins && adminUsers.length > 0 ? `+ ${adminUsers.length} admin` : ''} user{(filteredUsers?.length || 0) !== 1 ? 's' : ''}
           </div>
         </div>
 
-        {/* Bulk Actions */}
-        {selectedUserIds.size > 0 && (
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-700">
-              <span className="font-medium">{selectedUserIds.size}</span> user{selectedUserIds.size !== 1 ? 's' : ''} selected
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleBatchDisable}
-                disabled={!filteredUsers?.some(u => selectedUserIds.has(u.id) && u.is_active)}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Deactivate Selected
-              </button>
-              <button
-                onClick={handleBatchRestore}
-                disabled={!filteredUsers?.some(u => selectedUserIds.has(u.id) && !u.is_active)}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Restore Selected
-              </button>
-              <button
-                onClick={() => setSelectedUserIds(new Set())}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gh-blue"
-              >
-                Clear Selection
-              </button>
-            </div>
+        {/* Bulk Actions - Always visible, disabled when no selection */}
+        <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
+          <div className="text-sm text-gray-700">
+            {selectedUserIds.size > 0 ? (
+              <>
+                <span className="font-medium">{selectedUserIds.size}</span> user{selectedUserIds.size !== 1 ? 's' : ''} selected
+              </>
+            ) : (
+              <span className="text-gray-400">No users selected</span>
+            )}
           </div>
-        )}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleBatchDisable}
+              disabled={selectedUserIds.size === 0 || !filteredUsers?.some(u => selectedUserIds.has(u.id) && u.is_active)}
+              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                selectedUserIds.size === 0 || !filteredUsers?.some(u => selectedUserIds.has(u.id) && u.is_active)
+                  ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                  : 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500'
+              }`}
+            >
+              Deactivate Selected
+            </button>
+            <button
+              onClick={handleBatchRestore}
+              disabled={selectedUserIds.size === 0 || !filteredUsers?.some(u => selectedUserIds.has(u.id) && !u.is_active)}
+              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                selectedUserIds.size === 0 || !filteredUsers?.some(u => selectedUserIds.has(u.id) && !u.is_active)
+                  ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                  : 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
+              }`}
+            >
+              Restore Selected
+            </button>
+            <button
+              onClick={() => setSelectedUserIds(new Set())}
+              disabled={selectedUserIds.size === 0}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gh-blue disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* Admin Users Section */}
+      {showAdmins && adminUsers.length > 0 && (
+        <div className="bg-white shadow overflow-hidden border border-gray-300 sm:rounded-lg">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wider">Admin Users</h3>
+          </div>
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  User
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Last Login
+                </th>
+                <th scope="col" className="relative px-6 py-3">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-gray-50 divide-y divide-gray-200">
+              {adminUsers.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <div className="text-sm font-medium text-gray-900">
+                        {user.display_name || 'N/A'}
+                        <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-gray-200 text-gray-700">
+                          Admin
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500">{user.email || user.oidc_sub}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <StatusBadge status={user.is_active ? 'active' : 'offline'} />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.last_login_at ? formatDate(user.last_login_at) : 'Never'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active)}
+                      className={`${user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
+                    >
+                      {user.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Regular Users Table */}
       <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

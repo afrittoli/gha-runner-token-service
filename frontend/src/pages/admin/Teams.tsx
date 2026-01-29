@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { useTeams, useCreateTeam, useDeactivateTeam, TeamCreate, Team } from '@hooks/useTeams'
+import { useTeams, useCreateTeam, useDeactivateTeam, useReactivateTeam, TeamCreate, Team } from '@hooks/useTeams'
 import TeamMembers from './TeamMembers'
 
 export default function Teams() {
-  const [showInactive, setShowInactive] = useState(false)
+  const [showInactive, setShowInactive] = useState(true)
+  const [showAdminTeam, setShowAdminTeam] = useState(false)
   const { data, isLoading } = useTeams(showInactive)
   const createTeam = useCreateTeam()
   const deactivateTeam = useDeactivateTeam()
+  const reactivateTeam = useReactivateTeam()
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
@@ -28,7 +30,7 @@ export default function Teams() {
   const [labelInput, setLabelInput] = useState('')
   const [patternInput, setPatternInput] = useState('')
 
-  const isAdminTeam = (team: Team) => team.name.toLowerCase() === 'admin'
+  const isAdminTeam = (team: Team) => team.name.toLowerCase().includes('admin')
   
   // Separate admin team from regular teams
   const adminTeam = data?.teams.find(isAdminTeam)
@@ -72,10 +74,11 @@ export default function Teams() {
   }
 
   const handleToggleSelectAll = () => {
-    if (selectedTeamIds.size === regularTeams.length) {
+    // Select all visible teams (both active and inactive)
+    if (selectedTeamIds.size === regularTeams.length && regularTeams.length > 0) {
       setSelectedTeamIds(new Set())
     } else {
-      setSelectedTeamIds(new Set(regularTeams.filter(t => t.is_active).map(t => t.id)))
+      setSelectedTeamIds(new Set(regularTeams.map(t => t.id)))
     }
   }
 
@@ -95,6 +98,21 @@ export default function Teams() {
     }
   }
 
+  const handleBatchActivate = async () => {
+    try {
+      // Activate teams one by one
+      for (const teamId of Array.from(selectedTeamIds)) {
+        const team = regularTeams.find(t => t.id === teamId)
+        if (team && !team.is_active) {
+          await reactivateTeam.mutateAsync(teamId)
+        }
+      }
+      setSelectedTeamIds(new Set())
+    } catch (error) {
+      console.error('Failed to batch activate teams:', error)
+    }
+  }
+
   const handleConfirmBatchDeactivate = async () => {
     if (!deactivateReason.trim()) {
       return
@@ -103,10 +121,13 @@ export default function Teams() {
     try {
       // Deactivate teams one by one
       for (const teamId of Array.from(selectedTeamIds)) {
-        await deactivateTeam.mutateAsync({
-          teamId,
-          reason: deactivateReason.trim(),
-        })
+        const team = regularTeams.find(t => t.id === teamId)
+        if (team && team.is_active) {
+          await deactivateTeam.mutateAsync({
+            teamId,
+            reason: deactivateReason.trim(),
+          })
+        }
       }
       setBatchDeactivateDialog(false)
       setDeactivateReason('')
@@ -120,6 +141,11 @@ export default function Teams() {
     setBatchDeactivateDialog(false)
     setDeactivateReason('')
   }
+
+  // Calculate selected team statuses
+  const selectedTeams = regularTeams.filter(t => selectedTeamIds.has(t.id))
+  const hasActiveSelected = selectedTeams.some(t => t.is_active)
+  const hasInactiveSelected = selectedTeams.some(t => !t.is_active)
 
   const resetForm = () => {
     setFormData({
@@ -168,37 +194,87 @@ export default function Teams() {
     })
   }
 
+  const handleActivateTeam = async (teamId: string) => {
+    try {
+      await reactivateTeam.mutateAsync(teamId)
+    } catch (error) {
+      console.error('Failed to activate team:', error)
+    }
+  }
+
   const renderTeamRow = (team: Team, isAdmin: boolean) => {
     const displayLabels = isAdmin
       ? team.required_labels.filter(l => l !== 'self-hosted')
       : team.required_labels
 
+    if (isAdmin) {
+      // Admin team row - no checkbox, no status column
+      return (
+        <tr key={team.id} className="bg-gray-50">
+          <td className="px-6 py-4 whitespace-nowrap" colSpan={2}>
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {team.name}
+                <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded bg-gray-200 text-gray-700">
+                  System Team
+                </span>
+              </div>
+              {team.description && (
+                <div className="text-sm text-gray-500">{team.description}</div>
+              )}
+            </div>
+          </td>
+          <td className="px-6 py-4">
+            <div className="flex flex-wrap gap-1">
+              {displayLabels.map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {team.max_runners ?? 'Unlimited'}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {team.member_count ?? 0}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <button
+              onClick={() => {
+                setSelectedTeamId(team.id)
+                setSelectedTeamName(team.name)
+              }}
+              className="text-gh-blue hover:text-gh-blue-dark"
+            >
+              Manage Members
+            </button>
+          </td>
+        </tr>
+      )
+    }
+
+    // Regular team row - with checkbox and status column
     return (
       <tr
         key={team.id}
-        className={`${isAdmin ? 'bg-blue-50' : selectedTeamIds.has(team.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+        className={selectedTeamIds.has(team.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}
       >
-        {!isAdmin && (
-          <td className="px-6 py-4 whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={selectedTeamIds.has(team.id)}
-              onChange={() => handleToggleSelect(team.id)}
-              disabled={!team.is_active}
-              className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
-            />
-          </td>
-        )}
-        <td className={`px-6 py-4 whitespace-nowrap ${isAdmin ? 'pl-6' : ''}`} colSpan={isAdmin ? 2 : 1}>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={selectedTeamIds.has(team.id)}
+            onChange={() => handleToggleSelect(team.id)}
+            disabled={!team.is_active}
+            className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+          />
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
           <div>
-            <div className="text-sm font-medium text-gray-900">
-              {team.name}
-              {isAdmin && (
-                <span className="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                  System Team
-                </span>
-              )}
-            </div>
+            <div className="text-sm font-medium text-gray-900">{team.name}</div>
             {team.description && (
               <div className="text-sm text-gray-500">{team.description}</div>
             )}
@@ -222,19 +298,17 @@ export default function Teams() {
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
           {team.member_count ?? 0}
         </td>
-        {!isAdmin && (
-          <td className="px-6 py-4 whitespace-nowrap">
-            <span
-              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                team.is_active
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}
-            >
-              {team.is_active ? 'Active' : 'Inactive'}
-            </span>
-          </td>
-        )}
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span
+            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+              team.is_active
+                ? 'bg-green-100 text-green-800'
+                : 'bg-gray-100 text-gray-800'
+            }`}
+          >
+            {team.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </td>
         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
           <div className="flex items-center justify-end gap-3">
             <button
@@ -246,12 +320,20 @@ export default function Teams() {
             >
               Manage Members
             </button>
-            {!isAdmin && team.is_active && (
+            {team.is_active && (
               <button
                 onClick={() => handleDeactivateTeam(team.id, team.name)}
                 className="text-red-600 hover:text-red-900"
               >
                 Deactivate
+              </button>
+            )}
+            {!team.is_active && (
+              <button
+                onClick={() => handleActivateTeam(team.id)}
+                className="text-green-600 hover:text-green-900"
+              >
+                Activate
               </button>
             )}
           </div>
@@ -292,50 +374,82 @@ export default function Teams() {
       {/* Filter Controls */}
       <div className="bg-white shadow border border-gray-200 sm:rounded-lg p-4">
         <div className="flex items-center justify-between">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
-            />
-            <span className="ml-2 text-sm text-gray-700">Show Inactive Teams</span>
-          </label>
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-700">Show Inactive Teams</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showAdminTeam}
+                onChange={(e) => setShowAdminTeam(e.target.checked)}
+                className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-700">Show Admin Team</span>
+            </label>
+          </div>
           
           <div className="text-sm text-gray-500">
-            Showing {regularTeams.length} {adminTeam ? '+ 1 system' : ''} team{regularTeams.length !== 1 ? 's' : ''}
+            Showing {regularTeams.length} {showAdminTeam && adminTeam ? '+ 1 system' : ''} team{regularTeams.length !== 1 ? 's' : ''}
           </div>
         </div>
 
-        {/* Bulk Actions */}
-        {selectedTeamIds.size > 0 && (
-          <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-700">
-              <span className="font-medium">{selectedTeamIds.size}</span> team{selectedTeamIds.size !== 1 ? 's' : ''} selected
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleBatchDeactivate}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
-              >
-                Deactivate Selected
-              </button>
-              <button
-                onClick={() => setSelectedTeamIds(new Set())}
-                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Clear
-              </button>
-            </div>
+        {/* Bulk Actions - Always visible, disabled when no selection */}
+        <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
+          <div className="text-sm text-gray-700">
+            {selectedTeamIds.size > 0 ? (
+              <>
+                <span className="font-medium">{selectedTeamIds.size}</span> team{selectedTeamIds.size !== 1 ? 's' : ''} selected
+              </>
+            ) : (
+              <span className="text-gray-400">No teams selected</span>
+            )}
           </div>
-        )}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleBatchDeactivate}
+              disabled={selectedTeamIds.size === 0 || !hasActiveSelected}
+              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                selectedTeamIds.size === 0 || !hasActiveSelected
+                  ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                  : 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500'
+              }`}
+            >
+              Deactivate Selected
+            </button>
+            <button
+              onClick={handleBatchActivate}
+              disabled={selectedTeamIds.size === 0 || !hasInactiveSelected}
+              className={`inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                selectedTeamIds.size === 0 || !hasInactiveSelected
+                  ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                  : 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
+              }`}
+            >
+              Activate Selected
+            </button>
+            <button
+              onClick={() => setSelectedTeamIds(new Set())}
+              disabled={selectedTeamIds.size === 0}
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gh-blue disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Admin Team Section */}
-      {adminTeam && (
-        <div className="bg-white shadow overflow-hidden border-2 border-blue-300 sm:rounded-lg">
-          <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
-            <h3 className="text-sm font-semibold text-blue-900 uppercase tracking-wider">System Team</h3>
+      {showAdminTeam && adminTeam && (
+        <div className="bg-white shadow overflow-hidden border border-gray-300 sm:rounded-lg">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wider">System Team</h3>
           </div>
           <table className="min-w-full">
             <thead className="bg-gray-50">
@@ -362,7 +476,7 @@ export default function Teams() {
               <th scope="col" className="px-6 py-3 text-left">
                 <input
                   type="checkbox"
-                  checked={selectedTeamIds.size > 0 && selectedTeamIds.size === regularTeams.filter(t => t.is_active).length}
+                  checked={selectedTeamIds.size > 0 && selectedTeamIds.size === regularTeams.length}
                   onChange={handleToggleSelectAll}
                   className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
                 />
@@ -594,6 +708,9 @@ export default function Teams() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
       {/* Batch Deactivate Confirmation Dialog */}
       {batchDeactivateDialog && (
         <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -653,9 +770,6 @@ export default function Teams() {
               </div>
             </div>
           </div>
-        </div>
-      )}
-
         </div>
       )}
 

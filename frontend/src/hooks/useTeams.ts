@@ -123,6 +123,18 @@ export function useDeactivateTeam() {
   })
 }
 
+export function useReactivateTeam() {
+  const queryClient = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: async (teamId: string) => {
+      await apiClient.post(`/api/v1/admin/teams/${teamId}/reactivate`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'teams'] })
+    },
+  })
+}
+
 // --- Team Member Hooks ---
 
 export function useTeamMembers(teamId: string | undefined) {

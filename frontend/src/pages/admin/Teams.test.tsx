@@ -46,6 +46,9 @@ vi.mock('@hooks/useTeams', () => ({
   useDeactivateTeam: vi.fn(() => ({
     mutateAsync: vi.fn(),
   })),
+  useReactivateTeam: vi.fn(() => ({
+    mutateAsync: vi.fn(),
+  })),
 }))
 
 describe('Teams', () => {
