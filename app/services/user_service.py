@@ -155,6 +155,19 @@ class UserService:
             query = query.filter(User.is_active == True)  # noqa: E712
         return query.count()
 
+    def count_active_admins(self) -> int:
+        """
+        Count active admin users.
+
+        Returns:
+            Number of active admin users
+        """
+        return (
+            self.db.query(User)
+            .filter(User.is_admin == True, User.is_active == True)  # noqa: E712
+            .count()
+        )
+
     def update_user(self, user_id: str, **updates) -> Optional[User]:
         """
         Update user fields.

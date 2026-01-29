@@ -40,11 +40,29 @@ export default function UserManagement() {
   const adminUsers = data?.users.filter(user => user.is_admin) || []
   const regularUsers = data?.users.filter(user => !user.is_admin) || []
   
+  // Count active admins
+  const activeAdminCount = adminUsers.filter(u => u.is_active).length
+  
   // Filter regular users based on active status
   const filteredUsers = regularUsers.filter(user => {
     if (!showInactive && !user.is_active) return false
     return true
   })
+  
+  // Helper to check if a user can be deactivated
+  const canDeactivateUser = (user: typeof adminUsers[0]) => {
+    if (!user.is_admin) return true
+    if (!user.is_active) return false // Already inactive
+    return activeAdminCount > 1 // Can only deactivate if not the last admin
+  }
+  
+  // Helper to check if batch deactivate would leave at least one admin
+  const canBatchDeactivate = () => {
+    const selectedAdmins = adminUsers.filter(u =>
+      selectedUserIds.has(u.id) && u.is_active
+    )
+    return selectedAdmins.length < activeAdminCount
+  }
   const updateUser = useUpdateUser()
   const activateUser = useActivateUser()
   const deleteUser = useDeleteUser()
@@ -65,6 +83,12 @@ export default function UserManagement() {
 
   const handleToggleStatus = async (userId: string, userName: string, isActive: boolean) => {
     if (isActive) {
+      // Check if this user can be deactivated
+      const user = data?.users.find(u => u.id === userId)
+      if (user && !canDeactivateUser(user)) {
+        alert('Cannot deactivate the last active admin user. At least one admin must remain active.')
+        return
+      }
       // Show confirmation dialog for deactivation
       setDeactivateDialog({ userId, userName })
     } else {
@@ -143,6 +167,12 @@ export default function UserManagement() {
   }
 
   const handleBatchDisable = () => {
+    // Check if batch deactivation would leave at least one admin
+    if (!canBatchDeactivate()) {
+      alert('Cannot deactivate all active admin users. At least one admin must remain active.')
+      return
+    }
+    
     const activeSelected = filteredUsers?.filter(u =>
       selectedUserIds.has(u.id) && u.is_active
     ) || []
@@ -478,12 +508,18 @@ export default function UserManagement() {
                     {user.last_login_at ? formatDate(user.last_login_at) : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active)}
-                      className={`${user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
-                    >
-                      {user.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
+                    {canDeactivateUser(user) || !user.is_active ? (
+                      <button
+                        onClick={() => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active)}
+                        className={`${user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
+                      >
+                        {user.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 cursor-not-allowed" title="Cannot deactivate the last active admin">
+                        Deactivate
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

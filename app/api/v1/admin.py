@@ -701,6 +701,18 @@ async def delete_user(
             detail=f"User not found: {user_id}",
         )
 
+    # Prevent deactivation of the last admin user
+    if user.is_admin and user.is_active:
+        active_admin_count = service.count_active_admins()
+        if active_admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Cannot deactivate the last active admin user. "
+                    "At least one admin must remain active."
+                ),
+            )
+
     # Deactivate the user
     deactivated = service.deactivate_user(user_id)
 
@@ -852,6 +864,19 @@ async def batch_disable_users(
         for u in users_to_disable
         if not (u.email == admin.email or u.oidc_sub == admin.sub)
     ]
+
+    # Check if we're trying to deactivate all admin users
+    admin_users_to_disable = [u for u in users_to_disable if u.is_admin]
+    if admin_users_to_disable:
+        active_admin_count = service.count_active_admins()
+        if len(admin_users_to_disable) >= active_admin_count:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Cannot deactivate all active admin users. "
+                    "At least one admin must remain active."
+                ),
+            )
 
     affected = []
     failed = []
