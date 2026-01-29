@@ -47,9 +47,9 @@ The **Runner Token Service** is a secure central service that enables third part
 
 ### Operations
 - [Demo Script](demo.md) - Comprehensive demonstration of system capabilities
-- [Deployment Checklist](DEPLOYMENT_CHECKLIST.md) - Production deployment guide
-- [Team Management Guide](TEAM_MANAGEMENT.md) - Team-based authorization workflows
-- [API Contract](API_CONTRACT.md) - API specifications and compatibility
+- [Deployment Checklist](deployment_checklist.md) - Production deployment guide
+- [Team Management Guide](team_management.md) - Team-based authorization workflows
+- [API Contract](api_contract.md) - API specifications and compatibility
 
 ### Design & Architecture
 - [JIT Provisioning Design](design/jit_provisioning.md) - JIT architecture and security benefits

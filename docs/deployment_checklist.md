@@ -15,8 +15,8 @@
 - [ ] Database backup created before migration
 
 ### Documentation
-- [x] API documentation updated (API_CONTRACT.md)
-- [x] User guide created (TEAM_MANAGEMENT.md)
+- [x] API documentation updated (api_contract.md)
+- [x] User guide created (team_management.md)
 - [x] README updated with team features
 - [x] Design document complete (team_based_authorization.md)
 

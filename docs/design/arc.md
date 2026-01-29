@@ -1470,7 +1470,7 @@ If/when team-based authorization is implemented:
 ### References
 
 - Team-Based Authorization Design: [`team_based_authorization.md`](team_based_authorization.md)
-- GHARTS API Documentation: [`../API_CONTRACT.md`](../API_CONTRACT.md)
+- GHARTS API Documentation: [`../api_contract.md`](../api_contract.md)
 - JIT Provisioning Design: [`jit_provisioning.md`](jit_provisioning.md)
 
 ---
