@@ -243,7 +243,7 @@ See [README.md](README.md) for:
 
 ## Alternative: Registration Token API
 
-For cases where you need more control over the runner configuration, the registration token API is available. See [DEVELOPMENT.md](DEVELOPMENT.md#alternative-registration-token-api) for details.
+For cases where you need more control over the runner configuration, the registration token API is available. See [development.md](development.md#alternative-registration-token-api) for details.
 
 **Note:** The registration token API allows clients to potentially bypass label and ephemeral settings. Use JIT for production environments.
 

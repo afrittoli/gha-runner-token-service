@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1169px" height="827px" viewBox="0 0 1169 827">
+  <defs>
+    <style type="text/css">
+      .table-header { fill: #333; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; }
+      .table-field { fill: #333; font-family: Arial, sans-serif; font-size: 13px; }
+      .table-timestamp { fill: #666; font-family: Arial, sans-serif; font-size: 12px; font-style: italic; }
+      .relationship-line { stroke: #666; stroke-width: 2; fill: none; }
+      .relationship-label { fill: #333; font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; }
+    </style>
+  </defs>
+  
+  <!-- Title -->
+  <text x="585" y="40" text-anchor="middle" style="font-family: Arial, sans-serif; font-size: 28px; font-weight: bold; fill: #333;">GHARTS Data Model</text>
+  
+  <!-- User Table -->
+  <g id="user-table">
+    <rect x="80" y="100" width="240" height="270" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2" rx="5"/>
+    <rect x="80" y="100" width="240" height="30" fill="#6c8ebf" stroke="#6c8ebf" stroke-width="2" rx="5"/>
+    <text x="200" y="120" text-anchor="middle" class="table-header" fill="white">User</text>
+    <text x="90" y="155" class="table-field">🔑 id: VARCHAR (PK, UUID)</text>
+    <text x="90" y="185" class="table-field">📧 email: VARCHAR (UNIQUE)</text>
+    <text x="90" y="215" class="table-field">🔐 oidc_sub: VARCHAR (UNIQUE)</text>
+    <text x="90" y="245" class="table-field">display_name: VARCHAR</text>
+    <text x="90" y="275" class="table-field">⭐ is_admin: BOOLEAN</text>
+    <text x="90" y="305" class="table-field">✓ is_active: BOOLEAN</text>
+    <text x="90" y="335" class="table-field">can_use_jit: BOOLEAN</text>
+    <rect x="80" y="340" width="240" height="30" fill="#f5f5f5" stroke="#666" stroke-width="1"/>
+    <text x="90" y="360" class="table-timestamp">created_at, updated_at</text>
+  </g>
+  
+  <!-- Team Table -->
+  <g id="team-table">
+    <rect x="480" y="100" width="280" height="300" fill="#d5e8d4" stroke="#82b366" stroke-width="2" rx="5"/>
+    <rect x="480" y="100" width="280" height="30" fill="#82b366" stroke="#82b366" stroke-width="2" rx="5"/>
+    <text x="620" y="120" text-anchor="middle" class="table-header" fill="white">Team</text>
+    <text x="490" y="155" class="table-field">🔑 id: VARCHAR (PK, UUID)</text>
+    <text x="490" y="185" class="table-field">📛 name: VARCHAR (UNIQUE)</text>
+    <text x="490" y="215" class="table-field">description: TEXT</text>
+    <text x="490" y="245" class="table-field">🏷️ required_labels: TEXT (JSON)</text>
+    <text x="490" y="275" class="table-field">🔖 optional_label_patterns: TEXT</text>
+    <text x="490" y="305" class="table-field">📊 max_runners: INTEGER</text>
+    <text x="490" y="335" class="table-field">✓ is_active: BOOLEAN</text>
+    <text x="490" y="365" class="table-field">created_by: VARCHAR</text>
+    <rect x="480" y="370" width="280" height="30" fill="#f5f5f5" stroke="#666" stroke-width="1"/>
+    <text x="490" y="390" class="table-timestamp">created_at, updated_at</text>
+  </g>
+  
+  <!-- UserTeamMembership Table -->
+  <g id="membership-table">
+    <rect x="80" y="450" width="240" height="150" fill="#fff2cc" stroke="#d6b656" stroke-width="2" rx="5"/>
+    <rect x="80" y="450" width="240" height="30" fill="#d6b656" stroke="#d6b656" stroke-width="2" rx="5"/>
+    <text x="200" y="470" text-anchor="middle" class="table-header" fill="white">UserTeamMembership</text>
+    <text x="90" y="505" class="table-field">🔑 id: VARCHAR (PK, UUID)</text>
+    <text x="90" y="535" class="table-field">🔗 user_id: VARCHAR (FK → User)</text>
+    <text x="90" y="565" class="table-field">🔗 team_id: VARCHAR (FK → Team)</text>
+    <rect x="80" y="570" width="240" height="30" fill="#f5f5f5" stroke="#666" stroke-width="1"/>
+    <text x="90" y="590" class="table-timestamp">joined_at, added_by</text>
+  </g>
+  
+  <!-- Runner Table -->
+  <g id="runner-table">
+    <rect x="480" y="450" width="280" height="330" fill="#ffe6cc" stroke="#d79b00" stroke-width="2" rx="5"/>
+    <rect x="480" y="450" width="280" height="30" fill="#d79b00" stroke="#d79b00" stroke-width="2" rx="5"/>
+    <text x="620" y="470" text-anchor="middle" class="table-header" fill="white">Runner</text>
+    <text x="490" y="505" class="table-field">🔑 id: VARCHAR (PK, UUID)</text>
+    <text x="490" y="535" class="table-field">🏃 runner_name: VARCHAR</text>
+    <text x="490" y="565" class="table-field">github_runner_id: INTEGER</text>
+    <text x="490" y="595" class="table-field">🏷️ labels: TEXT (JSON)</text>
+    <text x="490" y="625" class="table-field">📊 status: VARCHAR</text>
+    <text x="490" y="655" class="table-field">👤 provisioned_by: VARCHAR</text>
+    <text x="490" y="685" class="table-field">🔗 team_id: VARCHAR (FK → Team)</text>
+    <text x="490" y="715" class="table-field">provisioning_method: VARCHAR</text>
+    <text x="490" y="745" class="table-field">ephemeral: BOOLEAN</text>
+    <rect x="480" y="750" width="280" height="30" fill="#f5f5f5" stroke="#666" stroke-width="1"/>
+    <text x="490" y="770" class="table-timestamp">created_at, updated_at, deleted_at</text>
+  </g>
+  
+  <!-- LabelPolicy Table -->
+  <g id="policy-table">
+    <rect x="850" y="100" width="280" height="210" fill="#e1d5e7" stroke="#9673a6" stroke-width="2" rx="5"/>
+    <rect x="850" y="100" width="280" height="30" fill="#9673a6" stroke="#9673a6" stroke-width="2" rx="5"/>
+    <text x="990" y="120" text-anchor="middle" class="table-header" fill="white">LabelPolicy</text>
+    <text x="860" y="155" class="table-field">🔑 user_identity: VARCHAR (PK)</text>
+    <text x="860" y="185" class="table-field">🏷️ allowed_labels: TEXT (JSON)</text>
+    <text x="860" y="215" class="table-field">🔖 label_patterns: TEXT (JSON)</text>
+    <text x="860" y="245" class="table-field">📊 max_runners: INTEGER</text>
+    <text x="860" y="275" class="table-field">description: TEXT</text>
+    <rect x="850" y="280" width="280" height="30" fill="#f5f5f5" stroke="#666" stroke-width="1"/>
+    <text x="860" y="300" class="table-timestamp">created_at, updated_at</text>
+  </g>
+  
+  <!-- AuditLog Table -->
+  <g id="audit-table">
+    <rect x="850" y="360" width="280" height="180" fill="#f8cecc" stroke="#b85450" stroke-width="2" rx="5"/>
+    <rect x="850" y="360" width="280" height="30" fill="#b85450" stroke="#b85450" stroke-width="2" rx="5"/>
+    <text x="990" y="380" text-anchor="middle" class="table-header" fill="white">AuditLog</text>
+    <text x="860" y="415" class="table-field">🔑 id: INTEGER (PK, AUTO)</text>
+    <text x="860" y="445" class="table-field">📝 event_type: VARCHAR</text>
+    <text x="860" y="475" class="table-field">👤 user_identity: VARCHAR</text>
+    <text x="860" y="505" class="table-field">event_data: TEXT (JSON)</text>
+    <rect x="850" y="510" width="280" height="30" fill="#f5f5f5" stroke="#666" stroke-width="1"/>
+    <text x="860" y="530" class="table-timestamp">timestamp, success</text>
+  </g>
+  
+  <!-- SecurityEvent Table -->
+  <g id="security-table">
+    <rect x="850" y="590" width="280" height="180" fill="#f8cecc" stroke="#b85450" stroke-width="2" rx="5"/>
+    <rect x="850" y="590" width="280" height="30" fill="#b85450" stroke="#b85450" stroke-width="2" rx="5"/>
+    <text x="990" y="610" text-anchor="middle" class="table-header" fill="white">SecurityEvent</text>
+    <text x="860" y="645" class="table-field">🔑 id: INTEGER (PK, AUTO)</text>
+    <text x="860" y="675" class="table-field">⚠️ event_type, severity</text>
+    <text x="860" y="705" class="table-field">👤 user_identity: VARCHAR</text>
+    <text x="860" y="735" class="table-field">violation_data: TEXT (JSON)</text>
+    <rect x="850" y="740" width="280" height="30" fill="#f5f5f5" stroke="#666" stroke-width="1"/>
+    <text x="860" y="760" class="table-timestamp">timestamp, action_taken</text>
+  </g>
+  
+  <!-- Relationships -->
+  <!-- User to UserTeamMembership (1:N) -->
+  <path d="M 200 370 L 200 450" class="relationship-line" marker-end="url(#arrowMany)"/>
+  <text x="210" y="410" class="relationship-label">1:N</text>
+  
+  <!-- Team to UserTeamMembership (1:N) -->
+  <path d="M 480 250 L 400 250 L 400 525 L 320 525" class="relationship-line" marker-end="url(#arrowMany)"/>
+  <text x="410" y="390" class="relationship-label">1:N</text>
+  
+  <!-- Team to Runner (0..1:N) -->
+  <path d="M 620 400 L 620 450" class="relationship-line" marker-end="url(#arrowMany)"/>
+  <text x="630" y="425" class="relationship-label">0..1:N</text>
+  
+  <!-- Legend -->
+  <g id="legend">
+    <rect x="80" y="650" width="240" height="120" fill="#f5f5f5" stroke="#666" stroke-width="2" rx="5"/>
+    <rect x="80" y="650" width="240" height="30" fill="#666" stroke="#666" stroke-width="2" rx="5"/>
+    <text x="200" y="670" text-anchor="middle" class="table-header" fill="white">Legend</text>
+    <text x="90" y="700" class="table-field">🔑 = Primary Key</text>
+    <text x="90" y="725" class="table-field">🔗 = Foreign Key</text>
+    <text x="90" y="750" class="table-field">📊 = Indexed Field</text>
+  </g>
+  
+  <!-- Notes -->
+  <g id="notes">
+    <rect x="400" y="650" width="360" height="120" fill="#d5e8d4" stroke="#82b366" stroke-width="2" rx="5"/>
+    <text x="410" y="675" class="table-field" font-weight="bold">Key Features</text>
+    <text x="410" y="695" class="table-field" font-size="11">• Team-based authorization with label policies</text>
+    <text x="410" y="710" class="table-field" font-size="11">• User-team many-to-many relationships</text>
+    <text x="410" y="725" class="table-field" font-size="11">• Runner provisioning with JIT or tokens</text>
+    <text x="410" y="740" class="table-field" font-size="11">• Comprehensive audit and security logging</text>
+    <text x="410" y="755" class="table-field" font-size="11">• Backward compatible (team_id nullable)</text>
+  </g>
+  
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowMany" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#666" />
+    </marker>
+  </defs>
+</svg>
+
+<!-- Made with Bob -->

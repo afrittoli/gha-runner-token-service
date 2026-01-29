@@ -2,6 +2,12 @@
 
 This folder contains detailed design and architecture documentation.
 
+## Data Model
+
+![Data Model Diagram](../diagrams/data_model.svg)
+
+The GHARTS data model consists of seven core tables supporting team-based authorization, runner management, and comprehensive auditing. See the [data model diagram](../diagrams/data_model.svg) for complete schema details.
+
 ## Contents
 
 - **[token_service.md](token_service.md)** - System architecture, components, data flow, and technical design decisions
@@ -9,6 +15,9 @@ This folder contains detailed design and architecture documentation.
 - **[label_policy.md](label_policy.md)** - Label policy enforcement system design and implementation details
 - **[github_sync.md](github_sync.md)** - GitHub runner state synchronization mechanism design
 - **[jit_provisioning.md](jit_provisioning.md)** - JIT (Just-In-Time) runner provisioning with server-side label enforcement
+- **[team_based_authorization.md](team_based_authorization.md)** - Team-based authorization design and implementation
+- **[arc.md](arc.md)** - Actions Runner Controller (ARC) integration design
+- **[kubernetes_deployment.md](kubernetes_deployment.md)** - Kubernetes deployment architecture
 
 ## Overview
 

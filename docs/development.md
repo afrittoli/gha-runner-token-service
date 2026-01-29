@@ -384,7 +384,36 @@ runner-token-service/
 └── README.md                  # Project overview
 ```
 
-## 10. Troubleshooting
+## 10. Project Structure
+
+```
+runner-token-service/
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       ├── runners.py      # API endpoints
+│   │       └── admin.py        # Admin endpoints
+│   ├── auth/
+│   │   └── dependencies.py     # OIDC authentication
+│   ├── github/
+│   │   ├── app_auth.py         # GitHub App authentication
+│   │   └── client.py           # GitHub API client
+│   ├── services/
+│   │   ├── runner_service.py   # Runner management logic
+│   │   └── label_policy_service.py  # Label policy enforcement
+│   ├── cli.py                  # CLI commands
+│   ├── config.py               # Configuration
+│   ├── main.py                 # FastAPI application
+│   ├── models.py               # Database models
+│   └── schemas.py              # Pydantic schemas
+├── .env.example                # Example configuration
+├── requirements.txt            # Python dependencies
+├── quickstart.md              # Quick start guide
+├── development.md             # This file
+└── README.md                  # Project overview
+```
+
+## 11. Troubleshooting
 
 ### "Failed to generate GitHub token"
 

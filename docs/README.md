@@ -38,11 +38,18 @@ The **Runner Token Service** is a secure central service that enables third part
 ## Documentation Index
 
 ### Getting Started
-- [Quick Start Guide](QUICKSTART.md) - Get up and running in 5 minutes with JIT provisioning
-- [Usage Examples](USAGE_EXAMPLES.md) - Practical examples and workflows
+- [Quick Start Guide](quickstart.md) - Get up and running in 5 minutes with JIT provisioning
+- [Usage Examples](usage_examples.md) - Practical examples and workflows
 
 ### Development
-- [Development Guide](DEVELOPMENT.md) - Setting up development environment, OIDC configuration
+- [Development Guide](development.md) - Setting up development environment, OIDC configuration
+- [OIDC Setup Guide](oidc_setup.md) - Complete OIDC configuration and authentication flows
+
+### Operations
+- [Demo Script](demo.md) - Comprehensive demonstration of system capabilities
+- [Deployment Checklist](DEPLOYMENT_CHECKLIST.md) - Production deployment guide
+- [Team Management Guide](TEAM_MANAGEMENT.md) - Team-based authorization workflows
+- [API Contract](API_CONTRACT.md) - API specifications and compatibility
 
 ### Design & Architecture
 - [JIT Provisioning Design](design/jit_provisioning.md) - JIT architecture and security benefits
@@ -81,6 +88,23 @@ runner-token-service/
 ├── docker-compose.yml          # Docker compose setup
 └── Dockerfile                  # Docker image
 ```
+
+## Data Model
+
+The service uses a relational database with the following core tables:
+
+![Data Model Diagram](diagrams/data_model.svg)
+
+**Core Tables:**
+- **User**: Authenticated users with OIDC integration
+- **Team**: Organizational units with label policies and quotas
+- **UserTeamMembership**: Many-to-many relationship between users and teams
+- **Runner**: Self-hosted GitHub runners with status tracking
+- **LabelPolicy**: User-based label policies (legacy, being migrated to teams)
+- **AuditLog**: Complete audit trail of all operations
+- **SecurityEvent**: Security violations and policy enforcement events
+
+See the [data model diagram](diagrams/data_model.svg) for detailed schema and relationships.
 
 ## Key Concepts
 
