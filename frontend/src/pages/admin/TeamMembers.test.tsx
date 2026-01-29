@@ -25,16 +25,12 @@ const mockMembers = {
     {
       user_id: 'user-1',
       email: 'alice@example.com',
-      display_name: 'Alice Smith',
-      role: 'admin' as const,
-      joined_at: '2024-01-01T00:00:00Z',
+      display_name: 'Alice Smith',      joined_at: '2024-01-01T00:00:00Z',
     },
     {
       user_id: 'user-2',
       email: 'bob@example.com',
-      display_name: null,
-      role: 'member' as const,
-      joined_at: '2024-01-02T00:00:00Z',
+      display_name: null,      joined_at: '2024-01-02T00:00:00Z',
     },
   ],
   total: 2,
@@ -85,13 +81,7 @@ describe('TeamMembers', () => {
       vi.mocked(useTeamsHooks.useRemoveTeamMember).mockReturnValue({
         mutateAsync: vi.fn(),
         isPending: false,
-      } as any)
-
-      vi.mocked(useTeamsHooks.useUpdateTeamMemberRole).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-      } as any)
-    })
+      } as any)    })
 
     it('should display team name in header', () => {
       render(
@@ -111,17 +101,6 @@ describe('TeamMembers', () => {
       expect(screen.getByText('Alice Smith')).toBeInTheDocument()
       expect(screen.getByText('alice@example.com')).toBeInTheDocument()
       expect(screen.getByText('bob@example.com')).toBeInTheDocument()
-    })
-
-    it('should display member roles', () => {
-      render(
-        <TeamMembers teamId="team-1" teamName="Test Team" onClose={mockOnClose} />,
-        { wrapper: createWrapper() }
-      )
-
-      const roleSelects = screen.getAllByRole('combobox')
-      expect(roleSelects[0]).toHaveValue('admin')
-      expect(roleSelects[1]).toHaveValue('member')
     })
 
     it('should call onClose when close button is clicked', async () => {
@@ -158,12 +137,6 @@ describe('TeamMembers', () => {
         mutateAsync: vi.fn(),
         isPending: false,
       } as any)
-
-      vi.mocked(useTeamsHooks.useUpdateTeamMemberRole).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-      } as any)
-
       render(
         <TeamMembers teamId="team-1" teamName="Test Team" onClose={mockOnClose} />,
         { wrapper: createWrapper() }
@@ -195,12 +168,6 @@ describe('TeamMembers', () => {
         mutateAsync: vi.fn(),
         isPending: false,
       } as any)
-
-      vi.mocked(useTeamsHooks.useUpdateTeamMemberRole).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-      } as any)
-
       render(
         <TeamMembers teamId="team-1" teamName="Test Team" onClose={mockOnClose} />,
         { wrapper: createWrapper() }
@@ -234,12 +201,6 @@ describe('TeamMembers', () => {
         mutateAsync: vi.fn(),
         isPending: false,
       } as any)
-
-      vi.mocked(useTeamsHooks.useUpdateTeamMemberRole).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-      } as any)
-
       render(
         <TeamMembers teamId="team-1" teamName="Test Team" onClose={mockOnClose} />,
         { wrapper: createWrapper() }
@@ -253,8 +214,6 @@ describe('TeamMembers', () => {
       const emailInput = screen.getByLabelText(/user id \/ email/i)
       await user.type(emailInput, 'charlie@example.com')
 
-      const roleSelect = screen.getByLabelText(/role/i)
-      await user.selectOptions(roleSelect, 'admin')
 
       // Submit - get the second "Add Member" button (the one in the modal form)
       const addMemberButtons = screen.getAllByRole('button', { name: /add member/i })
@@ -263,7 +222,7 @@ describe('TeamMembers', () => {
       await waitFor(() => {
         expect(mockAddMember).toHaveBeenCalledWith({
           user_id: 'charlie@example.com',
-          role: 'admin',
+          
         })
       })
     })
@@ -294,12 +253,6 @@ describe('TeamMembers', () => {
         mutateAsync: mockRemoveMember,
         isPending: false,
       } as any)
-
-      vi.mocked(useTeamsHooks.useUpdateTeamMemberRole).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-      } as any)
-
       render(
         <TeamMembers teamId="team-1" teamName="Test Team" onClose={mockOnClose} />,
         { wrapper: createWrapper() }
@@ -339,12 +292,6 @@ describe('TeamMembers', () => {
         mutateAsync: mockRemoveMember,
         isPending: false,
       } as any)
-
-      vi.mocked(useTeamsHooks.useUpdateTeamMemberRole).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-      } as any)
-
       render(
         <TeamMembers teamId="team-1" teamName="Test Team" onClose={mockOnClose} />,
         { wrapper: createWrapper() }
@@ -359,51 +306,6 @@ describe('TeamMembers', () => {
     })
   })
 
-  describe('Update Role', () => {
-    it('should update member role when changed', async () => {
-      const user = userEvent.setup()
-      const mockUpdateRole = vi.fn().mockResolvedValue(undefined)
-
-      vi.mocked(useTeamsHooks.useTeamMembers).mockReturnValue({
-        data: mockMembers,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      } as any)
-
-      vi.mocked(useTeamsHooks.useAddTeamMember).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-        isError: false,
-      } as any)
-
-      vi.mocked(useTeamsHooks.useRemoveTeamMember).mockReturnValue({
-        mutateAsync: vi.fn(),
-        isPending: false,
-      } as any)
-
-      vi.mocked(useTeamsHooks.useUpdateTeamMemberRole).mockReturnValue({
-        mutateAsync: mockUpdateRole,
-        isPending: false,
-      } as any)
-
-      render(
-        <TeamMembers teamId="team-1" teamName="Test Team" onClose={mockOnClose} />,
-        { wrapper: createWrapper() }
-      )
-
-      const roleSelects = screen.getAllByRole('combobox')
-      // Change Bob's role from member to admin
-      await user.selectOptions(roleSelects[1], 'admin')
-
-      await waitFor(() => {
-        expect(mockUpdateRole).toHaveBeenCalledWith({
-          userId: 'user-2',
-          role: 'admin',
-        })
-      })
-    })
-  })
 })
 
 // Made with Bob
