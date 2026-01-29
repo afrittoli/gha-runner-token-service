@@ -12,6 +12,8 @@ This service acts as a secure intermediary between authenticated third parties a
 - ✅ Tracks runner lifecycle and state
 - ✅ Provides audit trails for runner provisioning
 - ✅ Supports automatic cleanup of ephemeral runners
+- ✅ **Team-based authorization** with label policies and quotas
+- ✅ **JIT (Just-In-Time) provisioning** with server-side label enforcement
 
 > [!WARNING]  
 > This repo contains an MVP developed as proof-of-concept. It is not ready for production use.
@@ -30,6 +32,7 @@ This service acts as a secure intermediary between authenticated third parties a
 - **[Architecture](docs/design/token_service.md)** - System architecture and design decisions
 - **[Dashboard Design](docs/design/dashboard.md)** - Web dashboard specifications
 - **[Label Policy](docs/design/README.md)** - Label policy enforcement system
+- **[Team Management](docs/TEAM_MANAGEMENT.md)** - Team-based authorization guide
 
 ## Quick Links
 

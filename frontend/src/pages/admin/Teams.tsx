@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTeams, useCreateTeam, useDeactivateTeam, TeamCreate } from '@hooks/useTeams'
+import TeamMembers from './TeamMembers'
 
 export default function Teams() {
   const { data, isLoading } = useTeams()
@@ -7,6 +8,8 @@ export default function Teams() {
   const deactivateTeam = useDeactivateTeam()
 
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [selectedTeamName, setSelectedTeamName] = useState<string>('')
   const [formData, setFormData] = useState<TeamCreate>({
     name: '',
     description: '',
@@ -181,14 +184,25 @@ export default function Teams() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {team.is_active && (
+                  <div className="flex items-center justify-end gap-3">
                     <button
-                      onClick={() => handleDeactivateTeam(team.id)}
-                      className="text-red-600 hover:text-red-900"
+                      onClick={() => {
+                        setSelectedTeamId(team.id)
+                        setSelectedTeamName(team.name)
+                      }}
+                      className="text-gh-blue hover:text-gh-blue-dark"
                     >
-                      Deactivate
+                      Manage Members
                     </button>
-                  )}
+                    {team.is_active && (
+                      <button
+                        onClick={() => handleDeactivateTeam(team.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -343,6 +357,18 @@ export default function Teams() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Team Members Modal */}
+      {selectedTeamId && (
+        <TeamMembers
+          teamId={selectedTeamId}
+          teamName={selectedTeamName}
+          onClose={() => {
+            setSelectedTeamId(null)
+            setSelectedTeamName('')
+          }}
+        />
       )}
     </div>
   )

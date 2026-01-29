@@ -51,9 +51,12 @@ This document defines the API contract between frontend dashboard(s) and the bac
   - Used by: React dashboard detail view
   - Jinja2 dashboard may not display new fields, but endpoint is compatible
 
-- `POST /api/v1/runners` - Create runner (unchanged)
-  - Used by: React dashboard provision modal
-  - Jinja2 dashboard doesn't call this (read-only)
+- `POST /api/v1/runners/jit` - JIT provision runner (EXTENDED)
+  - New field: `team_id` (optional) - Associates runner with a team
+  - Body: `{ runner_name_prefix?, labels: [], team_id? }`
+  - Team-based label policies enforced when team_id provided
+  - Used by: React dashboard provision modal with team selection
+  - Backward compatible: works without team_id (uses user-based policies)
 
 - `POST /api/v1/runners/{id}/deprovision` - Remove runner (unchanged)
   - Used by: React dashboard detail view
@@ -69,6 +72,40 @@ This document defines the API contract between frontend dashboard(s) and the bac
   - `label_patterns`: Optional regex patterns (e.g., "team-.*", "project-[a-z]+")
 - `DELETE /api/v1/admin/label-policies/{user_identity}` - Delete policy (NEW, admin only)
 - `GET /api/v1/admin/security-events` - Security events (NEW, admin only)
+
+### Team Management (NEW, admin only)
+- `GET /api/v1/admin/teams` - List all teams
+  - Returns: `{ teams: [{ id, name, description, required_labels: [], optional_label_patterns: [], max_runners, is_active, member_count, runner_count, created_at, updated_at }], total }`
+  - Used by: React dashboard admin console - Teams page
+- `POST /api/v1/admin/teams` - Create new team
+  - Body: `{ name, description?, required_labels: [], optional_label_patterns?: [], max_runners? }`
+  - Returns: Created team object
+- `GET /api/v1/admin/teams/{team_id}` - Get team details
+  - Returns: Team object with full details
+- `PATCH /api/v1/admin/teams/{team_id}` - Update team
+  - Body: `{ description?, required_labels?, optional_label_patterns?, max_runners?, is_active? }`
+  - Returns: Updated team object
+- `POST /api/v1/admin/teams/{team_id}/deactivate` - Deactivate team
+  - Soft delete - sets is_active=false
+  - Returns: 204 No Content
+
+### Team Membership Management (NEW, admin only)
+- `GET /api/v1/admin/teams/{team_id}/members` - List team members
+  - Returns: `{ members: [{ user_id, email, display_name, role: "member|admin", joined_at }], total }`
+- `POST /api/v1/admin/teams/{team_id}/members` - Add member to team
+  - Body: `{ user_id, role?: "member|admin" }` (default: "member")
+  - Returns: 201 Created
+- `DELETE /api/v1/admin/teams/{team_id}/members/{user_id}` - Remove member from team
+  - Returns: 204 No Content
+- `PATCH /api/v1/admin/teams/{team_id}/members/{user_id}` - Update member role
+  - Body: `{ role: "member|admin" }`
+  - Returns: 200 OK
+
+### User Teams (NEW, user-facing)
+- `GET /api/v1/teams/my-teams` - List current user's teams
+  - Returns: `{ teams: [{ id, name, description, role, required_labels, optional_label_patterns, max_runners }] }`
+  - Used by: React dashboard - provision runner page (team selection)
+
 - `GET /api/v1/audit-logs` - Audit logs (NEW, admin only, with user filtering)
 
 ## Integration Points
