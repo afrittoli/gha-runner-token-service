@@ -2,7 +2,17 @@
 
 ## Overview
 
-Team-based authorization allows you to organize users into teams with specific runner provisioning policies. Each team can have:
+Team-based authorization allows you to organize users into teams with specific runner provisioning policies.
+
+### Data Model
+
+![Data Model](diagrams/data_model.svg)
+
+The team-based authorization system uses a many-to-many relationship between Users and Teams through the UserTeamMembership table. See the [data model diagram](diagrams/data_model.svg) for complete schema details.
+
+### Team Features
+
+Each team can have:
 - **Required labels**: Labels that must be present on all runners
 - **Optional label patterns**: Regex patterns for additional allowed labels
 - **Runner quotas**: Maximum number of active runners per team

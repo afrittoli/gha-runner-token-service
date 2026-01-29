@@ -5,7 +5,7 @@ Demonstrate the system capabilities and its security and central management and 
 ## Prerequisites
 
 Before starting the demo, ensure:
-- The service is running (see DEVELOPMENT.md or QUICKSTART.md)
+- The service is running (see development.md or quickstart.md)
 - You have the [`docs/scripts/oidc.sh`](./scripts/oidc.sh) function installed and configured
 - Source the CLI credentials `source docs/.cli.env`
 - Label policies are configured for the users
