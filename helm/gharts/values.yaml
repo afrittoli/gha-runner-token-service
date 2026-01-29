@@ -1,0 +1,330 @@
+# Default values for gharts
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+  # - name: regcred
+
+# Replica counts
+replicaCount:
+  backend: 2
+  frontend: 2
+
+# Backend (FastAPI) configuration
+backend:
+  image:
+    repository: ghcr.io/afrittoli/gharts-backend
+    pullPolicy: IfNotPresent
+    tag: "" # Defaults to chart appVersion
+
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Liveness and readiness probes
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity rules
+  affinity: {}
+
+# Frontend (Nginx + React) configuration
+frontend:
+  image:
+    repository: ghcr.io/afrittoli/gharts-frontend
+    pullPolicy: IfNotPresent
+    tag: "" # Defaults to chart appVersion
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Liveness and readiness probes
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 101  # nginx user
+    fsGroup: 101
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity rules
+  affinity: {}
+
+# PostgreSQL database configuration
+postgresql:
+  enabled: true
+  auth:
+    username: gharts
+    password: changeme  # CHANGE IN PRODUCTION
+    database: gharts
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+# External PostgreSQL (if postgresql.enabled=false)
+externalDatabase:
+  host: ""
+  port: 5432
+  username: gharts
+  password: ""
+  database: gharts
+  sslMode: require
+  # Optional SSL certificates
+  sslCert: ""
+  sslKey: ""
+  sslRootCert: ""
+
+# Application configuration
+config:
+  # GitHub App credentials (required)
+  github:
+    appId: ""
+    installationId: ""
+    privateKey: ""  # Base64 encoded
+    organization: ""
+
+  # OIDC authentication
+  oidc:
+    enabled: true
+    issuer: ""
+    clientId: ""
+    clientSecret: ""
+    redirectUri: ""
+
+  # Bootstrap admin account
+  bootstrap:
+    enabled: true
+    username: "admin"
+    password: ""  # REQUIRED: Set strong password
+    email: "admin@example.com"
+
+  # Admin identities (comma-separated)
+  adminIdentities: ""
+
+  # Sync configuration
+  sync:
+    enabled: true
+    intervalSeconds: 300
+    onStartup: true
+
+  # Security
+  security:
+    jwtSecret: ""  # Auto-generated if empty
+    sessionSecret: ""  # Auto-generated if empty
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: gharts.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: gharts-tls
+      hosts:
+        - gharts.example.com
+
+# Gateway API configuration (alternative to Ingress)
+gateway:
+  enabled: false
+  className: "default"
+  gatewayName: "default-gateway"
+  namespace: "default"
+  annotations: {}
+  hosts:
+    - hostname: gharts.example.com
+      tls:
+        certificateRef:
+          name: gharts-tls
+          namespace: default
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod Security Policy
+podSecurityPolicy:
+  enabled: false
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443  # HTTPS
+        - protocol: TCP
+          port: 5432  # PostgreSQL
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Secrets management
+secrets:
+  # Use external secrets operator
+  externalSecrets:
+    enabled: false
+    backendType: "secretsManager"  # or "vault", "gcpSecretsManager"
+    region: "us-east-1"
+    secretName: "gharts-secrets"
+
+# Additional environment variables
+extraEnv: []
+# - name: CUSTOM_VAR
+#   value: "custom-value"
+
+# Additional volumes
+extraVolumes: []
+# - name: custom-volume
+#   emptyDir: {}
+
+# Additional volume mounts
+extraVolumeMounts: []
+# - name: custom-volume
+#   mountPath: /custom
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []
+
+# Made with Bob

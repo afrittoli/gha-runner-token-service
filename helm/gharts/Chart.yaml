@@ -1,0 +1,21 @@
+apiVersion: v2
+name: gharts
+description: GitHub Actions Runner Token Service - Secure token management for self-hosted runners
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - github
+  - actions
+  - runners
+  - tokens
+  - security
+home: https://github.com/afrittoli/gha-runner-token-service
+sources:
+  - https://github.com/afrittoli/gha-runner-token-service
+maintainers:
+  - name: Andrea Frittoli
+    email: andrea.frittoli@gmail.com
+icon: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+
+# Made with Bob

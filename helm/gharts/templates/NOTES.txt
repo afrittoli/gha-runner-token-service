@@ -1,0 +1,67 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+
+Application URL:
+  https://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else }}
+
+Get the application URL by running these commands:
+{{- if contains "NodePort" .Values.frontend.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "gharts.fullname" . }}-frontend)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.frontend.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch the status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "gharts.fullname" . }}-frontend'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "gharts.fullname" . }}-frontend --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.frontend.service.port }}
+{{- else if contains "ClusterIP" .Values.frontend.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "gharts.name" . }},app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=frontend" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+{{- end }}
+
+{{- if .Values.config.bootstrap.enabled }}
+
+Bootstrap Admin Credentials:
+  Username: {{ .Values.config.bootstrap.username }}
+  Password: <check your values.yaml or secret>
+
+IMPORTANT: Change the bootstrap admin password after first login!
+{{- end }}
+
+{{- if .Values.postgresql.enabled }}
+
+Database:
+  The PostgreSQL database is deployed as part of this release.
+  Connection details are stored in the secret: {{ include "gharts.fullname" . }}-secret
+{{- else }}
+
+External Database:
+  Using external database at: {{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}
+{{- end }}
+
+Monitoring:
+{{- if .Values.monitoring.enabled }}
+  Monitoring is enabled. Check your Prometheus/Grafana for metrics.
+{{- else }}
+  Monitoring is disabled. Enable it in values.yaml for production deployments.
+{{- end }}
+
+For more information:
+  Documentation: https://github.com/afrittoli/gha-runner-token-service/tree/main/docs
+  Issues: https://github.com/afrittoli/gha-runner-token-service/issues
