@@ -3,7 +3,6 @@ import {
   useTeamMembers,
   useAddTeamMember,
   useRemoveTeamMember,
-  useUpdateTeamMemberRole,
   AddTeamMemberRequest,
 } from '@hooks/useTeams'
 
@@ -17,12 +16,10 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
   const { data: membersData, isLoading } = useTeamMembers(teamId)
   const addMember = useAddTeamMember(teamId)
   const removeMember = useRemoveTeamMember(teamId)
-  const updateRole = useUpdateTeamMemberRole(teamId)
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [newMemberData, setNewMemberData] = useState<AddTeamMemberRequest>({
     user_id: '',
-    role: 'member',
   })
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -30,7 +27,7 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
     try {
       await addMember.mutateAsync(newMemberData)
       setShowAddModal(false)
-      setNewMemberData({ user_id: '', role: 'member' })
+      setNewMemberData({ user_id: '' })
     } catch (error) {
       console.error('Failed to add member:', error)
     }
@@ -44,14 +41,6 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
       await removeMember.mutateAsync(userId)
     } catch (error) {
       console.error('Failed to remove member:', error)
-    }
-  }
-
-  const handleRoleChange = async (userId: string, newRole: 'member' | 'admin') => {
-    try {
-      await updateRole.mutateAsync({ userId, role: newRole })
-    } catch (error) {
-      console.error('Failed to update role:', error)
     }
   }
 
@@ -105,9 +94,6 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                     User
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -127,17 +113,6 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                           <div className="text-sm text-gray-500">{member.email}</div>
                         )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={member.role}
-                        onChange={(e) => handleRoleChange(member.user_id, e.target.value as 'member' | 'admin')}
-                        disabled={updateRole.isPending}
-                        className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-gh-blue focus:border-transparent"
-                      >
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                      </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(member.joined_at).toLocaleDateString()}
@@ -211,22 +186,6 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                   </p>
                 </div>
 
-                <div>
-                  <label htmlFor="role-select" className="block text-sm font-medium text-gray-700">Role</label>
-                  <select
-                    id="role-select"
-                    value={newMemberData.role}
-                    onChange={(e) => setNewMemberData({ ...newMemberData, role: e.target.value as 'member' | 'admin' })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-gh-blue focus:border-gh-blue"
-                  >
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Admins can manage team settings and members
-                  </p>
-                </div>
-
                 {addMember.isError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
                     Failed to add member. Please check the user ID and try again.
@@ -238,7 +197,7 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                     type="button"
                     onClick={() => {
                       setShowAddModal(false)
-                      setNewMemberData({ user_id: '', role: 'member' })
+                      setNewMemberData({ user_id: '' })
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >

@@ -42,7 +42,6 @@ export interface TeamMember {
   user_id: string
   email: string
   display_name: string | null
-  role: 'member' | 'admin'
   joined_at: string
 }
 
@@ -53,7 +52,6 @@ export interface TeamMemberListResponse {
 
 export interface AddTeamMemberRequest {
   user_id: string
-  role?: 'member' | 'admin'
 }
 
 // --- Team Hooks ---
@@ -157,16 +155,5 @@ export function useRemoveTeamMember(teamId: string) {
   })
 }
 
-export function useUpdateTeamMemberRole(teamId: string) {
-  const queryClient = useQueryClient()
-  return useMutation<void, Error, { userId: string; role: 'member' | 'admin' }>({
-    mutationFn: async ({ userId, role }) => {
-      await apiClient.patch(`/api/v1/admin/teams/${teamId}/members/${userId}`, { role })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'teams', teamId, 'members'] })
-    },
-  })
-}
 
 // Made with Bob
