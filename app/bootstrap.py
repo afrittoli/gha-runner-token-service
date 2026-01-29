@@ -1,10 +1,11 @@
 """Bootstrap admin account creation for initial deployment."""
 
+import json
 import structlog
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
-from app.models import User
+from app.models import User, Team, UserTeamMembership
 from app.config import get_settings
 
 logger = structlog.get_logger()
@@ -24,9 +25,45 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def bootstrap_admins_team(db: Session) -> Team:
+    """
+    Create or get the "admins" team.
+
+    Args:
+        db: Database session
+
+    Returns:
+        The admins team (existing or newly created)
+    """
+    # Check if admins team already exists
+    admins_team = db.query(Team).filter(Team.name == "admins").first()
+
+    if admins_team:
+        logger.info("admins_team_exists", team_id=admins_team.id)
+        return admins_team
+
+    # Create admins team with permissive policy
+    admins_team = Team(
+        name="admins",
+        description="System administrators team",
+        required_labels=json.dumps([]),  # No required labels
+        optional_label_patterns=json.dumps([".*"]),  # Allow all labels
+        max_runners=None,  # No quota limit
+        is_active=True,
+        created_by="system",
+    )
+
+    db.add(admins_team)
+    db.commit()
+    db.refresh(admins_team)
+
+    logger.info("admins_team_created", team_id=admins_team.id)
+    return admins_team
+
+
 def bootstrap_admin_user(db: Session) -> bool:
     """
-    Create bootstrap admin user if it doesn't exist.
+    Create bootstrap admin user and add to admins team if doesn't exist.
 
     This function is idempotent and safe to run multiple times.
     It will only create the admin user on first run.
@@ -49,11 +86,17 @@ def bootstrap_admin_user(db: Session) -> bool:
 
         # Validate required fields
         if not username:
-            logger.warning("bootstrap_admin_skipped", reason="username_not_configured")
+            logger.warning(
+                "bootstrap_admin_skipped",
+                reason="username_not_configured",
+            )
             return False
 
         if not password:
-            logger.warning("bootstrap_admin_skipped", reason="password_not_configured")
+            logger.warning(
+                "bootstrap_admin_skipped",
+                reason="password_not_configured",
+            )
             return False
 
         # Check if admin user already exists
@@ -61,8 +104,34 @@ def bootstrap_admin_user(db: Session) -> bool:
 
         if existing_admin:
             logger.info(
-                "bootstrap_admin_exists", username=username, user_id=existing_admin.id
+                "bootstrap_admin_exists",
+                username=username,
+                user_id=existing_admin.id,
             )
+            # Ensure admin is in admins team
+            admins_team = bootstrap_admins_team(db)
+            existing_membership = (
+                db.query(UserTeamMembership)
+                .filter(
+                    UserTeamMembership.user_id == existing_admin.id,
+                    UserTeamMembership.team_id == admins_team.id,
+                )
+                .first()
+            )
+            if not existing_membership:
+                membership = UserTeamMembership(
+                    user_id=existing_admin.id,
+                    team_id=admins_team.id,
+                    role="admin",
+                    added_by="system",
+                )
+                db.add(membership)
+                db.commit()
+                logger.info(
+                    "admin_added_to_team",
+                    user_id=existing_admin.id,
+                    team_id=admins_team.id,
+                )
             return False
 
         # Create admin user
@@ -87,6 +156,24 @@ def bootstrap_admin_user(db: Session) -> bool:
             username=username,
             user_id=admin_user.id,
             email=admin_user.email,
+        )
+
+        # Create admins team and add admin to it
+        admins_team = bootstrap_admins_team(db)
+
+        membership = UserTeamMembership(
+            user_id=admin_user.id,
+            team_id=admins_team.id,
+            role="admin",
+            added_by="system",
+        )
+        db.add(membership)
+        db.commit()
+
+        logger.info(
+            "admin_added_to_team",
+            user_id=admin_user.id,
+            team_id=admins_team.id,
         )
 
         return True
