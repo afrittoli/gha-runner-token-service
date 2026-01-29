@@ -6,8 +6,8 @@ from app.models import Runner
 class TestDashboardCounters:
     """Test that dashboard counters correctly exclude deleted runners."""
 
-    def test_jinja2_dashboard_excludes_deleted_runners(self, client, test_db):
-        """Test that Jinja2 dashboard stats exclude deleted runners."""
+    def test_dashboard_stats_excludes_deleted_runners_via_api(self, client, test_db):
+        """Test that dashboard stats API excludes deleted runners."""
         # Create runners with different statuses
         runners_data = [
             {"runner_name": "active-1", "status": "active"},
@@ -32,22 +32,12 @@ class TestDashboardCounters:
 
         test_db.commit()
 
-        # Get dashboard HTML
-        response = client.get("/dashboard-legacy")
-        assert response.status_code == 200
-
-        html = response.text
-
-        # Check that stats are correct (should exclude 2 deleted runners)
-        # Total should be 4 (not 6)
-        assert "Total Runners" in html
-
-        # Verify via API endpoint which is easier to test
+        # Verify via API endpoint
         stats_response = client.get("/api/v1/dashboard/stats")
         assert stats_response.status_code == 200
         stats = stats_response.json()
 
-        # Verify counts
+        # Verify counts (should exclude 2 deleted runners)
         expected_total = 4
         assert stats["total"] == expected_total, (
             f"Expected {expected_total} total runners (excluding deleted), "

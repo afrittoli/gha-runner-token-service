@@ -54,15 +54,15 @@ class TestAPIEndpointConsistency:
             response = client.get(endpoint)
             assert response.status_code != 404, f"Unexpected 404 at {endpoint}"
 
-    def test_dashboard_endpoint_independent_from_api(self, client):
-        """Test dashboard endpoint doesn't affect API."""
-        # Get dashboard
-        dash_response = client.get("/dashboard")
-        assert dash_response.status_code == 200
-
-        # Get API health - should still work
+    def test_api_endpoints_work_independently(self, client):
+        """Test API endpoints work independently."""
+        # Get API health - should work
         api_response = client.get("/health")
         assert api_response.status_code == 200
+
+        # Get API stats - should work
+        stats_response = client.get("/api/v1/dashboard/stats")
+        assert stats_response.status_code == 200
 
 
 class TestBackendIntegration:
