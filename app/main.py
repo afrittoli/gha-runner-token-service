@@ -1,19 +1,15 @@
 """Main FastAPI application."""
 
 import asyncio
-import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse, FileResponse
 import structlog
 
 from app import __version__
@@ -23,10 +19,10 @@ from app.api.v1 import audit
 from app.api.v1 import runners
 from app.api.v1 import teams
 from app.api.v1 import webhooks
+from app.bootstrap import ensure_bootstrap_admin
 from app.config import get_settings
-from app.database import get_db, init_db, SessionLocal
+from app.database import init_db, SessionLocal
 from app.logging_config import setup_logging, log_access
-from app.models import Runner, SecurityEvent
 from app.schemas import ErrorResponse, HealthResponse
 from app.services.sync_service import SyncService
 
@@ -124,11 +120,8 @@ app = FastAPI(
 )
 
 # Add CORS middleware
-# For new dashboard development, allow localhost:5173 (Vite dev server)
-cors_origins = ["*"]
-if settings.enable_new_dashboard:
-    # Add Vite dev server in development
-    cors_origins = ["http://localhost:5173", "http://localhost:8000"]
+# Allow frontend to access API
+cors_origins = ["*"]  # Configure appropriately for production
 
 app.add_middleware(
     CORSMiddleware,
@@ -137,9 +130,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Setup Jinja2 templates
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 @app.middleware("http")
@@ -221,6 +211,15 @@ async def startup_event():
         logger.exception("database_initialization_failed", error=str(e))
         raise
 
+    # Bootstrap admin user
+    try:
+        db = SessionLocal()
+        ensure_bootstrap_admin(db)
+        db.close()
+    except Exception as e:
+        logger.error("bootstrap_admin_error", error=str(e))
+        # Don't raise - allow application to start
+
     # Start background sync task if enabled
     if settings.sync_enabled:
         _sync_task = asyncio.create_task(run_sync_loop())
@@ -273,73 +272,6 @@ async def root():
     }
 
 
-# Dashboard endpoint - render Jinja2 dashboard
-async def _render_jinja2_dashboard(request: Request, db: Session):
-    """Render the Jinja2 dashboard template."""
-    # Get all runners (excluding deleted for stats)
-    runners = db.query(Runner).filter(Runner.status != "deleted").all()
-
-    # Calculate stats
-    stats = {
-        "total": len(runners),
-        "active": sum(1 for r in runners if r.status == "active"),
-        "offline": sum(1 for r in runners if r.status == "offline"),
-        "pending": sum(1 for r in runners if r.status == "pending"),
-    }
-
-    # Parse labels for display
-    for runner in runners:
-        try:
-            runner.labels_list = json.loads(runner.labels) if runner.labels else []
-        except json.JSONDecodeError:
-            runner.labels_list = []
-
-    # Get recent security events
-    security_events = (
-        db.query(SecurityEvent).order_by(SecurityEvent.timestamp.desc()).limit(10).all()
-    )
-
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
-            "version": __version__,
-            "stats": stats,
-            "runners": runners,
-            "security_events": security_events,
-            "year": datetime.now().year,
-        },
-    )
-
-
-@app.get("/dashboard", response_class=HTMLResponse, tags=["System"])
-async def dashboard(request: Request, db: Session = Depends(get_db)):
-    """
-    Dashboard showing runner status and statistics.
-
-    When ENABLE_NEW_DASHBOARD=true, this redirects to /app (new React dashboard).
-    The legacy Jinja2 dashboard is available at /dashboard-legacy.
-    """
-    if settings.enable_new_dashboard:
-        # Redirect to new React dashboard
-        from fastapi.responses import RedirectResponse
-
-        return RedirectResponse(url="/app", status_code=302)
-
-    return await _render_jinja2_dashboard(request, db)
-
-
-@app.get("/dashboard-legacy", response_class=HTMLResponse, tags=["System"])
-async def dashboard_legacy(request: Request, db: Session = Depends(get_db)):
-    """
-    Legacy Jinja2 dashboard (always available).
-
-    This is the original dashboard that doesn't require authentication.
-    Use /dashboard for the default (may redirect to new dashboard if enabled).
-    """
-    return await _render_jinja2_dashboard(request, db)
-
-
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse(favicon_path)
@@ -352,75 +284,8 @@ app.include_router(audit.router, prefix="/api/v1")
 app.include_router(teams.router, prefix="/api/v1/admin")
 app.include_router(webhooks.router, prefix="/api/v1")
 
-
-# React dashboard configuration
-# In development: Vite dev server handles this on localhost:5173
-# In production: React build output is served from /app path
-frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
-frontend_index = frontend_dist / "index.html"
-
-if settings.enable_new_dashboard:
-    if frontend_dist.exists():
-        # Mount static assets (JS, CSS, images) from React build
-        app.mount(
-            "/app/assets",
-            StaticFiles(directory=str(frontend_dist / "assets"), check_dir=False),
-            name="dashboard-assets",
-        )
-
-    # SPA catch-all route: serve index.html for all /app/* routes
-    # This enables client-side routing (React Router)
-    @app.get("/app", response_class=HTMLResponse, tags=["Dashboard"])
-    @app.get("/app/{_full_path:path}", response_class=HTMLResponse, tags=["Dashboard"])
-    async def serve_spa(_full_path: str = ""):
-        """
-        Serve React SPA for all /app/* routes.
-
-        This endpoint serves the React dashboard's index.html for all paths,
-        enabling client-side routing. The React app handles routing internally.
-
-        In development, use the Vite dev server (localhost:5173) instead.
-        """
-        if frontend_index.exists():
-            return HTMLResponse(content=frontend_index.read_text(), status_code=200)
-        else:
-            # Development mode: show instructions
-            return HTMLResponse(
-                content="""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Dashboard - Development Mode</title>
-                    <style>
-                        body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 600px; margin: 0 auto; }
-                        h1 { color: #333; }
-                        code { background: #f4f4f4; padding: 0.2rem 0.5rem; border-radius: 4px; }
-                        .instructions { background: #e8f4f8; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
-                        a { color: #0366d6; }
-                    </style>
-                </head>
-                <body>
-                    <h1>New Dashboard - Development Mode</h1>
-                    <div class="instructions">
-                        <p><strong>Frontend not built yet.</strong></p>
-                        <p>To run the new dashboard in development:</p>
-                        <ol>
-                            <li>Navigate to <code>frontend/</code> directory</li>
-                            <li>Run <code>npm install</code></li>
-                            <li>Run <code>npm run dev</code></li>
-                            <li>Open <a href="http://localhost:5173">http://localhost:5173</a></li>
-                        </ol>
-                        <p>Or build for production: <code>npm run build</code></p>
-                    </div>
-                    <p>
-                        <a href="/dashboard-legacy">View Legacy Dashboard</a> |
-                        <a href="/docs">API Documentation</a>
-                    </p>
-                </body>
-                </html>
-                """,
-                status_code=200,
-            )
+# Note: Frontend is now served separately by Nginx in Kubernetes deployment
+# For local development, run the frontend with: cd frontend && npm run dev
 
 
 if __name__ == "__main__":

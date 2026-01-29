@@ -12,10 +12,12 @@ httpx==0.26.0
 # OIDC Authentication
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.6
+passlib[bcrypt]==1.7.4
 
 # Database
 sqlalchemy==2.0.36
 alembic==1.14.0
+psycopg2-binary==2.9.9
 
 # Environment and Configuration
 python-dotenv==1.0.0
@@ -25,6 +27,3 @@ python-dateutil==2.8.2
 
 # Logging
 structlog==24.1.0
-
-# Dashboard
-jinja2==3.1.2
