@@ -104,11 +104,16 @@ export function useUpdateTeam(teamId: string) {
   })
 }
 
+export interface DeactivateTeamRequest {
+  teamId: string
+  reason: string
+}
+
 export function useDeactivateTeam() {
   const queryClient = useQueryClient()
-  return useMutation<void, Error, string>({
-    mutationFn: async (teamId: string) => {
-      await apiClient.post(`/api/v1/admin/teams/${teamId}/deactivate`)
+  return useMutation<void, Error, DeactivateTeamRequest>({
+    mutationFn: async ({ teamId, reason }: DeactivateTeamRequest) => {
+      await apiClient.post(`/api/v1/admin/teams/${teamId}/deactivate`, { reason })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'teams'] })
