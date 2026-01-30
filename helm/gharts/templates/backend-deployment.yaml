@@ -28,9 +28,11 @@ spec:
       {{- end }}
       serviceAccountName: {{ include "gharts.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.backend.securityContext | nindent 8 }}
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
       containers:
       - name: backend
+        securityContext:
+          {{- toYaml .Values.backend.securityContext | nindent 10 }}
         image: {{ include "gharts.backend.image" . }}
         imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
         ports:
@@ -55,12 +57,23 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+        - name: github-key
+          mountPath: /secrets/github
+          readOnly: true
         {{- with .Values.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       volumes:
       - name: tmp
         emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      - name: github-key
+        secret:
+          secretName: {{ include "gharts.fullname" . }}-github-key
+          defaultMode: 0400
       {{- with .Values.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}

@@ -26,7 +26,7 @@ backend:
     maxReplicas: 20
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
-  
+
   resources:
     limits:
       cpu: 2000m
@@ -34,20 +34,20 @@ backend:
     requests:
       cpu: 1000m
       memory: 1Gi
-  
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 2
-  
+
   nodeSelector:
     workload: application
-  
+
   tolerations:
     - key: "workload"
       operator: "Equal"
       value: "application"
       effect: "NoSchedule"
-  
+
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -61,13 +61,27 @@ backend:
                     - backend
             topologyKey: kubernetes.io/hostname
 
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
 frontend:
   autoscaling:
     enabled: true
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -75,14 +89,14 @@ frontend:
     requests:
       cpu: 200m
       memory: 256Mi
-  
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
-  
+
   nodeSelector:
     workload: application
-  
+
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -96,40 +110,64 @@ frontend:
                     - frontend
             topologyKey: kubernetes.io/hostname
 
-# Use external managed PostgreSQL
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101  # nginx user
+    fsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# Disable built-in PostgreSQL - use external managed database
 postgresql:
   enabled: false
 
+# External managed database (AWS RDS, Cloud SQL, Azure DB, etc.)
+externalDatabase:
+  host: "prod-db.123456789012.us-east-1.rds.amazonaws.com"  # Your managed DB endpoint
+  port: 5432
+  username: gharts
+  password: ""  # Set via external secret manager or --set
+  database: gharts
+  sslMode: require  # Use verify-full for maximum security
+
 # Production configuration
 config:
-  # GitHub App credentials (use secrets in production)
-  githubAppId: "123456"
-  githubAppPrivateKey: ""  # Set via secret
-  
-  # OIDC configuration (use secrets in production)
-  oidcClientId: ""  # Set via secret
-  oidcClientSecret: ""  # Set via secret
-  oidcDiscoveryUrl: "https://auth.example.com/.well-known/openid-configuration"
-  
-  # External database connection
-  databaseUrl: "postgresql://user:pass@prod-db.example.com:5432/gharts?sslmode=require"
-  databasePoolSize: 50
-  databaseMaxOverflow: 20
-  databaseSslMode: "require"
-  
+  # GitHub App credentials
+  github:
+    appId: "123456"
+    installationId: "12345678"
+    organization: "your-org"
+    privateKey: ""  # Set via external secret manager or --set-file
+
+  # OIDC authentication
+  oidc:
+    enabled: true
+    issuer: "https://auth.example.com/"
+    audience: "gharts"
+    jwksUrl: "https://auth.example.com/.well-known/jwks.json"
+
+  # Bootstrap admin (disable after initial setup)
+  bootstrap:
+    enabled: true
+    username: "admin"
+    password: ""  # Set via --set or external secret
+    email: "admin@example.com"
+
+  # Sync with GitHub
+  sync:
+    enabled: true
+    intervalSeconds: 300
+    onStartup: true
+
   # Production logging
   logLevel: "INFO"
-  
-  # Security
-  corsOrigins: "https://gharts.example.com"
-
-# Bootstrap admin (disable after initial setup)
-bootstrap:
-  enabled: true
-  admin:
-    username: "admin"
-    password: ""  # Set via secret
-    email: "admin@example.com"
 
 # Production ingress with TLS
 ingress:
@@ -168,22 +206,5 @@ serviceAccount:
   annotations:
     eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/gharts-role"
   name: "gharts"
-
-# Security context
-podSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  fsGroup: 1000
-  seccompProfile:
-    type: RuntimeDefault
-
-securityContext:
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  runAsNonRoot: true
-  runAsUser: 1000
-  capabilities:
-    drop:
-      - ALL
 
 # Made with Bob

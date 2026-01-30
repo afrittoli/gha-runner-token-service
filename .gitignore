@@ -233,5 +233,12 @@ __marimo__/
 runner_service.db.*
 *.pem
 .claude
+.bob
 audit.json
 .cli.env
+
+# Helm chart dependencies (downloaded via helm dependency update)
+helm/*/charts/
+
+# Container image tar files
+*.tar

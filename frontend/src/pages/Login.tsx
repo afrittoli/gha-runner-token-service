@@ -71,16 +71,6 @@ export default function Login() {
           </p>
         </div>
 
-        <div className="mt-8 text-center">
-          <a
-            href="http://localhost:8000/dashboard-legacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-gh-blue hover:underline"
-          >
-            View public dashboard (no auth required)
-          </a>
-        </div>
       </div>
     </div>
   )

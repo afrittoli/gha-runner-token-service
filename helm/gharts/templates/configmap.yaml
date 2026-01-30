@@ -5,29 +5,17 @@ metadata:
   labels:
     {{- include "gharts.labels" . | nindent 4 }}
 data:
-  # Database configuration
-  DATABASE_HOST: {{ include "gharts.database.host" . | quote }}
-  DATABASE_PORT: {{ include "gharts.database.port" . | quote }}
-  DATABASE_NAME: {{ include "gharts.database.name" . | quote }}
-  DATABASE_USERNAME: {{ include "gharts.database.username" . | quote }}
-  {{- if not .Values.postgresql.enabled }}
-  DATABASE_SSL_MODE: {{ .Values.externalDatabase.sslMode | quote }}
-  {{- end }}
-
   # GitHub configuration
   GITHUB_ORG: {{ .Values.config.github.organization | quote }}
   GITHUB_APP_ID: {{ .Values.config.github.appId | quote }}
-  GITHUB_INSTALLATION_ID: {{ .Values.config.github.installationId | quote }}
+  GITHUB_APP_INSTALLATION_ID: {{ .Values.config.github.installationId | quote }}
+  GITHUB_APP_PRIVATE_KEY_PATH: "/secrets/github/private-key.pem"
 
-  # OIDC configuration
-  {{- if .Values.config.oidc.enabled }}
-  OIDC_ENABLED: "true"
-  OIDC_ISSUER: {{ .Values.config.oidc.issuer | quote }}
-  OIDC_CLIENT_ID: {{ .Values.config.oidc.clientId | quote }}
-  OIDC_REDIRECT_URI: {{ .Values.config.oidc.redirectUri | quote }}
-  {{- else }}
-  OIDC_ENABLED: "false"
-  {{- end }}
+  # OIDC configuration (all fields required by app, even when disabled)
+  ENABLE_OIDC_AUTH: {{ .Values.config.oidc.enabled | quote }}
+  OIDC_ISSUER: {{ .Values.config.oidc.issuer | default "https://placeholder.invalid" | quote }}
+  OIDC_AUDIENCE: {{ .Values.config.oidc.audience | default "gharts" | quote }}
+  OIDC_JWKS_URL: {{ .Values.config.oidc.jwksUrl | default "https://placeholder.invalid/.well-known/jwks.json" | quote }}
 
   # Bootstrap admin configuration
   {{- if .Values.config.bootstrap.enabled }}
@@ -41,13 +29,12 @@ data:
   {{- end }}
 
   # Sync configuration
-  {{- if .Values.config.sync.enabled }}
-  SYNC_ENABLED: "true"
+  SYNC_ENABLED: {{ .Values.config.sync.enabled | quote }}
   SYNC_INTERVAL_SECONDS: {{ .Values.config.sync.intervalSeconds | quote }}
   SYNC_ON_STARTUP: {{ .Values.config.sync.onStartup | quote }}
-  {{- else }}
-  SYNC_ENABLED: "false"
-  {{- end }}
+
+  # Logging
+  LOG_LEVEL: {{ .Values.config.logLevel | default "INFO" | quote }}
 
   # Backend API URL for frontend
   VITE_API_URL: "http://{{ include "gharts.fullname" . }}-backend:{{ .Values.backend.service.port }}"

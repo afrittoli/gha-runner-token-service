@@ -2,6 +2,15 @@
 # Stage 1: Builder - Build React application
 FROM node:20-alpine AS builder
 
+# Build arguments for OIDC configuration (baked into the build)
+# These override values from .env.local if provided
+ARG VITE_OIDC_AUTHORITY
+ARG VITE_OIDC_CLIENT_ID
+ARG VITE_OIDC_AUDIENCE=runner-token-service
+ARG VITE_OIDC_REDIRECT_URI
+ARG VITE_OIDC_POST_LOGOUT_REDIRECT_URI
+ARG VITE_API_BASE_URL
+
 WORKDIR /build
 
 # Copy package files
@@ -10,8 +19,16 @@ COPY package*.json ./
 # Install all dependencies (including devDependencies needed for build)
 RUN npm ci
 
-# Copy source code
+# Copy source code (includes .env.local if present)
 COPY . .
+
+# Set environment variables for build (ARGs override .env.local values if provided)
+ENV VITE_OIDC_AUTHORITY=${VITE_OIDC_AUTHORITY} \
+    VITE_OIDC_CLIENT_ID=${VITE_OIDC_CLIENT_ID} \
+    VITE_OIDC_AUDIENCE=${VITE_OIDC_AUDIENCE} \
+    VITE_OIDC_REDIRECT_URI=${VITE_OIDC_REDIRECT_URI} \
+    VITE_OIDC_POST_LOGOUT_REDIRECT_URI=${VITE_OIDC_POST_LOGOUT_REDIRECT_URI} \
+    VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 # Build the application
 RUN npm run build

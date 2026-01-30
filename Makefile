@@ -149,8 +149,17 @@ load-images: ## Load images from tar files
 .PHONY: load-to-kind
 load-to-kind: build ## Load images to kind cluster
 	@echo "$(GREEN)Loading images to kind cluster...$(NC)"
+ifeq ($(CONTAINER_TOOL),docker)
 	kind load docker-image $(BACKEND_IMAGE):$(VERSION)
 	kind load docker-image $(FRONTEND_IMAGE):$(VERSION)
+else
+	@echo "$(YELLOW)Using save/load approach for $(CONTAINER_TOOL)...$(NC)"
+	$(CONTAINER_TOOL) save -o /tmp/backend-kind.tar $(BACKEND_IMAGE):$(VERSION)
+	$(CONTAINER_TOOL) save -o /tmp/frontend-kind.tar $(FRONTEND_IMAGE):$(VERSION)
+	kind load image-archive /tmp/backend-kind.tar
+	kind load image-archive /tmp/frontend-kind.tar
+	rm -f /tmp/backend-kind.tar /tmp/frontend-kind.tar
+endif
 	@echo "$(GREEN)Images loaded to kind$(NC)"
 
 .PHONY: scan-backend
