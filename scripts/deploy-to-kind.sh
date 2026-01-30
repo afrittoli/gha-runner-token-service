@@ -10,14 +10,36 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
+# Configuration - these should match Makefile defaults
 CLUSTER_NAME="${CLUSTER_NAME:-gharts-test}"
 NAMESPACE="${NAMESPACE:-gharts}"
 RELEASE_NAME="${RELEASE_NAME:-gharts}"
-VERSION="${VERSION:-test}"
+VERSION="${VERSION:-latest}"
+CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
+REGISTRY="${REGISTRY:-ghcr.io}"
+ORG="${ORG:-your-org}"
+PROJECT="${PROJECT:-gha-runner-token-service}"
 
-BACKEND_IMAGE="ghcr.io/your-org/gha-runner-token-service-backend:${VERSION}"
-FRONTEND_IMAGE="ghcr.io/your-org/gha-runner-token-service-frontend:${VERSION}"
+BACKEND_IMAGE="${REGISTRY}/${ORG}/${PROJECT}-backend:${VERSION}"
+FRONTEND_IMAGE="${REGISTRY}/${ORG}/${PROJECT}-frontend:${VERSION}"
+
+# Load .env file if present
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    # shellcheck source=/dev/null
+    source "$PROJECT_ROOT/.env"
+fi
+
+# GitHub/OIDC configuration (can be overridden by .env or environment)
+GITHUB_APP_ID="${GITHUB_APP_ID:-123456}"
+GITHUB_APP_INSTALLATION_ID="${GITHUB_APP_INSTALLATION_ID:-12345678}"
+GITHUB_ORG="${GITHUB_ORG:-test-org}"
+GITHUB_PRIVATE_KEY_FILE="${GITHUB_APP_PRIVATE_KEY_PATH:-$PROJECT_ROOT/github-app-private-key.pem}"
+ENABLE_OIDC="${ENABLE_OIDC_AUTH:-false}"
+OIDC_ISSUER="${OIDC_ISSUER:-https://placeholder.invalid}"
+OIDC_AUDIENCE="${OIDC_AUDIENCE:-gharts}"
+OIDC_JWKS_URL="${OIDC_JWKS_URL:-https://placeholder.invalid/.well-known/jwks.json}"
 
 # Functions
 log_info() {
@@ -51,6 +73,46 @@ check_cluster() {
     fi
 }
 
+check_images_exist() {
+    # Check if images exist locally
+    if ! $CONTAINER_TOOL images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${BACKEND_IMAGE}$"; then
+        return 1
+    fi
+    if ! $CONTAINER_TOOL images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${FRONTEND_IMAGE}$"; then
+        return 1
+    fi
+    return 0
+}
+
+build_images() {
+    log_info "Building images with make..."
+    make build CONTAINER_TOOL="$CONTAINER_TOOL" ORG="$ORG" VERSION="$VERSION"
+}
+
+load_images_to_kind() {
+    log_info "Loading images to kind cluster..."
+
+    if [ "$CONTAINER_TOOL" = "docker" ]; then
+        # Docker can use kind load docker-image directly
+        kind load docker-image "$BACKEND_IMAGE" --name "$CLUSTER_NAME"
+        kind load docker-image "$FRONTEND_IMAGE" --name "$CLUSTER_NAME"
+    else
+        # Podman requires save/load approach
+        log_info "Using save/load approach for $CONTAINER_TOOL..."
+        local backend_tar="/tmp/gharts-backend-${VERSION}.tar"
+        local frontend_tar="/tmp/gharts-frontend-${VERSION}.tar"
+
+        $CONTAINER_TOOL save -o "$backend_tar" "$BACKEND_IMAGE"
+        $CONTAINER_TOOL save -o "$frontend_tar" "$FRONTEND_IMAGE"
+
+        kind load image-archive "$backend_tar" --name "$CLUSTER_NAME"
+        kind load image-archive "$frontend_tar" --name "$CLUSTER_NAME"
+
+        rm -f "$backend_tar" "$frontend_tar"
+    fi
+    log_success "Images loaded to kind"
+}
+
 # Main script
 main() {
     log_info "Deploy to Kind Script"
@@ -59,6 +121,9 @@ main() {
     log_info "Namespace: $NAMESPACE"
     log_info "Release: $RELEASE_NAME"
     log_info "Version: $VERSION"
+    log_info "Container tool: $CONTAINER_TOOL"
+    log_info "Backend image: $BACKEND_IMAGE"
+    log_info "Frontend image: $FRONTEND_IMAGE"
     echo
 
     # Check prerequisites
@@ -66,7 +131,7 @@ main() {
     check_tool kind
     check_tool kubectl
     check_tool helm
-    check_tool docker
+    check_tool "$CONTAINER_TOOL"
     check_cluster
     log_success "Prerequisites OK"
 
@@ -76,22 +141,33 @@ main() {
     log_success "Context switched"
 
     # Build images if they don't exist
-    log_info "Checking if images exist..."
-    if ! docker images | grep -q "$BACKEND_IMAGE"; then
-        log_warning "Backend image not found, building..."
-        docker build -f Dockerfile.backend -t "$BACKEND_IMAGE" .
+    log_info "Checking if images exist locally..."
+    if check_images_exist; then
+        log_success "Images already exist locally"
+    else
+        log_warning "Images not found locally, building..."
+        build_images
     fi
-    if ! docker images | grep -q "$FRONTEND_IMAGE"; then
-        log_warning "Frontend image not found, building..."
-        docker build -f frontend/Dockerfile -t "$FRONTEND_IMAGE" frontend/
-    fi
-    log_success "Images ready"
 
     # Load images to kind
-    log_info "Loading images to kind cluster..."
-    kind load docker-image "$BACKEND_IMAGE" --name "$CLUSTER_NAME"
-    kind load docker-image "$FRONTEND_IMAGE" --name "$CLUSTER_NAME"
-    log_success "Images loaded"
+    load_images_to_kind
+
+    # Load PostgreSQL image to kind (for local development)
+    log_info "Loading PostgreSQL image to kind..."
+    POSTGRES_IMAGE="docker.io/bitnami/postgresql:latest"
+    if ! $CONTAINER_TOOL images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${POSTGRES_IMAGE}$"; then
+        log_info "Pulling PostgreSQL image..."
+        $CONTAINER_TOOL pull "$POSTGRES_IMAGE"
+    fi
+    if [ "$CONTAINER_TOOL" = "docker" ]; then
+        kind load docker-image "$POSTGRES_IMAGE" --name "$CLUSTER_NAME"
+    else
+        local pg_tar="/tmp/postgresql-kind.tar"
+        $CONTAINER_TOOL save -o "$pg_tar" "$POSTGRES_IMAGE"
+        kind load image-archive "$pg_tar" --name "$CLUSTER_NAME"
+        rm -f "$pg_tar"
+    fi
+    log_success "PostgreSQL image loaded"
 
     # Create namespace if it doesn't exist
     log_info "Ensuring namespace exists..."
@@ -127,20 +203,14 @@ replicaCount:
   backend: 1
   frontend: 1
 
-image:
-  backend:
-    repository: ghcr.io/your-org/gha-runner-token-service-backend
-    tag: ${VERSION}
-    pullPolicy: IfNotPresent
-  frontend:
-    repository: ghcr.io/your-org/gha-runner-token-service-frontend
-    tag: ${VERSION}
-    pullPolicy: IfNotPresent
-
 backend:
+  image:
+    repository: ${REGISTRY}/${ORG}/${PROJECT}-backend
+    tag: ${VERSION}
+    pullPolicy: IfNotPresent
   autoscaling:
     enabled: false
-  
+
   resources:
     limits:
       cpu: 500m
@@ -148,14 +218,30 @@ backend:
     requests:
       cpu: 100m
       memory: 256Mi
-  
+
   podDisruptionBudget:
     enabled: false
 
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
 frontend:
+  image:
+    repository: ${REGISTRY}/${ORG}/${PROJECT}-frontend
+    tag: ${VERSION}
+    pullPolicy: IfNotPresent
+
   autoscaling:
     enabled: false
-  
+
   resources:
     limits:
       cpu: 200m
@@ -163,40 +249,62 @@ frontend:
     requests:
       cpu: 50m
       memory: 64Mi
-  
+
   podDisruptionBudget:
     enabled: false
 
-# Use built-in PostgreSQL
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    fsGroup: 101
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+# PostgreSQL is installed separately - configure external database connection
 postgresql:
-  enabled: true
-  auth:
-    username: gharts
-    password: gharts
-    database: gharts
-  primary:
-    persistence:
-      enabled: true
-      size: 1Gi
+  enabled: false
 
-# Test configuration
+externalDatabase:
+  host: "${RELEASE_NAME}-postgresql"
+  port: 5432
+  username: gharts
+  password: gharts
+  database: gharts
+  sslMode: disable
+
+# Application configuration (values from .env or defaults)
 config:
-  githubAppId: "123456"
-  githubAppPrivateKey: ""  # Set via secret
-  oidcClientId: ""  # Set via secret
-  oidcClientSecret: ""  # Set via secret
-  oidcDiscoveryUrl: "https://example.com/.well-known/openid-configuration"
-  logLevel: "DEBUG"
-  databasePoolSize: 5
-  databaseMaxOverflow: 5
+  github:
+    appId: "${GITHUB_APP_ID}"
+    installationId: "${GITHUB_APP_INSTALLATION_ID}"
+    organization: "${GITHUB_ORG}"
+    privateKey: |
+$(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null | sed 's/^/      /' || echo "      -----BEGIN RSA PRIVATE KEY-----
+      placeholder-key-for-testing
+      -----END RSA PRIVATE KEY-----")
 
-# Bootstrap admin
-bootstrap:
-  enabled: true
-  admin:
+  oidc:
+    enabled: ${ENABLE_OIDC}
+    issuer: "${OIDC_ISSUER}"
+    audience: "${OIDC_AUDIENCE}"
+    jwksUrl: "${OIDC_JWKS_URL}"
+
+  bootstrap:
+    enabled: true
     username: "admin"
-    password: ""  # Set via secret
+    password: "admin123"
     email: "admin@kind.local"
+
+  sync:
+    enabled: true
+    intervalSeconds: 60
+    onStartup: true
+
+  logLevel: "DEBUG"
 
 # Enable ingress for kind
 ingress:
@@ -215,9 +323,36 @@ serviceMonitor:
   enabled: false
 EOF
 
+    # Install PostgreSQL for local development (not needed for production with external DB)
+    log_info "Installing PostgreSQL for local development..."
+    if helm list -n "$NAMESPACE" | grep -q "^${RELEASE_NAME}-postgresql"; then
+        log_info "PostgreSQL already installed, upgrading..."
+        helm upgrade "${RELEASE_NAME}-postgresql" oci://registry-1.docker.io/bitnamicharts/postgresql \
+            --namespace "$NAMESPACE" \
+            --set auth.username=gharts \
+            --set auth.password=gharts \
+            --set auth.database=gharts \
+            --set image.tag=latest \
+            --set primary.persistence.size=1Gi \
+            --wait \
+            --timeout 3m
+    else
+        log_info "Installing PostgreSQL..."
+        helm install "${RELEASE_NAME}-postgresql" oci://registry-1.docker.io/bitnamicharts/postgresql \
+            --namespace "$NAMESPACE" \
+            --set auth.username=gharts \
+            --set auth.password=gharts \
+            --set auth.database=gharts \
+            --set image.tag=latest \
+            --set primary.persistence.size=1Gi \
+            --wait \
+            --timeout 3m
+    fi
+    log_success "PostgreSQL installed"
+
     # Install or upgrade Helm chart
     log_info "Deploying Helm chart..."
-    if helm list -n "$NAMESPACE" | grep -q "^${RELEASE_NAME}"; then
+    if helm list -n "$NAMESPACE" | grep -q "^${RELEASE_NAME}[[:space:]]"; then
         log_info "Upgrading existing release..."
         helm upgrade "$RELEASE_NAME" ./helm/gharts \
             --namespace "$NAMESPACE" \

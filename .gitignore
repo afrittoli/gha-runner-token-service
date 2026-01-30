@@ -235,3 +235,9 @@ runner_service.db.*
 .claude
 audit.json
 .cli.env
+
+# Helm chart dependencies (downloaded via helm dependency update)
+helm/*/charts/
+
+# Container image tar files
+*.tar
