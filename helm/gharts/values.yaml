@@ -60,11 +60,14 @@ backend:
     timeoutSeconds: 3
     failureThreshold: 3
 
-  # Security context
-  securityContext:
+  # Pod security context (applied at pod level)
+  podSecurityContext:
     runAsNonRoot: true
     runAsUser: 1000
     fsGroup: 1000
+
+  # Container security context (applied at container level)
+  securityContext:
     capabilities:
       drop:
         - ALL
@@ -92,7 +95,7 @@ frontend:
   service:
     type: ClusterIP
     port: 80
-    targetPort: 80
+    targetPort: 8080  # nginx listens on 8080
     annotations: {}
 
   resources:
@@ -129,11 +132,14 @@ frontend:
     timeoutSeconds: 2
     failureThreshold: 3
 
-  # Security context
-  securityContext:
+  # Pod security context (applied at pod level)
+  podSecurityContext:
     runAsNonRoot: true
     runAsUser: 101  # nginx user
     fsGroup: 101
+
+  # Container security context (applied at container level)
+  securityContext:
     capabilities:
       drop:
         - ALL
@@ -151,9 +157,10 @@ frontend:
   # Affinity rules
   affinity: {}
 
-# PostgreSQL database configuration
+# PostgreSQL database configuration (Bitnami subchart)
+# Set enabled=false to use an external managed database (recommended for production)
 postgresql:
-  enabled: true
+  enabled: true  # Set to false for production with managed database
   auth:
     username: gharts
     password: changeme  # CHANGE IN PRODUCTION
@@ -171,15 +178,20 @@ postgresql:
         cpu: 250m
         memory: 512Mi
 
-# External PostgreSQL (if postgresql.enabled=false)
+# External PostgreSQL configuration (used when postgresql.enabled=false)
+# Configure this for production with managed database services like:
+# - AWS RDS
+# - Google Cloud SQL
+# - Azure Database for PostgreSQL
+# - Self-managed PostgreSQL cluster
 externalDatabase:
-  host: ""
+  host: ""  # e.g., "mydb.123456789012.us-east-1.rds.amazonaws.com"
   port: 5432
   username: gharts
-  password: ""
+  password: ""  # Store in external secret manager for production
   database: gharts
-  sslMode: require
-  # Optional SSL certificates
+  sslMode: require  # Options: disable, allow, prefer, require, verify-ca, verify-full
+  # Optional SSL certificates (for verify-ca or verify-full modes)
   sslCert: ""
   sslKey: ""
   sslRootCert: ""
@@ -197,9 +209,11 @@ config:
   oidc:
     enabled: true
     issuer: ""
-    clientId: ""
-    clientSecret: ""
-    redirectUri: ""
+    audience: ""
+    jwksUrl: ""
+
+  # Logging
+  logLevel: "INFO"
 
   # Bootstrap admin account
   bootstrap:
