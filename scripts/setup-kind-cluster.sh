@@ -189,11 +189,17 @@ EOF
     echo "  kind delete cluster --name ${CLUSTER_NAME}"
     echo
     log_info "Next steps:"
-    echo "  1. Build and load container images:"
-    echo "     make build"
-    echo "     make load-to-kind"
-    echo "  2. Deploy application:"
+    echo "  1. Deploy application (builds and loads images automatically):"
     echo "     ./scripts/deploy-to-kind.sh"
+    echo
+    echo "  Or manually build and load images:"
+    echo "     make build                    # Build images"
+    echo "     make load-to-kind             # Load to kind (auto-detects podman/docker)"
+    echo
+    echo "  Configure with environment variables:"
+    echo "     CONTAINER_TOOL=podman|docker  # Default: podman"
+    echo "     ORG=your-org                  # Default: your-org"
+    echo "     VERSION=latest                # Default: latest"
 }
 
 # Run main function

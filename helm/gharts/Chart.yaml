@@ -18,4 +18,10 @@ maintainers:
     email: andrea.frittoli@gmail.com
 icon: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
 
+# Note: PostgreSQL is NOT included as a dependency.
+# For production: Use an external managed database (RDS, Cloud SQL, etc.)
+# For development/testing: Install PostgreSQL separately before this chart:
+#   helm install gharts-db oci://registry-1.docker.io/bitnamicharts/postgresql \
+#     --set auth.username=gharts --set auth.password=gharts --set auth.database=gharts
+
 # Made with Bob
