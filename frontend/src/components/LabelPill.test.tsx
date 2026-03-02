@@ -50,4 +50,3 @@ describe('LabelPill', () => {
   })
 })
 
-// Made with Bob

@@ -706,6 +706,3 @@ async def get_user_teams(
         teams=team_responses,
         total=len(team_responses),
     )
-
-
-# Made with Bob

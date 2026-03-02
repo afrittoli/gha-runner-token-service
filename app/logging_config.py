@@ -248,6 +248,3 @@ def log_access(
         setattr(record, key, value)
 
     access_logger.handle(record)
-
-
-# Made with Bob

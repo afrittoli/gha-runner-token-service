@@ -596,6 +596,3 @@ class TestTeamQuota:
 
         # Should only count pending and active (2 runners)
         assert current_count == 2
-
-
-# Made with Bob

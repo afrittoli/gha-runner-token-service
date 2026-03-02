@@ -1204,7 +1204,6 @@ spec:
 {{- end }}
 ```
 
-
 ### 7. CI/CD Workflows
 
 #### Docker Build Test Workflow

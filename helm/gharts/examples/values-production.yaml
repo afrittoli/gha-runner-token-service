@@ -207,4 +207,4 @@ serviceAccount:
     eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/gharts-role"
   name: "gharts"
 
-# Made with Bob
+

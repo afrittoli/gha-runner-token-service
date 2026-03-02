@@ -340,5 +340,3 @@ initContainers: []
 
 # Sidecar containers
 sidecars: []
-
-# Made with Bob

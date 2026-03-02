@@ -118,6 +118,3 @@ class TestDashboardCounters:
         assert stats["active"] == 0
         assert stats["offline"] == 0
         assert stats["pending"] == 0
-
-
-# Made with Bob

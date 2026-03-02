@@ -124,5 +124,3 @@ jobs:
           name: frontend-dist
           path: frontend/dist/
           retention-days: 7
-
-# Made with Bob

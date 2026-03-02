@@ -173,6 +173,3 @@ export function useRemoveTeamMember(teamId: string) {
     },
   })
 }
-
-
-// Made with Bob

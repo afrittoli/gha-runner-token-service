@@ -241,5 +241,3 @@ jobs:
         run: |
           kubectl get all -A
           kubectl describe pods -l app.kubernetes.io/name=gharts
-
-# Made with Bob

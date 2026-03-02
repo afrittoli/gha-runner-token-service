@@ -23,5 +23,3 @@ icon: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
 # For development/testing: Install PostgreSQL separately before this chart:
 #   helm install gharts-db oci://registry-1.docker.io/bitnamicharts/postgresql \
 #     --set auth.username=gharts --set auth.password=gharts --set auth.database=gharts
-
-# Made with Bob

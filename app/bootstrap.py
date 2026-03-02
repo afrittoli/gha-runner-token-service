@@ -218,6 +218,3 @@ def ensure_bootstrap_admin(db: Session) -> None:
             message="Failed to create bootstrap admin user",
         )
         # Don't raise - allow application to start even if bootstrap fails
-
-
-# Made with Bob
