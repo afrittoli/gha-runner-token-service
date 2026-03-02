@@ -3,7 +3,7 @@
 # Variables
 CONTAINER_TOOL ?= podman
 REGISTRY ?= ghcr.io
-ORG ?= your-org
+ORG ?= afrittoli
 PROJECT ?= gha-runner-token-service
 VERSION ?= latest
 
