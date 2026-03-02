@@ -7,7 +7,7 @@ replicaCount:
 
 backend:
   image:
-    repository: ghcr.io/your-org/gha-runner-token-service-backend
+    repository: ghcr.io/afrittoli/gha-runner-token-service-backend
     tag: "latest"
     pullPolicy: Always
   
@@ -27,7 +27,7 @@ backend:
 
 frontend:
   image:
-    repository: ghcr.io/your-org/gha-runner-token-service-frontend
+    repository: ghcr.io/afrittoli/gha-runner-token-service-frontend
     tag: "latest"
     pullPolicy: Always
   

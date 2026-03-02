@@ -86,7 +86,11 @@ data:
             # Rewrite /app/xxx to /xxx and serve from root
             # Use ^~ to take precedence over regex locations (like static assets)
             location ^~ /app/ {
-                rewrite ^/app/(.*)$ /$1 last;
+                rewrite ^/app/(.*)$ /$1 break;
+                try_files $uri $uri/ /index.html;
+                add_header Cache-Control "no-cache, no-store, must-revalidate";
+                add_header Pragma "no-cache";
+                add_header Expires "0";
             }
 
             # Static assets with caching

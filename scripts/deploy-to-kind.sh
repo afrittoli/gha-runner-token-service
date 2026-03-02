@@ -17,7 +17,7 @@ RELEASE_NAME="${RELEASE_NAME:-gharts}"
 VERSION="${VERSION:-latest}"
 CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
 REGISTRY="${REGISTRY:-ghcr.io}"
-ORG="${ORG:-your-org}"
+ORG="${ORG:-afrittoli}"
 PROJECT="${PROJECT:-gha-runner-token-service}"
 
 BACKEND_IMAGE="${REGISTRY}/${ORG}/${PROJECT}-backend:${VERSION}"
@@ -271,10 +271,10 @@ config:
     appId: "${GITHUB_APP_ID}"
     installationId: "${GITHUB_APP_INSTALLATION_ID}"
     organization: "${GITHUB_ORG}"
-    privateKey: |
-$(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null || echo "-----BEGIN RSA PRIVATE KEY-----
-placeholder-key-for-testing
------END RSA PRIVATE KEY-----")
+    privateKey: |-
+$(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null | sed 's/^/      /' || echo "      -----BEGIN RSA PRIVATE KEY-----
+      placeholder-key-for-testing
+      -----END RSA PRIVATE KEY-----")
 
   oidc:
     enabled: ${ENABLE_OIDC}

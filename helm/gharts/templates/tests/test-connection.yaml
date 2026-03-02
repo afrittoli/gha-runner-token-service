@@ -11,8 +11,12 @@ spec:
   containers:
     - name: wget
       image: busybox:latest
-      command: ['wget']
-      args: ['{{ include "gharts.fullname" . }}-frontend:{{ .Values.frontend.service.port }}']
+      command: ['sh', '-c']
+      args:
+        - |
+          # Get the service IP and connect directly to avoid IPv6 issues
+          SERVICE_IP=$(nslookup {{ include "gharts.fullname" . }}-frontend | grep "Address:" | tail -n1 | awk '{print $2}')
+          wget -O- http://${SERVICE_IP}:{{ .Values.frontend.service.port }}/health
   restartPolicy: Never
 
 

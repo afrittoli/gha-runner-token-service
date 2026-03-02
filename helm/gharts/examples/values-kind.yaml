@@ -1,0 +1,105 @@
+# Kind Cluster Values
+# Optimized configuration for local kind cluster testing
+# Usage: helm install gharts ./helm/gharts -f helm/gharts/examples/values-kind.yaml
+
+replicaCount:
+  backend: 1
+  frontend: 1
+
+backend:
+  image:
+    repository: ghcr.io/afrittoli/gha-runner-token-service-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  autoscaling:
+    enabled: false
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  podDisruptionBudget:
+    enabled: false
+
+frontend:
+  image:
+    repository: ghcr.io/afrittoli/gha-runner-token-service-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  autoscaling:
+    enabled: false
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  podDisruptionBudget:
+    enabled: false
+
+# PostgreSQL - use external database (installed separately)
+postgresql:
+  enabled: false
+
+externalDatabase:
+  host: "gharts-postgresql"
+  port: 5432
+  username: gharts
+  password: gharts
+  database: gharts
+  sslMode: disable
+
+# Application configuration
+config:
+  github:
+    appId: "123456"
+    installationId: "12345678"
+    organization: "your-org"
+    privateKey: |
+      -----BEGIN RSA PRIVATE KEY-----
+      Your GitHub App private key here
+      -----END RSA PRIVATE KEY-----
+  
+  oidc:
+    enabled: true
+    issuer: "https://your-oidc-provider.com"
+    audience: "runner-token-service"
+    jwksUrl: "https://your-oidc-provider.com/.well-known/jwks.json"
+  
+  bootstrap:
+    enabled: true
+    username: "admin"
+    password: "admin123"
+    email: "admin@kind.local"
+  
+  sync:
+    enabled: true
+    intervalSeconds: 60
+    onStartup: true
+  
+  logLevel: "DEBUG"
+
+# Ingress for kind
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: gharts.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Disable monitoring for kind
+serviceMonitor:
+  enabled: false
