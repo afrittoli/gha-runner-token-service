@@ -25,4 +25,4 @@ spec:
       {{- include "gharts.frontend.selectorLabels" . | nindent 6 }}
 {{- end }}
 
-# Made with Bob
+

@@ -518,6 +518,3 @@ class TeamService:
             return False
 
         return current_count >= max_runners
-
-
-# Made with Bob

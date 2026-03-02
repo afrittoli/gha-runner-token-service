@@ -732,6 +732,3 @@ class TestUserTeamsEndpoint:
         data = response.json()
         assert data["total"] == 1
         assert data["teams"][0]["name"] == "test-team"
-
-
-# Made with Bob

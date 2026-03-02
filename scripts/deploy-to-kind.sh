@@ -98,7 +98,7 @@ build_images() {
 
     # Build backend
     log_info "Building backend image..."
-    $CONTAINER_TOOL build -t "$BACKEND_IMAGE" "$PROJECT_ROOT/backend"
+    $CONTAINER_TOOL build -f "$PROJECT_ROOT/Dockerfile" -t "$BACKEND_IMAGE" "$PROJECT_ROOT"
 
     # Build frontend with OIDC configuration
     log_info "Building frontend image with OIDC config..."
@@ -180,48 +180,9 @@ main() {
     # Load images to kind
     load_images_to_kind
 
-    # Load PostgreSQL image to kind (for local development)
-    log_info "Loading PostgreSQL image to kind..."
-    POSTGRES_IMAGE="docker.io/bitnami/postgresql:latest"
-    if ! $CONTAINER_TOOL images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${POSTGRES_IMAGE}$"; then
-        log_info "Pulling PostgreSQL image..."
-        $CONTAINER_TOOL pull "$POSTGRES_IMAGE"
-    fi
-    if [ "$CONTAINER_TOOL" = "docker" ]; then
-        kind load docker-image "$POSTGRES_IMAGE" --name "$CLUSTER_NAME"
-    else
-        local pg_tar="/tmp/postgresql-kind.tar"
-        $CONTAINER_TOOL save -o "$pg_tar" "$POSTGRES_IMAGE"
-        kind load image-archive "$pg_tar" --name "$CLUSTER_NAME"
-        rm -f "$pg_tar"
-    fi
-    log_success "PostgreSQL image loaded"
-
     # Create namespace if it doesn't exist
     log_info "Ensuring namespace exists..."
     kubectl create namespace "$NAMESPACE" 2>/dev/null || log_info "Namespace already exists"
-
-    # Create secrets
-    log_info "Creating secrets..."
-    
-    # Generate a test GitHub App private key
-    cat > /tmp/test-github-key.pem <<EOF
------BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEAtest-key-for-development-only
------END RSA PRIVATE KEY-----
-EOF
-
-    kubectl create secret generic gharts-secrets \
-        --namespace "$NAMESPACE" \
-        --from-literal=github-app-id="123456" \
-        --from-file=github-app-private-key=/tmp/test-github-key.pem \
-        --from-literal=oidc-client-id="test-client-id" \
-        --from-literal=oidc-client-secret="test-client-secret" \
-        --from-literal=bootstrap-admin-password="admin123" \
-        --dry-run=client -o yaml | kubectl apply -f -
-    
-    rm /tmp/test-github-key.pem
-    log_success "Secrets created"
 
     # Create values file for kind deployment
     log_info "Creating Helm values for kind..."
@@ -311,9 +272,9 @@ config:
     installationId: "${GITHUB_APP_INSTALLATION_ID}"
     organization: "${GITHUB_ORG}"
     privateKey: |
-$(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null | sed 's/^/      /' || echo "      -----BEGIN RSA PRIVATE KEY-----
-      placeholder-key-for-testing
-      -----END RSA PRIVATE KEY-----")
+$(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null || echo "-----BEGIN RSA PRIVATE KEY-----
+placeholder-key-for-testing
+-----END RSA PRIVATE KEY-----")
 
   oidc:
     enabled: ${ENABLE_OIDC}
@@ -457,4 +418,3 @@ EOF
 # Run main function
 main "$@"
 
-# Made with Bob

@@ -39,4 +39,4 @@ data:
   # Backend API URL for frontend
   VITE_API_URL: "http://{{ include "gharts.fullname" . }}-backend:{{ .Values.backend.service.port }}"
 
-# Made with Bob
+

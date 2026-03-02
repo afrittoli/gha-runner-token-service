@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   runner-token-service:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     ports:
       - "8000:8000"
     environment:

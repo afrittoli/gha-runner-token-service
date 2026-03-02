@@ -788,4 +788,3 @@ export default function Teams() {
   )
 }
 
-// Made with Bob

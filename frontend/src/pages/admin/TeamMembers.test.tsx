@@ -307,5 +307,3 @@ describe('TeamMembers', () => {
   })
 
 })
-
-// Made with Bob

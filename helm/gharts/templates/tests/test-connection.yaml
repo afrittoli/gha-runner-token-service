@@ -15,4 +15,4 @@ spec:
       args: ['{{ include "gharts.fullname" . }}-frontend:{{ .Values.frontend.service.port }}']
   restartPolicy: Never
 
-# Made with Bob
+

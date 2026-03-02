@@ -5,17 +5,12 @@ replicaCount:
   backend: 1
   frontend: 1
 
-image:
-  backend:
+backend:
+  image:
     repository: ghcr.io/your-org/gha-runner-token-service-backend
     tag: "latest"
     pullPolicy: Always
-  frontend:
-    repository: ghcr.io/your-org/gha-runner-token-service-frontend
-    tag: "latest"
-    pullPolicy: Always
-
-backend:
+  
   autoscaling:
     enabled: false
   
@@ -31,6 +26,11 @@ backend:
     enabled: false
 
 frontend:
+  image:
+    repository: ghcr.io/your-org/gha-runner-token-service-frontend
+    tag: "latest"
+    pullPolicy: Always
+  
   autoscaling:
     enabled: false
   
@@ -87,4 +87,3 @@ ingress:
 serviceMonitor:
   enabled: false
 
-# Made with Bob

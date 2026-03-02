@@ -29,7 +29,7 @@ check-tool: ## Check if container tool is available
 .PHONY: build-backend
 build-backend: check-tool ## Build backend container image
 	@echo "$(GREEN)Building backend image...$(NC)"
-	$(CONTAINER_TOOL) build -f Dockerfile.backend -t $(BACKEND_IMAGE):$(VERSION) .
+	$(CONTAINER_TOOL) build -f Dockerfile -t $(BACKEND_IMAGE):$(VERSION) .
 	@echo "$(GREEN)Backend image built: $(BACKEND_IMAGE):$(VERSION)$(NC)"
 
 .PHONY: build-frontend
@@ -45,7 +45,7 @@ build: build-backend build-frontend ## Build all container images
 build-multiarch: check-tool ## Build multi-architecture images (amd64, arm64)
 	@echo "$(GREEN)Building multi-arch backend image...$(NC)"
 	$(CONTAINER_TOOL) build --platform linux/amd64,linux/arm64 \
-		-f Dockerfile.backend \
+		-f Dockerfile \
 		-t $(BACKEND_IMAGE):$(VERSION) .
 	@echo "$(GREEN)Building multi-arch frontend image...$(NC)"
 	$(CONTAINER_TOOL) build --platform linux/amd64,linux/arm64 \
@@ -263,3 +263,25 @@ ci-release: ## CI release target (build, tag, and push release)
 	$(MAKE) tag-release VERSION=$(VERSION)
 	$(MAKE) push VERSION=$(VERSION)
 	@echo "$(GREEN)Release $(VERSION) complete$(NC)"
+
+# Kind cluster targets
+.PHONY: kind-setup
+kind-setup: ## Setup kind cluster for testing
+	@echo "$(GREEN)Setting up kind cluster...$(NC)"
+	./scripts/setup-kind-cluster.sh
+
+.PHONY: kind-deploy
+kind-deploy: ## Build images and deploy to kind cluster
+	@echo "$(GREEN)Deploying to kind cluster...$(NC)"
+	./scripts/deploy-to-kind.sh
+
+.PHONY: kind-clean
+kind-clean: ## Delete the kind test cluster
+	@echo "$(YELLOW)Deleting kind cluster...$(NC)"
+	kind delete cluster --name $${CLUSTER_NAME:-gharts-test}
+	@echo "$(GREEN)Kind cluster deleted$(NC)"
+
+.PHONY: kind-logs
+kind-logs: ## Show logs from kind deployment
+	@echo "$(GREEN)Showing backend logs...$(NC)"
+	kubectl logs -n $${NAMESPACE:-gharts} -l app.kubernetes.io/component=backend --tail=100 -f

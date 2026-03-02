@@ -347,4 +347,3 @@ export function useAdminConfig(showSensitive = false) {
     },
   })
 }
-

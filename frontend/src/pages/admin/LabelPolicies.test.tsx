@@ -326,4 +326,3 @@ describe('LabelPolicies', () => {
   })
 })
 
-// Made with Bob

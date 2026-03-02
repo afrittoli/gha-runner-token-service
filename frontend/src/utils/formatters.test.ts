@@ -69,4 +69,3 @@ describe('formatters', () => {
   })
 })
 
-// Made with Bob
