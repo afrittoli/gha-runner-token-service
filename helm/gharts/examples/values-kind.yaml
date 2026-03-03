@@ -45,6 +45,17 @@ frontend:
   
   podDisruptionBudget:
     enabled: false
+  
+  # Frontend runtime configuration
+  config:
+    oidc:
+      authority: "https://your-oidc-provider.com"
+      clientId: "your-kind-client-id"
+      audience: "runner-token-service"
+      redirectUri: "http://gharts.local/app/callback"
+      postLogoutRedirectUri: "http://gharts.local/app"
+    api:
+      baseUrl: ""  # Same-origin
 
 # PostgreSQL - use external database (installed separately)
 postgresql:

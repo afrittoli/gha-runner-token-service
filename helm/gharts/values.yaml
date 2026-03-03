@@ -135,15 +135,15 @@ frontend:
   # Pod security context (applied at pod level)
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 101  # nginx user
-    fsGroup: 101
+    runAsUser: 1000  # Changed from 101 to match appuser in Dockerfile
+    fsGroup: 1000
 
   # Container security context (applied at container level)
   securityContext:
     capabilities:
       drop:
         - ALL
-    readOnlyRootFilesystem: true
+    readOnlyRootFilesystem: false  # Changed to false to allow config.js generation
 
   # Pod annotations
   podAnnotations: {}
@@ -156,6 +156,28 @@ frontend:
 
   # Affinity rules
   affinity: {}
+
+  # Runtime configuration (injected at container startup)
+  # These values are passed as environment variables to the container
+  # and used to generate config.js from config.template.js
+  config:
+    oidc:
+      # OIDC provider authority URL (e.g., https://your-tenant.auth0.com)
+      authority: ""
+      # OIDC client ID (stored in Secret)
+      clientId: ""
+      # OIDC audience (API identifier)
+      audience: "runner-token-service"
+      # Redirect URI after login (supports templating)
+      # Example: "https://{{ .Values.ingress.hosts[0].host }}/app/callback"
+      redirectUri: ""
+      # Redirect URI after logout (supports templating)
+      # Example: "https://{{ .Values.ingress.hosts[0].host }}/app"
+      postLogoutRedirectUri: ""
+    api:
+      # API base URL (empty string means same-origin)
+      # Set this if frontend and backend are on different domains
+      baseUrl: ""
 
 # PostgreSQL database configuration (Bitnami subchart)
 # Set enabled=false to use an external managed database (recommended for production)
