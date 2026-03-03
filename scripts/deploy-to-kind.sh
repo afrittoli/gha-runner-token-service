@@ -41,14 +41,14 @@ OIDC_ISSUER="${OIDC_ISSUER:-https://placeholder.invalid}"
 OIDC_AUDIENCE="${OIDC_AUDIENCE:-gharts}"
 OIDC_JWKS_URL="${OIDC_JWKS_URL:-https://placeholder.invalid/.well-known/jwks.json}"
 
-# Frontend OIDC configuration (for build-time injection)
-# These override values in frontend/.env.local when building for kind
-VITE_OIDC_AUTHORITY="${VITE_OIDC_AUTHORITY:-$OIDC_ISSUER}"
-VITE_OIDC_CLIENT_ID="${VITE_OIDC_CLIENT_ID:-}"
-VITE_OIDC_AUDIENCE="${VITE_OIDC_AUDIENCE:-$OIDC_AUDIENCE}"
+# Frontend OIDC configuration (for runtime injection via Helm)
+# Use VITE_* variables from .env if available, otherwise use backend OIDC settings
+FRONTEND_OIDC_AUTHORITY="${VITE_OIDC_AUTHORITY:-$OIDC_ISSUER}"
+FRONTEND_OIDC_CLIENT_ID="${VITE_OIDC_CLIENT_ID:-kind-test-client-id}"
+FRONTEND_OIDC_AUDIENCE="${VITE_OIDC_AUDIENCE:-$OIDC_AUDIENCE}"
 # For kind, we use localhost:8080 (port-forward to frontend service)
-VITE_OIDC_REDIRECT_URI="${VITE_OIDC_REDIRECT_URI:-http://localhost:8080/app/callback}"
-VITE_OIDC_POST_LOGOUT_REDIRECT_URI="${VITE_OIDC_POST_LOGOUT_REDIRECT_URI:-http://localhost:8080/app}"
+FRONTEND_OIDC_REDIRECT_URI="${VITE_OIDC_REDIRECT_URI:-http://localhost:8080/app/callback}"
+FRONTEND_OIDC_POST_LOGOUT_REDIRECT_URI="${VITE_OIDC_POST_LOGOUT_REDIRECT_URI:-http://localhost:8080/app}"
 
 # Functions
 log_info() {
@@ -100,17 +100,9 @@ build_images() {
     log_info "Building backend image..."
     $CONTAINER_TOOL build -f "$PROJECT_ROOT/Dockerfile" -t "$BACKEND_IMAGE" "$PROJECT_ROOT"
 
-    # Build frontend with OIDC configuration
-    log_info "Building frontend image with OIDC config..."
-    local build_args=""
-    [ -n "$VITE_OIDC_AUTHORITY" ] && build_args="$build_args --build-arg VITE_OIDC_AUTHORITY=$VITE_OIDC_AUTHORITY"
-    [ -n "$VITE_OIDC_CLIENT_ID" ] && build_args="$build_args --build-arg VITE_OIDC_CLIENT_ID=$VITE_OIDC_CLIENT_ID"
-    [ -n "$VITE_OIDC_AUDIENCE" ] && build_args="$build_args --build-arg VITE_OIDC_AUDIENCE=$VITE_OIDC_AUDIENCE"
-    [ -n "$VITE_OIDC_REDIRECT_URI" ] && build_args="$build_args --build-arg VITE_OIDC_REDIRECT_URI=$VITE_OIDC_REDIRECT_URI"
-    [ -n "$VITE_OIDC_POST_LOGOUT_REDIRECT_URI" ] && build_args="$build_args --build-arg VITE_OIDC_POST_LOGOUT_REDIRECT_URI=$VITE_OIDC_POST_LOGOUT_REDIRECT_URI"
-
-    # shellcheck disable=SC2086
-    $CONTAINER_TOOL build $build_args -t "$FRONTEND_IMAGE" "$PROJECT_ROOT/frontend"
+    # Build frontend (generic build, no build-time config)
+    log_info "Building frontend image (generic, runtime-configured)..."
+    $CONTAINER_TOOL build -t "$FRONTEND_IMAGE" "$PROJECT_ROOT/frontend"
 
     log_success "Images built"
 }
@@ -150,8 +142,8 @@ main() {
     log_info "Container tool: $CONTAINER_TOOL"
     log_info "Backend image: $BACKEND_IMAGE"
     log_info "Frontend image: $FRONTEND_IMAGE"
-    log_info "OIDC Authority: $VITE_OIDC_AUTHORITY"
-    log_info "OIDC Redirect URI: $VITE_OIDC_REDIRECT_URI"
+    log_info "Frontend OIDC Authority: $FRONTEND_OIDC_AUTHORITY"
+    log_info "Frontend OIDC Redirect URI: $FRONTEND_OIDC_REDIRECT_URI"
     echo
 
     # Check prerequisites
@@ -244,14 +236,26 @@ frontend:
 
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 101
-    fsGroup: 101
+    runAsUser: 1000
+    fsGroup: 1000
 
   securityContext:
     capabilities:
       drop:
         - ALL
-    readOnlyRootFilesystem: true
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: false
+
+  # Frontend runtime configuration
+  config:
+    oidc:
+      authority: "${FRONTEND_OIDC_AUTHORITY}"
+      clientId: "${FRONTEND_OIDC_CLIENT_ID}"
+      audience: "${FRONTEND_OIDC_AUDIENCE}"
+      redirectUri: "${FRONTEND_OIDC_REDIRECT_URI}"
+      postLogoutRedirectUri: "${FRONTEND_OIDC_POST_LOGOUT_REDIRECT_URI}"
+    api:
+      baseUrl: ""
 
 # PostgreSQL is installed separately - configure external database connection
 postgresql:

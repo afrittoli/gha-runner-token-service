@@ -96,6 +96,58 @@ helm test gharts -n gharts
 kubectl logs -n gharts -l app.kubernetes.io/name=gharts -l app.kubernetes.io/component=backend
 ```
 
+## Frontend Configuration
+
+The frontend uses **runtime configuration injection** instead of build-time configuration. This allows a single container image to be deployed across multiple environments with different configurations.
+
+### How It Works
+
+1. **Build Time**: The frontend is built as a generic image with no environment-specific configuration
+2. **Container Startup**: The `docker-entrypoint.sh` script generates `config.js` from `config.template.js` using environment variables
+3. **Runtime**: The browser loads `config.js` before the React application starts
+
+### Configuration Values
+
+Frontend configuration is split between ConfigMap (non-sensitive) and Secret (sensitive):
+
+**ConfigMap** (`frontend-config`):
+- `oidc-authority`: OIDC provider URL
+- `oidc-audience`: API audience identifier
+- `oidc-redirect-uri`: Redirect URI after login
+- `oidc-post-logout-redirect-uri`: Redirect URI after logout
+- `api-base-url`: API base URL (empty for same-origin)
+
+**Secret** (`frontend-secrets`):
+- `oidc-client-id`: OIDC client ID
+
+### Example Configuration
+
+```yaml
+frontend:
+  config:
+    oidc:
+      authority: "https://your-tenant.auth0.com"
+      clientId: "your-client-id"
+      audience: "runner-token-service"
+      # Use templating for dynamic URLs based on ingress
+      redirectUri: "https://{{ .Values.ingress.hosts[0].host }}/app/callback"
+      postLogoutRedirectUri: "https://{{ .Values.ingress.hosts[0].host }}/app"
+    api:
+      baseUrl: ""  # Empty string means same-origin
+```
+
+### Verifying Configuration
+
+Check the generated configuration in a running pod:
+
+```bash
+# View the generated config.js
+kubectl exec -n gharts deployment/gharts-frontend -- cat /usr/share/nginx/html/config.js
+
+# Check environment variables
+kubectl exec -n gharts deployment/gharts-frontend -- env | grep OIDC
+```
+
 ### 6. Access the Application
 
 ```bash

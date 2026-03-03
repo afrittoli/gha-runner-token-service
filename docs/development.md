@@ -145,6 +145,33 @@ Note down:
    | **Name** | Runner Token Service Web |
    | **Application Type** | Regular Web Applications |
 
+
+### Configure Frontend Application
+
+For the frontend dashboard, you need a Single Page Application (SPA) in Auth0:
+
+1. Go to **Applications > Applications**
+2. Click "Create Application"
+3. Configure:
+
+   | Field | Value |
+   |-------|-------|
+   | **Name** | Runner Token Service Frontend |
+   | **Application Type** | Single Page Applications |
+
+4. Click "Create"
+5. In Settings, configure:
+
+   | Field | Value |
+   |-------|-------|
+   | **Allowed Callback URLs** | `http://localhost:5173/app/callback` |
+   | **Allowed Logout URLs** | `http://localhost:5173/app` |
+   | **Allowed Web Origins** | `http://localhost:5173` |
+   | **Allowed Origins (CORS)** | `http://localhost:5173` |
+
+6. Save Changes
+7. Note the **Client ID** for frontend configuration
+
 4. Click "Create"
 5. In Settings, configure:
 
@@ -190,6 +217,73 @@ pip install psycopg2-binary
 # Update .env
 DATABASE_URL=postgresql://user:password@localhost:5432/runner_service
 ```
+
+## 6. Frontend Development
+
+The frontend uses **runtime configuration** instead of build-time configuration. This allows the same build to work in different environments.
+
+### Setup Frontend
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Copy environment template
+cp .env.example .env.local
+```
+
+### Configure Frontend
+
+Edit `frontend/.env.local` with your Auth0 SPA credentials:
+
+```bash
+# OIDC Configuration (from Auth0 SPA application)
+VITE_OIDC_AUTHORITY=https://your-tenant.auth0.com
+VITE_OIDC_CLIENT_ID=your-spa-client-id
+VITE_OIDC_AUDIENCE=runner-token-service
+VITE_OIDC_REDIRECT_URI=http://localhost:5173/app/callback
+VITE_OIDC_POST_LOGOUT_REDIRECT_URI=http://localhost:5173/app
+
+# API base URL (optional, defaults to same origin)
+# For separate backend: VITE_API_BASE_URL=http://localhost:8000
+```
+
+### Run Frontend Development Server
+
+```bash
+# Start Vite dev server
+npm run dev
+```
+
+The frontend will be available at `http://localhost:5173/app`
+
+### How Frontend Configuration Works
+
+**Local Development (npm run dev)**:
+- Configuration comes from `.env.local` file
+- Vite loads `VITE_*` environment variables at build time
+- Hot module replacement works normally
+
+**Production/Kubernetes**:
+- Configuration is injected at container startup
+- `docker-entrypoint.sh` generates `config.js` from environment variables
+- Environment variables come from Kubernetes ConfigMap and Secret
+- Single container image works across all environments
+
+### Building Frontend for Production
+
+```bash
+# Build optimized production bundle
+npm run build
+
+# Preview production build locally
+npm run preview
+```
+
+The build output in `dist/` is a generic build with no environment-specific configuration.
+
 
 ## 4. Running the Service
 

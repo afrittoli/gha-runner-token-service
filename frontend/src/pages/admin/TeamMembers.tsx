@@ -219,5 +219,3 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
     </div>
   )
 }
-
-// Made with Bob

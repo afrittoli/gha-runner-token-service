@@ -44,6 +44,17 @@ frontend:
   
   podDisruptionBudget:
     enabled: false
+  
+  # Frontend runtime configuration
+  config:
+    oidc:
+      authority: "https://dev-oidc.example.com"
+      clientId: "dev-client-id"
+      audience: "runner-token-service"
+      redirectUri: "http://localhost:8080/app/callback"
+      postLogoutRedirectUri: "http://localhost:8080/app"
+    api:
+      baseUrl: ""  # Same-origin
 
 # Use built-in PostgreSQL for development
 postgresql:

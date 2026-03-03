@@ -1,8 +1,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { getRuntimeConfig } from '../config/runtime'
+
+// Get runtime configuration
+const config = getRuntimeConfig()
 
 // Create axios instance with base configuration
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL: config.api.baseUrl || '',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

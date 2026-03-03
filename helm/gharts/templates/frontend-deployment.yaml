@@ -39,6 +39,39 @@ spec:
         - name: http
           containerPort: {{ .Values.frontend.service.targetPort }}
           protocol: TCP
+        env:
+        # OIDC configuration from ConfigMap
+        - name: OIDC_AUTHORITY
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "gharts.fullname" . }}-frontend-config
+              key: oidc-authority
+        - name: OIDC_AUDIENCE
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "gharts.fullname" . }}-frontend-config
+              key: oidc-audience
+        - name: OIDC_REDIRECT_URI
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "gharts.fullname" . }}-frontend-config
+              key: oidc-redirect-uri
+        - name: OIDC_POST_LOGOUT_REDIRECT_URI
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "gharts.fullname" . }}-frontend-config
+              key: oidc-post-logout-redirect-uri
+        - name: API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "gharts.fullname" . }}-frontend-config
+              key: api-base-url
+        # OIDC client ID from Secret
+        - name: OIDC_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "gharts.fullname" . }}-frontend-secrets
+              key: oidc-client-id
         livenessProbe:
           {{- toYaml .Values.frontend.livenessProbe | nindent 10 }}
         readinessProbe:
