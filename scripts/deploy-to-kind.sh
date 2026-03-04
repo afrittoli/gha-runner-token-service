@@ -286,12 +286,6 @@ $(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null | sed 's/^/      /' || echo "      
     audience: "${OIDC_AUDIENCE}"
     jwksUrl: "${OIDC_JWKS_URL}"
 
-  bootstrap:
-    enabled: true
-    username: "admin"
-    password: "admin123"
-    email: "admin@kind.local"
-
   sync:
     enabled: true
     intervalSeconds: 60
@@ -394,6 +388,13 @@ EOF
     BACKEND_POD=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}')
     FRONTEND_POD=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/component=frontend -o jsonpath='{.items[0].metadata.name}')
 
+    log_info "Create admin user (REQUIRED for first login):"
+    echo
+    echo "   kubectl exec -n $NAMESPACE $BACKEND_POD -- python -m app.cli create-admin --email admin@kind.local"
+    echo
+    log_warning "You must create an admin user before you can access the dashboard!"
+    echo
+
     log_info "Access the application:"
     echo
     echo "1. Via port-forward (backend):"
@@ -401,7 +402,7 @@ EOF
     echo "   curl http://localhost:8000/health"
     echo
     echo "2. Via port-forward (frontend):"
-    echo "   kubectl port-forward -n $NAMESPACE $FRONTEND_POD 8080:80"
+    echo "   kubectl port-forward -n $NAMESPACE $FRONTEND_POD 8080:8080"
     echo "   open http://localhost:8080"
     echo
     echo "3. Via ingress (requires /etc/hosts entry):"

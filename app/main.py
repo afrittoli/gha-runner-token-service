@@ -19,7 +19,6 @@ from app.api.v1 import audit
 from app.api.v1 import runners
 from app.api.v1 import teams
 from app.api.v1 import webhooks
-from app.bootstrap import ensure_bootstrap_admin
 from app.config import get_settings
 from app.database import init_db, SessionLocal
 from app.logging_config import setup_logging, log_access
@@ -211,13 +210,38 @@ async def startup_event():
         logger.exception("database_initialization_failed", error=str(e))
         raise
 
-    # Bootstrap admin user
+    # Ensure admins team exists
     try:
         db = SessionLocal()
-        ensure_bootstrap_admin(db)
+        from app.models import Team
+        import json
+
+        # Check if admins team exists
+        admins_team = db.query(Team).filter(Team.name == "admins").first()
+
+        if not admins_team:
+            admins_team = Team(
+                name="admins",
+                description="System administrators team",
+                required_labels=json.dumps([]),
+                optional_label_patterns=json.dumps([".*"]),
+                max_runners=None,
+                is_active=True,
+                created_by="system",
+            )
+            db.add(admins_team)
+            db.commit()
+            logger.info("admins_team_created", team_id=admins_team.id)
+        else:
+            logger.info("admins_team_exists", team_id=admins_team.id)
+
         db.close()
     except Exception as e:
-        logger.error("bootstrap_admin_error", error=str(e))
+        logger.error(
+            "admins_team_error",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
         # Don't raise - allow application to start
 
     # Start background sync task if enabled
