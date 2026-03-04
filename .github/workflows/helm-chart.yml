@@ -1,0 +1,52 @@
+name: Helm Chart Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'helm/gharts/**'
+      - '.github/workflows/helm-chart.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'helm/gharts/**'
+      - '.github/workflows/helm-chart.yml'
+
+jobs:
+  lint:
+    name: Lint and Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.0'
+
+      - name: Lint chart
+        run: helm lint helm/gharts
+
+      - name: Validate chart templates
+        run: |
+          helm template test-release helm/gharts \
+            --set config.githubAppId=123456 \
+            --set config.githubAppPrivateKey="test-key" \
+            --set config.oidcClientId=test-client \
+            --set config.oidcClientSecret=test-secret \
+            --set config.oidcDiscoveryUrl=https://example.com/.well-known/openid-configuration \
+            --set bootstrap.admin.password=test123 \
+            > /dev/null
+          echo "✅ Chart templates are valid"
+
+      - name: Package chart
+        run: |
+          helm package helm/gharts
+          ls -lh gharts-*.tgz
+
+      - name: Upload packaged chart
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: gharts-*.tgz
+          retention-days: 7

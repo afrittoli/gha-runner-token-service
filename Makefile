@@ -285,3 +285,95 @@ kind-clean: ## Delete the kind test cluster
 kind-logs: ## Show logs from kind deployment
 	@echo "$(GREEN)Showing backend logs...$(NC)"
 	kubectl logs -n $${NAMESPACE:-gharts} -l app.kubernetes.io/component=backend --tail=100 -f
+
+# Helm chart targets
+.PHONY: helm-lint
+helm-lint: ## Lint Helm chart
+	@echo "$(GREEN)Linting Helm chart...$(NC)"
+	helm lint helm/gharts
+	@echo "$(GREEN)Helm chart lint passed$(NC)"
+
+.PHONY: helm-template
+helm-template: ## Validate Helm chart templates
+	@echo "$(GREEN)Validating Helm chart templates...$(NC)"
+	helm template test-release helm/gharts \
+		--set config.githubAppId=123456 \
+		--set config.githubAppPrivateKey="test-key" \
+		--set config.oidcClientId=test \
+		--set config.oidcClientSecret=test \
+		--set config.oidcDiscoveryUrl=https://example.com/.well-known/openid-configuration \
+		--set bootstrap.admin.password=test123 \
+		> /dev/null
+	@echo "$(GREEN)Helm chart templates valid$(NC)"
+
+.PHONY: helm-package
+helm-package: ## Package Helm chart
+	@echo "$(GREEN)Packaging Helm chart...$(NC)"
+	mkdir -p dist
+	helm package helm/gharts -d dist/
+	@echo "$(GREEN)Helm chart packaged$(NC)"
+	@ls -lh dist/gharts-*.tgz
+
+.PHONY: helm-push
+helm-push: ## Push Helm chart to OCI registry (requires VERSION)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(RED)Error: VERSION must be set (e.g., VERSION=1.0.0)$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Pushing Helm chart to OCI registry...$(NC)"
+	@if [ ! -f "dist/gharts-$(VERSION).tgz" ]; then \
+		echo "$(YELLOW)Chart not found, packaging first...$(NC)"; \
+		$(MAKE) helm-package; \
+	fi
+	helm push dist/gharts-$(VERSION).tgz oci://$(REGISTRY)/$(ORG)
+	@echo "$(GREEN)Helm chart pushed to $(REGISTRY)/$(ORG)/gharts:$(VERSION)$(NC)"
+
+.PHONY: helm-test
+helm-test: helm-lint helm-template ## Run all Helm chart tests
+	@echo "$(GREEN)All Helm chart tests passed$(NC)"
+
+.PHONY: helm-install-local
+helm-install-local: ## Install chart locally from filesystem
+	@echo "$(GREEN)Installing Helm chart locally...$(NC)"
+	helm upgrade --install gharts-local helm/gharts \
+		--set config.githubAppId=123456 \
+		--set config.githubAppPrivateKey="test-key" \
+		--set config.oidcClientId=test \
+		--set config.oidcClientSecret=test \
+		--set config.oidcDiscoveryUrl=https://example.com/.well-known/openid-configuration \
+		--set bootstrap.admin.password=test123 \
+		--create-namespace \
+		--namespace gharts-test
+	@echo "$(GREEN)Helm chart installed in namespace gharts-test$(NC)"
+
+.PHONY: helm-uninstall-local
+helm-uninstall-local: ## Uninstall local chart installation
+	@echo "$(YELLOW)Uninstalling local Helm chart...$(NC)"
+	helm uninstall gharts-local -n gharts-test || true
+	kubectl delete namespace gharts-test || true
+	@echo "$(GREEN)Local Helm chart uninstalled$(NC)"
+
+.PHONY: helm-install-oci
+helm-install-oci: ## Install chart from OCI registry (requires VERSION)
+	@if [ -z "$(VERSION)" ]; then \
+		VERSION=latest; \
+	fi
+	@echo "$(GREEN)Installing Helm chart from OCI registry (version: $(VERSION))...$(NC)"
+	helm upgrade --install gharts-oci oci://$(REGISTRY)/$(ORG)/gharts \
+		--version $(VERSION) \
+		--set config.githubAppId=123456 \
+		--set config.githubAppPrivateKey="test-key" \
+		--set config.oidcClientId=test \
+		--set config.oidcClientSecret=test \
+		--set config.oidcDiscoveryUrl=https://example.com/.well-known/openid-configuration \
+		--set bootstrap.admin.password=test123 \
+		--create-namespace \
+		--namespace gharts-oci-test
+	@echo "$(GREEN)Helm chart installed from OCI registry$(NC)"
+
+.PHONY: helm-uninstall-oci
+helm-uninstall-oci: ## Uninstall OCI chart installation
+	@echo "$(YELLOW)Uninstalling OCI Helm chart...$(NC)"
+	helm uninstall gharts-oci -n gharts-oci-test || true
+	kubectl delete namespace gharts-oci-test || true
+	@echo "$(GREEN)OCI Helm chart uninstalled$(NC)"

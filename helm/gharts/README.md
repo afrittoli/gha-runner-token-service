@@ -12,10 +12,49 @@ This Helm chart deploys the GitHub Actions Runner Token Service to Kubernetes.
 
 ## Installation
 
-### Quick Start
+### From OCI Registry (Recommended)
+
+The chart is published to GitHub Container Registry (GHCR) and can be installed directly:
 
 ```bash
-# Add your values
+# Install latest stable release
+helm install gharts oci://ghcr.io/afrittoli/gharts --version latest
+
+# Install specific version
+helm install gharts oci://ghcr.io/afrittoli/gharts --version 1.2.3
+
+# Install with custom values
+helm install gharts oci://ghcr.io/afrittoli/gharts \
+  --version 1.2.3 \
+  -f my-values.yaml
+```
+
+### From Local Chart
+
+```bash
+# Clone the repository
+git clone https://github.com/afrittoli/gha-runner-token-service.git
+cd gha-runner-token-service
+
+# Install the chart
+helm install gharts ./helm/gharts -f my-values.yaml
+```
+
+### From GitHub Release
+
+```bash
+# Download chart from release
+wget https://github.com/afrittoli/gha-runner-token-service/releases/download/v1.2.3/gharts-1.2.3.tgz
+
+# Install from downloaded file
+helm install gharts ./gharts-1.2.3.tgz -f my-values.yaml
+```
+
+## Quick Start
+
+Create a values file with your configuration:
+
+```bash
 cat > my-values.yaml <<EOF
 config:
   githubAppId: "YOUR_APP_ID"
@@ -32,27 +71,48 @@ bootstrap:
     password: "SECURE_PASSWORD"
 EOF
 
-# Install the chart
-helm install gharts ./helm/gharts -f my-values.yaml
+# Install from OCI registry
+helm install gharts oci://ghcr.io/afrittoli/gharts --version latest -f my-values.yaml
 ```
+
+## Common Installation Scenarios
 
 ### Using External PostgreSQL
 
 ```bash
-helm install gharts ./helm/gharts \
+helm install gharts oci://ghcr.io/afrittoli/gharts \
+  --version latest \
   --set postgresql.enabled=false \
-  --set config.databaseUrl="postgresql://user:pass@host:5432/dbname"
+  --set config.databaseUrl="postgresql://user:pass@host:5432/dbname" \
+  -f my-values.yaml
 ```
 
 ### With Ingress
 
 ```bash
-helm install gharts ./helm/gharts \
+helm install gharts oci://ghcr.io/afrittoli/gharts \
+  --version latest \
   --set ingress.enabled=true \
   --set ingress.hosts[0].host=gharts.example.com \
   --set ingress.hosts[0].paths[0].path=/ \
-  --set ingress.hosts[0].paths[0].pathType=Prefix
+  --set ingress.hosts[0].paths[0].pathType=Prefix \
+  -f my-values.yaml
 ```
+
+## Version Management
+
+The chart is published with multiple tags for flexibility:
+
+| Tag | Description | Example |
+|-----|-------------|---------|
+| `latest` | Latest stable release | `helm install gharts oci://ghcr.io/afrittoli/gharts --version latest` |
+| `1.2.3` | Specific version | `helm install gharts oci://ghcr.io/afrittoli/gharts --version 1.2.3` |
+| `1.2` | Latest patch in 1.2.x | `helm install gharts oci://ghcr.io/afrittoli/gharts --version 1.2` |
+| `1` | Latest minor in 1.x | `helm install gharts oci://ghcr.io/afrittoli/gharts --version 1` |
+| `main` | Latest from main branch (testing) | `helm install gharts oci://ghcr.io/afrittoli/gharts --version main` |
+| `sha-<commit>` | Specific commit (testing) | `helm install gharts oci://ghcr.io/afrittoli/gharts --version sha-abc123` |
+
+**Recommendation**: Use specific versions (e.g., `1.2.3`) in production for reproducibility.
 
 ## Configuration
 

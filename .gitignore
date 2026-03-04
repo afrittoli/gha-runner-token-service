@@ -242,3 +242,10 @@ helm/*/charts/
 
 # Container image tar files
 *.tar
+
+# AI Assistants
+.assistant
+.bob
+.claude
+.zencoder
+.zenflow
