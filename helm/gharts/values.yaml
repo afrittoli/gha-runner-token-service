@@ -237,13 +237,6 @@ config:
   # Logging
   logLevel: "INFO"
 
-  # Bootstrap admin account
-  bootstrap:
-    enabled: true
-    username: "admin"
-    password: ""  # REQUIRED: Set strong password
-    email: "admin@example.com"
-
   # Admin identities (comma-separated)
   adminIdentities: ""
 

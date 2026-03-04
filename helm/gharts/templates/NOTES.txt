@@ -35,14 +35,13 @@ Get the application URL by running these commands:
 {{- end }}
 {{- end }}
 
-{{- if .Values.config.bootstrap.enabled }}
+IMPORTANT: Create an admin user before accessing the dashboard!
 
-Bootstrap Admin Credentials:
-  Username: {{ .Values.config.bootstrap.username }}
-  Password: <check your values.yaml or secret>
+To create an admin user, run:
+  export BACKEND_POD=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=backend" -o jsonpath="{.items[0].metadata.name}")
+  kubectl exec --namespace {{ .Release.Namespace }} $BACKEND_POD -- python -m app.cli create-admin --email your-email@example.com
 
-IMPORTANT: Change the bootstrap admin password after first login!
-{{- end }}
+Replace 'your-email@example.com' with the email address from your OIDC provider.
 
 {{- if .Values.postgresql.enabled }}
 

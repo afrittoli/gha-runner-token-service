@@ -142,18 +142,6 @@ class Settings(BaseSettings):
         description="Path to SSL private key file (required if https_enabled=true)",
     )
 
-    # Bootstrap Admin Configuration
-    bootstrap_admin_username: str = Field(
-        default="admin",
-        description="Bootstrap admin username (created on first startup)",
-    )
-    bootstrap_admin_password: str = Field(
-        default="", description="Bootstrap admin password (required for first startup)"
-    )
-    bootstrap_admin_email: Optional[str] = Field(
-        default=None, description="Bootstrap admin email (optional)"
-    )
-
     # Dashboard Features
     enable_new_dashboard: bool = Field(
         default=False,

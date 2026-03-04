@@ -17,12 +17,6 @@ data:
   OIDC_AUDIENCE: {{ .Values.config.oidc.audience | default "gharts" | quote }}
   OIDC_JWKS_URL: {{ .Values.config.oidc.jwksUrl | default "https://placeholder.invalid/.well-known/jwks.json" | quote }}
 
-  # Bootstrap admin configuration
-  {{- if .Values.config.bootstrap.enabled }}
-  BOOTSTRAP_ADMIN_USERNAME: {{ .Values.config.bootstrap.username | quote }}
-  BOOTSTRAP_ADMIN_EMAIL: {{ .Values.config.bootstrap.email | quote }}
-  {{- end }}
-
   # Admin identities
   {{- if .Values.config.adminIdentities }}
   ADMIN_IDENTITIES: {{ .Values.config.adminIdentities | quote }}

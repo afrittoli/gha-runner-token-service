@@ -83,13 +83,6 @@ def _find_user_by_claims(db: Session, claims: dict) -> Optional["User"]:
     return db.query(User).filter(or_(*conditions)).first()
 
 
-def _count_users(db: Session) -> int:
-    """Count total users in the database."""
-    from app.models import User
-
-    return db.query(User).count()
-
-
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
     settings: Settings = Depends(get_settings),
@@ -159,19 +152,6 @@ async def get_current_user(
 
     # Extract user identity
     identity = validator.get_user_identity(payload)
-
-    # Check if any users exist in the database (bootstrap check)
-    user_count = _count_users(db)
-
-    if user_count == 0:
-        # Bootstrap mode: no users yet, allow access without DB check
-        # This allows the first admin to set up the system
-        logger.warning(
-            "bootstrap_mode_active",
-            reason="no_users_in_database",
-            identity=identity,
-        )
-        return AuthenticatedUser(identity=identity, claims=payload, db_user=None)
 
     # Find user in database
     db_user = _find_user_by_claims(db, payload)
