@@ -15,24 +15,62 @@ This service acts as a secure intermediary between authenticated third parties a
 - ✅ **Team-based authorization** with label policies and quotas
 - ✅ **JIT (Just-In-Time) provisioning** with server-side label enforcement
 
-> [!WARNING]  
+> [!WARNING]
 > This repo contains an MVP developed as proof-of-concept. It is not ready for production use.
+
+## Quick Start
+
+### Kubernetes Deployment (Recommended)
+
+Install using Helm from OCI registry:
+
+```bash
+helm install gharts oci://ghcr.io/afrittoli/gharts --version latest \
+  --set config.githubAppId=YOUR_APP_ID \
+  --set config.githubAppPrivateKey="YOUR_PRIVATE_KEY" \
+  --set config.oidcClientId=YOUR_CLIENT_ID \
+  --set config.oidcClientSecret=YOUR_CLIENT_SECRET \
+  --set config.oidcDiscoveryUrl=YOUR_OIDC_URL \
+  --set bootstrap.admin.password=SECURE_PASSWORD
+```
+
+See [Kubernetes Deployment Guide](docs/kubernetes_deployment.md) for detailed instructions.
+
+### Local Development
+
+```bash
+# Clone and setup
+git clone https://github.com/afrittoli/gha-runner-token-service.git
+cd gha-runner-token-service
+make dev-setup
+
+# Run with Docker Compose
+docker-compose up
+```
+
+See [Development Guide](docs/development.md) for more details.
 
 ## Documentation
 
 ### Getting Started
-- **[Quick Start Guide](docs/QUICKSTART.md)** - Set up and run in 5 minutes
-- **[Usage Examples](docs/USAGE_EXAMPLES.md)** - Practical examples and API usage patterns
+- **[Quick Start Guide](docs/quickstart.md)** - Set up and run in 5 minutes
+- **[Kubernetes Deployment](docs/kubernetes_deployment.md)** - Deploy to Kubernetes with Helm
+- **[Usage Examples](docs/usage_examples.md)** - Practical examples and API usage patterns
+
+### Deployment
+- **[Deployment Checklist](docs/deployment_checklist.md)** - Production deployment guide
+- **[Helm Chart](helm/gharts/README.md)** - Helm chart documentation
+- **[Helm Release Process](docs/helm_chart_release.md)** - Chart release and versioning
 
 ### Development
-- **[Development Guide](docs/DEVELOPMENT.md)** - Set up development environment, OIDC, Auth0 configuration
+- **[Development Guide](docs/development.md)** - Set up development environment, OIDC, Auth0 configuration
 - **[Full Documentation](docs/README.md)** - Comprehensive project documentation
 
 ### Design & Architecture
 - **[Architecture](docs/design/token_service.md)** - System architecture and design decisions
 - **[Dashboard Design](docs/design/dashboard.md)** - Web dashboard specifications
 - **[Label Policy](docs/design/README.md)** - Label policy enforcement system
-- **[Team Management](docs/TEAM_MANAGEMENT.md)** - Team-based authorization guide
+- **[Team Management](docs/team_management.md)** - Team-based authorization guide
 
 ## Quick Links
 

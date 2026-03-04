@@ -4,22 +4,39 @@ description: GitHub Actions Runner Token Service - Secure token management for s
 type: application
 version: 1.0.0
 appVersion: "1.0.0"
+
 keywords:
   - github
   - actions
   - runners
   - tokens
   - security
+  - oidc
+  - authentication
+
 home: https://github.com/afrittoli/gha-runner-token-service
 sources:
   - https://github.com/afrittoli/gha-runner-token-service
+
 maintainers:
   - name: Andrea Frittoli
     email: andrea.frittoli@gmail.com
+    url: https://github.com/afrittoli
+
 icon: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+
+annotations:
+  # OCI annotations for better registry display
+  org.opencontainers.image.title: "GitHub Actions Runner Token Service"
+  org.opencontainers.image.description: "Secure token management for self-hosted GitHub Actions runners"
+  org.opencontainers.image.vendor: "Andrea Frittoli"
+  org.opencontainers.image.source: "https://github.com/afrittoli/gha-runner-token-service"
+  org.opencontainers.image.documentation: "https://github.com/afrittoli/gha-runner-token-service/tree/main/docs"
+  org.opencontainers.image.licenses: "Apache-2.0"
+  org.opencontainers.image.url: "https://github.com/afrittoli/gha-runner-token-service"
 
 # Note: PostgreSQL is NOT included as a dependency.
 # For production: Use an external managed database (RDS, Cloud SQL, etc.)
 # For development/testing: Install PostgreSQL separately before this chart:
-#   helm install gharts-db oci://registry-1.docker.io/bitnamicharts/postgresql \
+#   helm install gharts-postgresql oci://registry-1.docker.io/bitnamicharts/postgresql \
 #     --set auth.username=gharts --set auth.password=gharts --set auth.database=gharts

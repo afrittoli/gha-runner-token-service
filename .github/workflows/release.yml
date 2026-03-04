@@ -20,11 +20,11 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Get version from tag
         id: get_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -37,20 +37,40 @@ jobs:
           prerelease: false
           body: |
             ## Release ${{ steps.get_version.outputs.version }}
-            
+
             ### Docker Images
             - Backend: `${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ steps.get_version.outputs.version }}`
             - Frontend: `${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ steps.get_version.outputs.version }}`
-            
-            ### Helm Chart
+
+            ### Helm Chart Installation
+
+            **From OCI Registry (Recommended):**
             ```bash
-            helm install gharts ./helm/gharts \
-              --set image.backend.tag=${{ steps.get_version.outputs.version }} \
-              --set image.frontend.tag=${{ steps.get_version.outputs.version }}
+            helm install gharts oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/gharts --version ${{ steps.get_version.outputs.version }}
             ```
-            
-            ### Installation
-            See [deployment documentation](docs/deployment_checklist.md) for detailed instructions.
+
+            **From GitHub Release:**
+            ```bash
+            helm install gharts ./gharts-${{ steps.get_version.outputs.version }}.tgz
+            ```
+
+            **With Custom Values:**
+            ```bash
+            helm install gharts oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/gharts \
+              --version ${{ steps.get_version.outputs.version }} \
+              -f my-values.yaml
+            ```
+
+            ### Available Chart Tags
+            - `${{ steps.get_version.outputs.version }}` - This specific version
+            - `$(echo "${{ steps.get_version.outputs.version }}" | cut -d. -f1,2)` - Latest patch in this minor version
+            - `$(echo "${{ steps.get_version.outputs.version }}" | cut -d. -f1)` - Latest minor in this major version
+            - `latest` - Latest stable release
+
+            ### Documentation
+            - [Deployment Guide](docs/deployment_checklist.md)
+            - [Kubernetes Deployment](docs/kubernetes_deployment.md)
+            - [Helm Chart README](helm/gharts/README.md)
 
   build-and-push-backend:
     runs-on: ubuntu-latest
@@ -60,20 +80,20 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -84,7 +104,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest
-      
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -105,20 +125,20 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -129,7 +149,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest
-      
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -147,24 +167,25 @@ jobs:
     needs: create-release
     permissions:
       contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
           version: 'v3.13.0'
-      
+
       - name: Update Chart version
         run: |
           VERSION=${{ needs.create-release.outputs.version }}
           sed -i "s/^version:.*/version: ${VERSION}/" helm/gharts/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/gharts/Chart.yaml
-      
+
       - name: Package Helm chart
         run: |
           helm package helm/gharts
-      
+
       - name: Upload Helm chart to release
         uses: actions/upload-release-asset@v1
         env:
@@ -175,30 +196,62 @@ jobs:
           asset_name: gharts-${{ needs.create-release.outputs.version }}.tgz
           asset_content_type: application/gzip
 
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push chart to GHCR with semantic versions
+        run: |
+          VERSION=${{ needs.create-release.outputs.version }}
+          CHART_FILE="gharts-${VERSION}.tgz"
+
+          # Push with full version (e.g., 1.2.3)
+          echo "Pushing chart with version: ${VERSION}"
+          helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+
+          # Extract major.minor (e.g., 1.2)
+          MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
+          echo "Pushing chart with version: ${MAJOR_MINOR}"
+          helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }} --version "${MAJOR_MINOR}"
+
+          # Extract major (e.g., 1)
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          echo "Pushing chart with version: ${MAJOR}"
+          helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }} --version "${MAJOR}"
+
+          # Push as latest
+          echo "Pushing chart with version: latest"
+          helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }} --version "latest"
+
+          echo "✅ Helm chart published to GHCR with tags: ${VERSION}, ${MAJOR_MINOR}, ${MAJOR}, latest"
+
   verify-deployment:
     runs-on: ubuntu-latest
     needs: [build-and-push-backend, build-and-push-frontend, package-helm-chart]
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up kind
         uses: helm/kind-action@v1.8.0
         with:
           cluster_name: test-cluster
-      
+
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
           version: 'v3.13.0'
-      
+
       - name: Deploy to kind
         run: |
           VERSION=${{ needs.create-release.outputs.version }}
-          
+
           # Update Chart version
           sed -i "s/^version:.*/version: ${VERSION}/" helm/gharts/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/gharts/Chart.yaml
-          
+
           # Create test values
           cat > test-values.yaml <<EOF
           image:
@@ -208,21 +261,21 @@ jobs:
             frontend:
               repository: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
               tag: ${VERSION}
-          
+
           postgresql:
             enabled: true
             auth:
               username: testuser
               password: testpass
               database: testdb
-          
+
           bootstrap:
             enabled: true
             admin:
               username: admin
               password: admin123
               email: admin@example.com
-          
+
           config:
             githubAppId: "123456"
             githubAppPrivateKey: "test-key"
@@ -230,13 +283,13 @@ jobs:
             oidcClientSecret: "test-secret"
             oidcDiscoveryUrl: "https://example.com/.well-known/openid-configuration"
           EOF
-          
+
           # Install chart
           helm install gharts ./helm/gharts -f test-values.yaml --wait --timeout 5m
-          
+
           # Run Helm tests
           helm test gharts
-      
+
       - name: Check deployment status
         run: |
           kubectl get all -A

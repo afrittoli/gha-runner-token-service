@@ -34,25 +34,16 @@ This guide covers deploying the GitHub Actions Runner Token Service to Kubernete
 
 ## Quick Start
 
-### 1. Clone the Repository
+### Method 1: Install from OCI Registry (Recommended)
+
+The fastest way to get started is to install directly from GitHub Container Registry:
 
 ```bash
-git clone https://github.com/your-org/gha-runner-token-service.git
-cd gha-runner-token-service
-```
-
-### 2. Create a Namespace
-
-```bash
+# 1. Create a namespace
 kubectl create namespace gharts
-```
 
-### 3. Create Secrets
-
-Create a `secrets.yaml` file with your sensitive configuration:
-
-```yaml
-# secrets.yaml
+# 2. Create secrets file
+cat > secrets.yaml <<EOF
 config:
   githubAppId: "123456"
   githubAppPrivateKey: |
@@ -66,11 +57,37 @@ config:
 bootstrap:
   admin:
     password: "change-this-secure-password"
+EOF
+
+# 3. Install from OCI registry
+helm install gharts oci://ghcr.io/afrittoli/gharts \
+  --version latest \
+  --namespace gharts \
+  --values secrets.yaml \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=gharts.example.com \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix
 ```
 
-### 4. Install the Chart
+### Method 2: Install from Local Chart
+
+If you need to customize the chart or are developing locally:
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/afrittoli/gha-runner-token-service.git
+cd gha-runner-token-service
+
+# 2. Create a namespace
+kubectl create namespace gharts
+
+# 3. Create secrets file (same as above)
+cat > secrets.yaml <<EOF
+# ... (same content as Method 1)
+EOF
+
+# 4. Install from local chart
 helm install gharts ./helm/gharts \
   --namespace gharts \
   --values secrets.yaml \
@@ -78,6 +95,20 @@ helm install gharts ./helm/gharts \
   --set ingress.hosts[0].host=gharts.example.com \
   --set ingress.hosts[0].paths[0].path=/ \
   --set ingress.hosts[0].paths[0].pathType=Prefix
+```
+
+### Method 3: Install from GitHub Release
+
+Download a specific release:
+
+```bash
+# 1. Download chart from release
+wget https://github.com/afrittoli/gha-runner-token-service/releases/download/v1.2.3/gharts-1.2.3.tgz
+
+# 2. Install from downloaded file
+helm install gharts ./gharts-1.2.3.tgz \
+  --namespace gharts \
+  --values secrets.yaml
 ```
 
 ### 5. Verify Installation
@@ -169,12 +200,12 @@ config:
   # GitHub App credentials
   githubAppId: "123456"
   githubAppPrivateKey: "your-private-key"
-  
+
   # OIDC configuration
   oidcClientId: "your-client-id"
   oidcClientSecret: "your-client-secret"
   oidcDiscoveryUrl: "https://provider/.well-known/openid-configuration"
-  
+
   # Database connection (if using external database)
   databaseUrl: "postgresql://user:pass@host:5432/dbname"
 
@@ -195,7 +226,7 @@ image:
     repository: ghcr.io/your-org/gha-runner-token-service-backend
     tag: "1.0.0"
     pullPolicy: IfNotPresent
-  
+
   frontend:
     repository: ghcr.io/your-org/gha-runner-token-service-frontend
     tag: "1.0.0"
@@ -346,7 +377,7 @@ backend:
     maxReplicas: 20
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
-  
+
   resources:
     limits:
       cpu: 2000m
@@ -354,7 +385,7 @@ backend:
     requests:
       cpu: 1000m
       memory: 1Gi
-  
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 2
@@ -365,7 +396,7 @@ frontend:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -373,7 +404,7 @@ frontend:
     requests:
       cpu: 200m
       memory: 256Mi
-  
+
   podDisruptionBudget:
     enabled: true
     minAvailable: 1

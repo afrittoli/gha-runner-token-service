@@ -43,5 +43,3 @@ echo "API Base URL: ${API_BASE_URL:-<same-origin>}"
 
 # Execute the main command (nginx)
 exec "$@"
-
-# Made with Bob

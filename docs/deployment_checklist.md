@@ -35,11 +35,32 @@ psql $DATABASE_URL -c "\dt teams"
 psql $DATABASE_URL -c "\dt user_team_memberships"
 ```
 
-### 2. Backend Deployment
+### 2. Kubernetes/Helm Deployment (Recommended)
+
+```bash
+# Install or upgrade from OCI registry
+helm upgrade --install gharts oci://ghcr.io/afrittoli/gharts \
+  --version latest \
+  --namespace gharts \
+  --values production-values.yaml \
+  --wait \
+  --timeout 10m
+
+# Verify deployment
+kubectl get pods -n gharts
+kubectl get svc -n gharts
+
+# Check logs
+kubectl logs -n gharts -l app.kubernetes.io/component=backend --tail=100
+```
+
+### 3. Traditional Deployment (Alternative)
+
+**Backend:**
 ```bash
 # Pull latest code
-git checkout team_authz_implementation
-git pull origin team_authz_implementation
+git checkout main
+git pull origin main
 
 # Install dependencies
 pip install -r requirements.txt
@@ -51,7 +72,7 @@ pytest tests/ -v
 systemctl restart gharts-backend
 ```
 
-### 3. Frontend Deployment
+**Frontend:**
 ```bash
 # Build frontend
 cd frontend
@@ -250,7 +271,7 @@ tail -f /var/log/nginx/access.log | grep "/api/v1/admin/teams"
 
 ---
 
-**Deployment Date**: _____________  
-**Deployed By**: _____________  
-**Approved By**: _____________  
+**Deployment Date**: _____________
+**Deployed By**: _____________
+**Approved By**: _____________
 **Rollback Tested**: [ ] Yes [ ] No
