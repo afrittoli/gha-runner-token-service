@@ -6,8 +6,8 @@ This document describes the process for releasing the `gharts` Helm chart to Git
 
 The Helm chart is automatically published to `oci://ghcr.io/afrittoli/gharts` through GitHub Actions workflows:
 
-- **On main branch push**: Chart is published with `main` and `sha-<commit>` tags
-- **On release tag**: Chart is published with semantic version tags (`v1.2.3`, `v1.2`, `v1`, `latest`)
+- **On main branch push**: Chart is published with a development version (e.g., `0.0.0-main.7f92396`)
+- **On release tag**: Chart is published with the semantic version from the release tag (e.g., `1.2.3`)
 
 ## Publishing Workflow
 
@@ -17,15 +17,17 @@ graph LR
     A -->|Create tag v1.2.3| C[Release Workflow]
     B --> D[Build Images]
     D --> E[Publish Images: main, sha]
-    E --> F[Package Chart]
-    F --> G[Publish Chart: main, sha]
-    C --> H[Create GitHub Release]
-    H --> I[Build Images]
-    I --> J[Publish Images: v1.2.3, v1.2, v1, latest]
-    J --> K[Package Chart]
-    K --> L[Upload to Release]
-    L --> M[Publish Chart: v1.2.3, v1.2, v1, latest]
-    M --> N[Deploy Test]
+    E --> F[Update Chart version to 0.0.0-main.SHA]
+    F --> G[Package Chart]
+    G --> H[Publish Chart: 0.0.0-main.SHA]
+    C --> I[Create GitHub Release]
+    I --> J[Build Images]
+    J --> K[Publish Images: v1.2.3, v1.2, v1, latest]
+    K --> L[Update Chart.yaml version to 1.2.3]
+    L --> M[Package Chart]
+    M --> N[Upload to Release]
+    N --> O[Publish Chart: 1.2.3]
+    O --> P[Deploy Test]
 ```
 
 ## Automatic Release Process
@@ -49,14 +51,10 @@ The release workflow automatically:
 1. **Creates GitHub Release** with release notes
 2. **Builds Docker Images** for backend and frontend
 3. **Publishes Images** to GHCR with multiple tags
-4. **Updates Chart Version** in Chart.yaml
-5. **Packages Helm Chart** as `.tgz` file
-6. **Uploads Chart** to GitHub Release
-7. **Publishes Chart to GHCR** with semantic version tags:
-   - `1.2.3` - Exact version
-   - `1.2` - Latest patch in 1.2.x series
-   - `1` - Latest minor in 1.x series
-   - `latest` - Latest stable release
+4. **Updates Chart Version** in Chart.yaml to match the release version
+5. **Packages Helm Chart** as `.tgz` file (e.g., `gharts-1.2.3.tgz`)
+6. **Uploads Chart** to GitHub Release as an asset
+7. **Publishes Chart to GHCR** with the semantic version embedded in the package
 8. **Deploys Test** to verify the release
 
 ### 3. Verify Release
