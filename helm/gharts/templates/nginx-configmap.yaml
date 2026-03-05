@@ -68,7 +68,8 @@ data:
                 add_header Content-Type text/plain;
             }
 
-            # API proxy to backend
+            {{- if .Values.frontend.nginx.apiProxy.enabled }}
+            # API proxy to backend (disabled when backend.ingress.enabled=true)
             location /api/ {
                 proxy_pass http://backend;
                 proxy_http_version 1.1;
@@ -81,6 +82,7 @@ data:
                 proxy_cache_bypass $http_upgrade;
                 proxy_read_timeout 90;
             }
+            {{- end }}
 
             # Serve /app/ path - Vite builds with base: '/app/'
             # Rewrite /app/xxx to /xxx and serve from root

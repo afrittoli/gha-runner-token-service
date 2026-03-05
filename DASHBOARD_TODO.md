@@ -19,7 +19,7 @@ Dashboard development is organized into **4 phases**, each with specific feature
 - [ ] **Remove legacy Jinja2 dashboard** - Clean up all docs, backend, frontend, tests, and TODOs related to old dashboard
   - Remove `app/templates/dashboard.html`
   - Remove Jinja2 template rendering code from `app/main.py`
-  - Remove `ENABLE_NEW_DASHBOARD` feature flag from config
+  - ~~Remove `ENABLE_NEW_DASHBOARD` feature flag from config~~ (done)
   - Remove `/dashboard-legacy` route
   - Update all documentation references
   - Remove legacy dashboard tests (`tests/test_existing_dashboard.py`)

@@ -30,7 +30,7 @@ data:
   # Logging
   LOG_LEVEL: {{ .Values.config.logLevel | default "INFO" | quote }}
 
-  # Backend API URL for frontend
-  VITE_API_URL: "http://{{ include "gharts.fullname" . }}-backend:{{ .Values.backend.service.port }}"
-
-
+  # CORS configuration
+  {{- if .Values.backend.cors.allowedOrigins }}
+  CORS_ALLOWED_ORIGINS: {{ .Values.backend.cors.allowedOrigins | join "," | quote }}
+  {{- end }}

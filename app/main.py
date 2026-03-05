@@ -118,17 +118,17 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
-# Add CORS middleware
-# Allow frontend to access API
-cors_origins = ["*"]  # Configure appropriately for production
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add CORS middleware only when cross-origin access is needed.
+# For same-origin deployments (frontend and API behind the same ingress host),
+# leave CORS_ALLOWED_ORIGINS unset — no middleware is added and requests flow normally.
+if settings.cors_allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.middleware("http")

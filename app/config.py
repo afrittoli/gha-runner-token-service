@@ -128,6 +128,16 @@ class Settings(BaseSettings):
         description="Delete runners with label drift even if currently running a job",
     )
 
+    # CORS Configuration
+    cors_allowed_origins: list[str] = Field(
+        default=[],
+        description=(
+            "Allowed CORS origins. Empty list disables CORS middleware (use for same-origin "
+            "deployments). Accepts a comma-separated string via env var: "
+            "CORS_ALLOWED_ORIGINS=https://app.example.com,https://other.example.com"
+        ),
+    )
+
     # HTTPS Configuration
     https_enabled: bool = Field(
         default=False,
@@ -142,11 +152,13 @@ class Settings(BaseSettings):
         description="Path to SSL private key file (required if https_enabled=true)",
     )
 
-    # Dashboard Features
-    enable_new_dashboard: bool = Field(
-        default=False,
-        description="Enable new React-based dashboard at /app path",
-    )
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: object) -> list[str]:
+        """Allow comma-separated string from env var in addition to a list."""
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v  # type: ignore[return-value]
 
     @field_validator("github_app_private_key_path")
     @classmethod
