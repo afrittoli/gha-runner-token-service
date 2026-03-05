@@ -83,6 +83,49 @@ def _find_user_by_claims(db: Session, claims: dict) -> Optional["User"]:
     return db.query(User).filter(or_(*conditions)).first()
 
 
+async def _get_authenticated_user(
+    payload: dict,
+    db: Session,
+    validator: OIDCValidator,
+) -> AuthenticatedUser:
+    """
+    Build an AuthenticatedUser from a validated token payload.
+
+    Shared by get_current_user and the demo-mode impersonation override.
+    Raises HTTPException if the user is not found or is inactive.
+    """
+    identity = validator.get_user_identity(payload)
+    db_user = _find_user_by_claims(db, payload)
+
+    if db_user is None:
+        logger.warning(
+            "user_not_authorized",
+            identity=identity,
+            email=payload.get("email"),
+            sub=payload.get("sub"),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=("User not authorized. Contact administrator to request access."),
+        )
+
+    if not db_user.is_active:
+        logger.warning(
+            "user_deactivated",
+            identity=identity,
+            user_id=db_user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is deactivated.",
+        )
+
+    db_user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return AuthenticatedUser(identity=identity, claims=payload, db_user=db_user)
+
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
     settings: Settings = Depends(get_settings),
@@ -120,70 +163,8 @@ async def get_current_user(
 
     token = credentials.credentials
     validator = OIDCValidator(settings)
-
-    # Check if this is an impersonation token (demo feature)
-    # Impersonation tokens are signed with HS256 and have is_impersonation=True
-    try:
-        from jose import jwt
-
-        # Try to decode without verification first to check if it's an impersonation token
-        unverified_payload = jwt.get_unverified_claims(token)
-        if unverified_payload.get("is_impersonation"):
-            # This is an impersonation token - validate with our secret
-            payload = jwt.decode(
-                token,
-                "demo-impersonation-secret",  # TODO: Move to settings
-                algorithms=["HS256"],
-                audience=settings.oidc_audience,
-                issuer=settings.oidc_issuer,
-            )
-            # Impersonation token validated successfully
-            logger.info(
-                "impersonation_token_validated",
-                impersonated_by=payload.get("impersonated_by"),
-                target_user=payload.get("email"),
-            )
-        else:
-            # Regular OIDC token - validate normally
-            payload = await validator.validate_token(token)
-    except Exception:
-        # If impersonation check fails, try OIDC validation
-        payload = await validator.validate_token(token)
-
-    # Extract user identity
-    identity = validator.get_user_identity(payload)
-
-    # Find user in database
-    db_user = _find_user_by_claims(db, payload)
-
-    if db_user is None:
-        logger.warning(
-            "user_not_authorized",
-            identity=identity,
-            email=payload.get("email"),
-            sub=payload.get("sub"),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User not authorized. Contact administrator to request access.",
-        )
-
-    if not db_user.is_active:
-        logger.warning(
-            "user_deactivated",
-            identity=identity,
-            user_id=db_user.id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is deactivated.",
-        )
-
-    # Update last login timestamp
-    db_user.last_login_at = datetime.now(timezone.utc)
-    db.commit()
-
-    return AuthenticatedUser(identity=identity, claims=payload, db_user=db_user)
+    payload = await validator.validate_token(token)
+    return await _get_authenticated_user(payload, db, validator)
 
 
 async def get_current_user_optional(
@@ -231,7 +212,7 @@ def require_registration_token_access(
     if not user.can_use_registration_token:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access to registration token API not permitted for this user.",
+            detail=("Access to registration token API not permitted for this user."),
         )
     return user
 
