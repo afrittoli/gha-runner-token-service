@@ -105,75 +105,42 @@ jobs:
           echo "Images loaded in kind cluster:"
           docker exec helm-test-cluster-control-plane crictl images | grep gharts || true
 
-      - name: Create test values
+      - name: Pre-create k8s Secrets
         run: |
-          cat > test-values.yaml <<EOF
-          # Backend configuration
-          backend:
-            image:
-              repository: gharts-backend
-              tag: test
-              pullPolicy: IfNotPresent
-
-          # Frontend configuration
-          frontend:
-            image:
-              repository: gharts-frontend
-              tag: test
-              pullPolicy: IfNotPresent
-            config:
-              oidc:
-                authority: "https://example.com"
-                clientId: "test-client-id"
-                audience: "test-audience"
-                redirectUri: "http://localhost/app/callback"
-                postLogoutRedirectUri: "http://localhost/app"
-              api:
-                baseUrl: ""
-
-          # Use in-memory SQLite for CI testing (no external database needed)
-          postgresql:
-            enabled: false
-
-          # In-memory SQLite configuration (no persistence needed for tests)
-          extraEnv:
-            - name: DATABASE_URL
-              value: "sqlite:///:memory:"
-
-          # Application configuration
-          config:
-            github:
-              appId: "123456"
-              installationId: "789012"
-              privateKey: |
-                -----BEGIN RSA PRIVATE KEY-----
-                MIIEpAIBAAKCAQEAtest
-                -----END RSA PRIVATE KEY-----
-              organization: "test-org"
-            oidc:
-              enabled: true
-              issuer: "https://example.com"
-              audience: "test-audience"
-              jwksUrl: "https://example.com/.well-known/jwks.json"
-            logLevel: "INFO"
-            adminIdentities: "admin@example.com"
-            sync:
-              enabled: false
-              intervalSeconds: 300
-              onStartup: false
-
-          # Disable ingress for testing
-          ingress:
-            enabled: false
-          EOF
+          kubectl create secret generic gharts-github \
+            --from-literal=private-key.pem="-----BEGIN RSA PRIVATE KEY-----\ntest-key\n-----END RSA PRIVATE KEY-----"
+          kubectl create secret generic gharts-oidc \
+            --from-literal=oidc-client-id=test-client-id
 
       - name: Install chart
         run: |
           helm install gharts-test ./helm/gharts \
-            -f test-values.yaml \
             --wait \
             --timeout 2m \
-            --debug
+            --debug \
+            --set backend.image.repository=gharts-backend \
+            --set backend.image.tag=test \
+            --set backend.image.pullPolicy=IfNotPresent \
+            --set frontend.image.repository=gharts-frontend \
+            --set frontend.image.tag=test \
+            --set frontend.image.pullPolicy=IfNotPresent \
+            --set postgresql.enabled=false \
+            --set extraEnv[0].name=DATABASE_URL \
+            --set 'extraEnv[0].value=sqlite:///:memory:' \
+            --set github.organization=test-org \
+            --set github.appId=123456 \
+            --set github.installationId=789012 \
+            --set github.privateKeySecret=gharts-github \
+            --set github.privateKeySecretKey=private-key.pem \
+            --set oidc.enabled=true \
+            --set oidc.issuer=https://example.com/ \
+            --set oidc.audience=test-audience \
+            --set oidc.jwksUrl=https://example.com/.well-known/jwks.json \
+            --set oidc.clientIdSecret=gharts-oidc \
+            --set oidc.clientIdSecretKey=oidc-client-id \
+            --set oidc.redirectUri=http://localhost/app/callback \
+            --set oidc.postLogoutRedirectUri=http://localhost/app \
+            --set ingress.enabled=false
 
       - name: Run Helm tests
         run: helm test gharts-test --timeout 2m

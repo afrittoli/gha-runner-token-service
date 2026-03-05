@@ -241,40 +241,33 @@ jobs:
           sed -i "s/^version:.*/version: ${VERSION}/" helm/gharts/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/gharts/Chart.yaml
 
-          # Create test values
-          cat > test-values.yaml <<EOF
-          image:
-            backend:
-              repository: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
-              tag: ${VERSION}
-            frontend:
-              repository: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
-              tag: ${VERSION}
-
-          postgresql:
-            enabled: true
-            auth:
-              username: testuser
-              password: testpass
-              database: testdb
-
-          bootstrap:
-            enabled: true
-            admin:
-              username: admin
-              password: admin123
-              email: admin@example.com
-
-          config:
-            githubAppId: "123456"
-            githubAppPrivateKey: "test-key"
-            oidcClientId: "test-client"
-            oidcClientSecret: "test-secret"
-            oidcDiscoveryUrl: "https://example.com/.well-known/openid-configuration"
-          EOF
+          # Pre-create required k8s Secrets (chart never creates secrets from inline values)
+          kubectl create secret generic gharts-github \
+            --from-literal=private-key.pem="-----BEGIN RSA PRIVATE KEY-----\ntest-key\n-----END RSA PRIVATE KEY-----"
+          kubectl create secret generic gharts-oidc \
+            --from-literal=oidc-client-id=test-client
 
           # Install chart
-          helm install gharts ./helm/gharts -f test-values.yaml --wait --timeout 5m
+          helm install gharts ./helm/gharts --wait --timeout 5m \
+            --set backend.image.repository=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }} \
+            --set backend.image.tag=${VERSION} \
+            --set frontend.image.repository=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }} \
+            --set frontend.image.tag=${VERSION} \
+            --set postgresql.enabled=true \
+            --set postgresql.auth.username=testuser \
+            --set postgresql.auth.password=testpass \
+            --set postgresql.auth.database=testdb \
+            --set github.organization=test-org \
+            --set github.appId=123456 \
+            --set github.installationId=789 \
+            --set github.privateKeySecret=gharts-github \
+            --set github.privateKeySecretKey=private-key.pem \
+            --set oidc.enabled=true \
+            --set oidc.issuer=https://example.com/ \
+            --set oidc.audience=gharts \
+            --set oidc.jwksUrl=https://example.com/.well-known/jwks.json \
+            --set oidc.clientIdSecret=gharts-oidc \
+            --set oidc.clientIdSecretKey=oidc-client-id
 
           # Run Helm tests
           helm test gharts

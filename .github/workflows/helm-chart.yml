@@ -27,17 +27,36 @@ jobs:
       - name: Lint chart
         run: helm lint helm/gharts
 
-      - name: Validate chart templates
+      - name: Validate chart templates (built-in postgres)
         run: |
           helm template test-release helm/gharts \
-            --set config.githubAppId=123456 \
-            --set config.githubAppPrivateKey="test-key" \
-            --set config.oidcClientId=test-client \
-            --set config.oidcClientSecret=test-secret \
-            --set config.oidcDiscoveryUrl=https://example.com/.well-known/openid-configuration \
-            --set bootstrap.admin.password=test123 \
+            --set github.organization=test-org \
+            --set github.appId=123456 \
+            --set github.installationId=789 \
+            --set github.privateKeySecret=test-github-secret \
+            --set oidc.issuer=https://example.com/ \
+            --set oidc.audience=gharts \
+            --set oidc.jwksUrl=https://example.com/.well-known/jwks.json \
+            --set oidc.clientIdSecret=test-oidc-secret \
+            --set postgresql.auth.password=test-password \
             > /dev/null
-          echo "✅ Chart templates are valid"
+          echo "✅ Chart templates valid (built-in postgres)"
+
+      - name: Validate chart templates (external database)
+        run: |
+          helm template test-release helm/gharts \
+            --set github.organization=test-org \
+            --set github.appId=123456 \
+            --set github.installationId=789 \
+            --set github.privateKeySecret=test-github-secret \
+            --set oidc.issuer=https://example.com/ \
+            --set oidc.audience=gharts \
+            --set oidc.jwksUrl=https://example.com/.well-known/jwks.json \
+            --set oidc.clientIdSecret=test-oidc-secret \
+            --set postgresql.enabled=false \
+            --set database.databaseUrlSecret=test-db-secret \
+            > /dev/null
+          echo "✅ Chart templates valid (external database)"
 
       - name: Package chart
         run: |
