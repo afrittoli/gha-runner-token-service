@@ -1,4 +1,4 @@
-name: Docker Build
+name: Docker and Helm
 
 on:
   push:
@@ -107,10 +107,70 @@ jobs:
 
       - name: Pre-create k8s Secrets
         run: |
-          kubectl create secret generic gharts-github \
-            --from-literal=private-key.pem="-----BEGIN RSA PRIVATE KEY-----\ntest-key\n-----END RSA PRIVATE KEY-----"
-          kubectl create secret generic gharts-oidc \
-            --from-literal=oidc-client-id=test-client-id
+          cat > test-values.yaml <<EOF
+          # Backend configuration
+          backend:
+            image:
+              repository: gharts-backend
+              tag: test
+              pullPolicy: IfNotPresent
+
+          # Frontend configuration
+          frontend:
+            image:
+              repository: gharts-frontend
+              tag: test
+              pullPolicy: IfNotPresent
+            config:
+              oidc:
+                authority: "https://example.com"
+                clientId: "test-client-id"
+                audience: "test-audience"
+                redirectUri: "http://localhost/app/callback"
+                postLogoutRedirectUri: "http://localhost/app"
+              api:
+                baseUrl: ""
+
+          # Use in-memory SQLite for CI testing (no external database needed)
+          postgresql:
+            enabled: false
+
+          # Use external secrets to provide DATABASE_URL via extraEnv
+          secrets:
+            externalSecrets:
+              enabled: true
+
+          # In-memory SQLite configuration (no persistence needed for tests)
+          extraEnv:
+            - name: DATABASE_URL
+              value: "sqlite:///:memory:"
+
+          # Application configuration
+          config:
+            github:
+              appId: "123456"
+              installationId: "789012"
+              privateKey: |
+                -----BEGIN RSA PRIVATE KEY-----
+                MIIEpAIBAAKCAQEAtest
+                -----END RSA PRIVATE KEY-----
+              organization: "test-org"
+            oidc:
+              enabled: true
+              issuer: "https://example.com"
+              audience: "test-audience"
+              jwksUrl: "https://example.com/.well-known/jwks.json"
+            logLevel: "INFO"
+            adminIdentities: "admin@example.com"
+            sync:
+              enabled: false
+              intervalSeconds: 300
+              onStartup: false
+
+          # Disable ingress for testing
+          ingress:
+            enabled: false
+          EOF
 
       - name: Install chart
         run: |
