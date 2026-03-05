@@ -37,6 +37,15 @@ spec:
                 port:
                   number: {{ $.Values.frontend.service.port }}
           {{- end }}
+          {{- if $.Values.backend.ingress.enabled }}
+          - path: {{ $.Values.backend.ingress.path }}
+            pathType: {{ $.Values.backend.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "gharts.fullname" $ }}-backend
+                port:
+                  number: {{ $.Values.backend.service.port }}
+          {{- end }}
     {{- end }}
 {{- end }}
 

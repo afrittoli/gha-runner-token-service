@@ -85,6 +85,21 @@ backend:
   # Affinity rules
   affinity: {}
 
+  # CORS configuration
+  cors:
+    # Allowed origins for CORS. Empty list disables CORS middleware (same-origin deployment).
+    # Set when the frontend and backend are served from different hosts.
+    # Example: ["https://dashboard.example.com"]
+    allowedOrigins: []
+
+  # Direct ingress routing for the backend API.
+  # When enabled, /api/ is routed directly from the ingress to the backend service,
+  # bypassing the Nginx proxy. Set frontend.nginx.apiProxy.enabled=false in tandem.
+  ingress:
+    enabled: false
+    path: /api/
+    pathType: Prefix
+
 # Frontend (Nginx + React) configuration
 frontend:
   image:
@@ -175,9 +190,17 @@ frontend:
       # Example: "https://{{ .Values.ingress.hosts[0].host }}/app"
       postLogoutRedirectUri: ""
     api:
-      # API base URL (empty string means same-origin)
-      # Set this if frontend and backend are on different domains
+      # API base URL seen by the browser. Empty string means same-origin (recommended default).
+      # Set to a full URL only when the backend is on a different host from the frontend.
+      # Example: "https://api.example.com"
       baseUrl: ""
+
+  # Nginx configuration
+  nginx:
+    apiProxy:
+      # Proxy /api/ requests to the backend from within Nginx.
+      # Set to false when backend.ingress.enabled=true (backend has its own ingress route).
+      enabled: true
 
 # PostgreSQL database configuration (Bitnami subchart)
 # Set enabled=false to use an external managed database (recommended for production)
