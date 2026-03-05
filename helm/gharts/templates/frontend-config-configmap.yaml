@@ -5,20 +5,20 @@ metadata:
   labels:
     {{- include "gharts.frontend.labels" . | nindent 4 }}
 data:
-  # OIDC configuration (non-sensitive)
-  oidc-authority: {{ .Values.frontend.config.oidc.authority | quote }}
-  oidc-audience: {{ .Values.frontend.config.oidc.audience | quote }}
-  {{- if .Values.frontend.config.oidc.redirectUri }}
-  oidc-redirect-uri: {{ tpl .Values.frontend.config.oidc.redirectUri . | quote }}
-  {{- else }}
-  # Default: use first ingress host
+  # OIDC configuration (non-sensitive) — authority is the backend issuer URL
+  oidc-authority: {{ .Values.oidc.issuer | quote }}
+  oidc-audience: {{ .Values.oidc.audience | quote }}
+  {{- if .Values.oidc.redirectUri }}
+  oidc-redirect-uri: {{ tpl .Values.oidc.redirectUri . | quote }}
+  {{- else if .Values.ingress.enabled }}
   oidc-redirect-uri: "https://{{ (index .Values.ingress.hosts 0).host }}/app/callback"
-  {{- end }}
-  {{- if .Values.frontend.config.oidc.postLogoutRedirectUri }}
-  oidc-post-logout-redirect-uri: {{ tpl .Values.frontend.config.oidc.postLogoutRedirectUri . | quote }}
   {{- else }}
-  # Default: use first ingress host
-  oidc-post-logout-redirect-uri: "https://{{ (index .Values.ingress.hosts 0).host }}/app"
+  oidc-redirect-uri: ""
   {{- end }}
-  # API configuration
-  api-base-url: {{ .Values.frontend.config.api.baseUrl | quote }}
+  {{- if .Values.oidc.postLogoutRedirectUri }}
+  oidc-post-logout-redirect-uri: {{ tpl .Values.oidc.postLogoutRedirectUri . | quote }}
+  {{- else if .Values.ingress.enabled }}
+  oidc-post-logout-redirect-uri: "https://{{ (index .Values.ingress.hosts 0).host }}/app"
+  {{- else }}
+  oidc-post-logout-redirect-uri: ""
+  {{- end }}

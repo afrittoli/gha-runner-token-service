@@ -7,7 +7,7 @@ metadata:
   labels:
     {{- include "gharts.backend.labels" . | nindent 4 }}
 spec:
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.backend.minAvailable }}
   selector:
     matchLabels:
       {{- include "gharts.backend.selectorLabels" . | nindent 6 }}
@@ -19,10 +19,8 @@ metadata:
   labels:
     {{- include "gharts.frontend.labels" . | nindent 4 }}
 spec:
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.frontend.minAvailable }}
   selector:
     matchLabels:
       {{- include "gharts.frontend.selectorLabels" . | nindent 6 }}
 {{- end }}
-
-

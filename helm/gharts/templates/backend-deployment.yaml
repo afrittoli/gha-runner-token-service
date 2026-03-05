@@ -15,7 +15,9 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- if .Values.postgresql.enabled }}
+        checksum/db-secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
         {{- with .Values.backend.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -42,11 +44,28 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ include "gharts.fullname" . }}-config
-        - secretRef:
-            name: {{ include "gharts.fullname" . }}-secret
-        {{- with .Values.extraEnv }}
         env:
-          {{- toYaml . | nindent 10 }}
+        # DATABASE_URL from Secret (chart-created for built-in postgres; pre-existing for external)
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.postgresql.enabled }}
+              name: {{ include "gharts.fullname" . }}-postgres-url
+              key: DATABASE_URL
+              {{- else }}
+              name: {{ required "database.databaseUrlSecret must be set to a k8s Secret containing DATABASE_URL (required when postgresql.enabled=false)" .Values.database.databaseUrlSecret }}
+              key: {{ .Values.database.databaseUrlSecretKey }}
+              {{- end }}
+        # Optional webhook HMAC secret
+        {{- if .Values.github.webhookSecret }}
+        - name: GITHUB_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.github.webhookSecret }}
+              key: {{ .Values.github.webhookSecretKey }}
+        {{- end }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
         livenessProbe:
           {{- toYaml .Values.backend.livenessProbe | nindent 10 }}
@@ -72,7 +91,7 @@ spec:
         emptyDir: {}
       - name: github-key
         secret:
-          secretName: {{ include "gharts.fullname" . }}-github-key
+          secretName: {{ required "github.privateKeySecret must be set to a k8s Secret containing the GitHub App private key" .Values.github.privateKeySecret }}
           defaultMode: 0400
       {{- with .Values.extraVolumes }}
       {{- toYaml . | nindent 6 }}
@@ -89,5 +108,3 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-
-

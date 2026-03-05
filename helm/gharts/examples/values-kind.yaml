@@ -1,6 +1,18 @@
 # Kind Cluster Values
-# Optimized configuration for local kind cluster testing
-# Usage: helm install gharts ./helm/gharts -f helm/gharts/examples/values-kind.yaml
+# Optimized for local kind cluster testing.
+# Usage:
+#   # Pre-create Secrets
+#   kubectl create secret generic gharts-github \
+#     --from-file=private-key.pem=/path/to/private-key.pem
+#   kubectl create secret generic gharts-oidc \
+#     --from-literal=oidc-client-id=your-kind-client-id
+#
+#   # If using an external postgres installed separately:
+#   kubectl create secret generic gharts-db \
+#     --from-literal=DATABASE_URL="postgresql://gharts:gharts@gharts-postgresql:5432/gharts?sslmode=disable"
+#
+#   # Install
+#   helm install gharts ./helm/gharts -f helm/gharts/examples/values-kind.yaml
 
 replicaCount:
   backend: 1
@@ -8,13 +20,13 @@ replicaCount:
 
 backend:
   image:
-    repository: ghcr.io/afrittoli/gha-runner-token-service-backend
+    repository: ghcr.io/afrittoli/gharts-backend
     tag: "latest"
     pullPolicy: IfNotPresent
-  
+
   autoscaling:
     enabled: false
-  
+
   resources:
     limits:
       cpu: 500m
@@ -22,19 +34,16 @@ backend:
     requests:
       cpu: 100m
       memory: 256Mi
-  
-  podDisruptionBudget:
-    enabled: false
 
 frontend:
   image:
-    repository: ghcr.io/afrittoli/gha-runner-token-service-frontend
+    repository: ghcr.io/afrittoli/gharts-frontend
     tag: "latest"
     pullPolicy: IfNotPresent
-  
+
   autoscaling:
     enabled: false
-  
+
   resources:
     limits:
       cpu: 200m
@@ -42,64 +51,57 @@ frontend:
     requests:
       cpu: 50m
       memory: 64Mi
-  
-  podDisruptionBudget:
-    enabled: false
-  
-  # Frontend runtime configuration
-  config:
-    oidc:
-      authority: "https://your-oidc-provider.com"
-      clientId: "your-kind-client-id"
-      audience: "runner-token-service"
-      redirectUri: "http://gharts.local/app/callback"
-      postLogoutRedirectUri: "http://gharts.local/app"
-    api:
-      baseUrl: ""  # Same-origin
 
-# PostgreSQL - use external database (installed separately)
+# ─── OIDC ─────────────────────────────────────────────────────────────────────
+oidc:
+  enabled: true
+  issuer: "https://your-oidc-provider.com"
+  audience: "gharts"
+  jwksUrl: "https://your-oidc-provider.com/.well-known/jwks.json"
+  redirectUri: "http://gharts.local/app/callback"
+  postLogoutRedirectUri: "http://gharts.local/app"
+  clientIdSecret: "gharts-oidc"
+  clientIdSecretKey: "oidc-client-id"
+
+# ─── GitHub App ───────────────────────────────────────────────────────────────
+github:
+  organization: "your-org"
+  appId: "123456"
+  installationId: "12345678"
+  privateKeySecret: "gharts-github"
+  privateKeySecretKey: "private-key.pem"
+
+# ─── Database ─────────────────────────────────────────────────────────────────
+# Option A: use the built-in sub-chart (simpler)
 postgresql:
-  enabled: false
+  enabled: true
+  auth:
+    username: gharts
+    password: "gharts"
+    database: gharts
+  primary:
+    persistence:
+      enabled: false  # no persistence needed for kind testing
 
-externalDatabase:
-  host: "gharts-postgresql"
-  port: 5432
-  username: gharts
-  password: gharts
-  database: gharts
-  sslMode: disable
+# Option B: external postgres installed separately — set postgresql.enabled: false
+# and uncomment:
+# postgresql:
+#   enabled: false
+# database:
+#   sslMode: disable
+#   databaseUrlSecret: "gharts-db"
+#   databaseUrlSecretKey: "DATABASE_URL"
 
-# Application configuration
+# ─── Application ──────────────────────────────────────────────────────────────
 config:
-  github:
-    appId: "123456"
-    installationId: "12345678"
-    organization: "your-org"
-    privateKey: |
-      -----BEGIN RSA PRIVATE KEY-----
-      Your GitHub App private key here
-      -----END RSA PRIVATE KEY-----
-  
-  oidc:
-    enabled: true
-    issuer: "https://your-oidc-provider.com"
-    audience: "runner-token-service"
-    jwksUrl: "https://your-oidc-provider.com/.well-known/jwks.json"
-  
-  bootstrap:
-    enabled: true
-    username: "admin"
-    password: "admin123"
-    email: "admin@kind.local"
-  
+  logLevel: "DEBUG"
   sync:
     enabled: true
     intervalSeconds: 60
     onStartup: true
-  
-  logLevel: "DEBUG"
+  labelPolicy: "audit"
 
-# Ingress for kind
+# ─── Ingress ──────────────────────────────────────────────────────────────────
 ingress:
   enabled: true
   className: "nginx"
@@ -111,6 +113,12 @@ ingress:
           pathType: Prefix
   tls: []
 
-# Disable monitoring for kind
-serviceMonitor:
+podDisruptionBudget:
+  enabled: false
+  backend:
+    minAvailable: 1
+  frontend:
+    minAvailable: 1
+
+monitoring:
   enabled: false
