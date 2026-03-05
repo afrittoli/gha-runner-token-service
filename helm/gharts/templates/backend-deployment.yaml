@@ -31,6 +31,20 @@ spec:
       serviceAccountName: {{ include "gharts.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+      - name: wait-for-postgresql
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z {{ include "gharts.database.host" . }} 5432; do
+            echo "Waiting for PostgreSQL at {{ include "gharts.database.host" . }}:5432..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready."
+      {{- end }}
       containers:
       - name: backend
         securityContext:
@@ -45,17 +59,21 @@ spec:
         - configMapRef:
             name: {{ include "gharts.fullname" . }}-config
         env:
-        # DATABASE_URL from Secret (chart-created for built-in postgres; pre-existing for external)
+        # DATABASE_URL — from chart-created secret (built-in postgres), from a pre-existing
+        # k8s Secret (external database), or omitted when provided via extraEnv (e.g. SQLite for CI).
+        {{- if .Values.postgresql.enabled }}
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              {{- if .Values.postgresql.enabled }}
               name: {{ include "gharts.fullname" . }}-postgres-url
               key: DATABASE_URL
-              {{- else }}
-              name: {{ required "database.databaseUrlSecret must be set to a k8s Secret containing DATABASE_URL (required when postgresql.enabled=false)" .Values.database.databaseUrlSecret }}
+        {{- else if .Values.database.databaseUrlSecret }}
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.database.databaseUrlSecret }}
               key: {{ .Values.database.databaseUrlSecretKey }}
-              {{- end }}
+        {{- end }}
         # Optional webhook HMAC secret
         {{- if .Values.github.webhookSecret }}
         - name: GITHUB_WEBHOOK_SECRET

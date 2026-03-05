@@ -235,7 +235,7 @@ runner_service.db.*
 .claude
 .bob
 audit.json
-.cli.env
+.cli.env*
 
 # Helm chart dependencies (downloaded via helm dependency update)
 helm/*/charts/
