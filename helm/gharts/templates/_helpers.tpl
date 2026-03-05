@@ -92,46 +92,13 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Database host
+Database host — returns the built-in postgresql service name or the external host.
 */}}
 {{- define "gharts.database.host" -}}
 {{- if .Values.postgresql.enabled }}
 {{- printf "%s-postgresql" (include "gharts.fullname" .) }}
 {{- else }}
-{{- .Values.externalDatabase.host }}
-{{- end }}
-{{- end }}
-
-{{/*
-Database port
-*/}}
-{{- define "gharts.database.port" -}}
-{{- if .Values.postgresql.enabled }}
-{{- 5432 }}
-{{- else }}
-{{- .Values.externalDatabase.port }}
-{{- end }}
-{{- end }}
-
-{{/*
-Database name
-*/}}
-{{- define "gharts.database.name" -}}
-{{- if .Values.postgresql.enabled }}
-{{- .Values.postgresql.auth.database }}
-{{- else }}
-{{- .Values.externalDatabase.database }}
-{{- end }}
-{{- end }}
-
-{{/*
-Database username
-*/}}
-{{- define "gharts.database.username" -}}
-{{- if .Values.postgresql.enabled }}
-{{- .Values.postgresql.auth.username }}
-{{- else }}
-{{- .Values.externalDatabase.username }}
+{{- .Values.database.host }}
 {{- end }}
 {{- end }}
 

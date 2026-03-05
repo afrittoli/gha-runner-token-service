@@ -6,16 +6,17 @@ metadata:
     {{- include "gharts.labels" . | nindent 4 }}
 data:
   # GitHub configuration
-  GITHUB_ORG: {{ .Values.config.github.organization | quote }}
-  GITHUB_APP_ID: {{ .Values.config.github.appId | quote }}
-  GITHUB_APP_INSTALLATION_ID: {{ .Values.config.github.installationId | quote }}
+  GITHUB_ORG: {{ .Values.github.organization | quote }}
+  GITHUB_APP_ID: {{ .Values.github.appId | quote }}
+  GITHUB_APP_INSTALLATION_ID: {{ .Values.github.installationId | quote }}
   GITHUB_APP_PRIVATE_KEY_PATH: "/secrets/github/private-key.pem"
+  GITHUB_API_URL: {{ .Values.github.apiUrl | quote }}
 
   # OIDC configuration (all fields required by app, even when disabled)
-  ENABLE_OIDC_AUTH: {{ .Values.config.oidc.enabled | quote }}
-  OIDC_ISSUER: {{ .Values.config.oidc.issuer | default "https://placeholder.invalid" | quote }}
-  OIDC_AUDIENCE: {{ .Values.config.oidc.audience | default "gharts" | quote }}
-  OIDC_JWKS_URL: {{ .Values.config.oidc.jwksUrl | default "https://placeholder.invalid/.well-known/jwks.json" | quote }}
+  ENABLE_OIDC_AUTH: {{ .Values.oidc.enabled | quote }}
+  OIDC_ISSUER: {{ .Values.oidc.issuer | default "https://placeholder.invalid" | quote }}
+  OIDC_AUDIENCE: {{ .Values.oidc.audience | default "gharts" | quote }}
+  OIDC_JWKS_URL: {{ .Values.oidc.jwksUrl | default "https://placeholder.invalid/.well-known/jwks.json" | quote }}
 
   # Admin identities
   {{- if .Values.config.adminIdentities }}
@@ -29,8 +30,28 @@ data:
 
   # Logging
   LOG_LEVEL: {{ .Values.config.logLevel | default "INFO" | quote }}
+  ACCESS_LOG_TRACING: {{ .Values.config.accessLogTracing | quote }}
 
-  # CORS configuration
-  {{- if .Values.backend.cors.allowedOrigins }}
-  CORS_ALLOWED_ORIGINS: {{ .Values.backend.cors.allowedOrigins | join "," | quote }}
+  # Runner configuration
+  DEFAULT_RUNNER_GROUP_ID: {{ .Values.config.runner.defaultGroupId | quote }}
+  REGISTRATION_TOKEN_EXPIRY_HOURS: {{ .Values.config.runner.tokenExpiryHours | quote }}
+  CLEANUP_STALE_RUNNERS_HOURS: {{ .Values.config.runner.cleanupStaleHours | quote }}
+
+  # Label policy
+  LABEL_POLICY_ENFORCEMENT: {{ .Values.config.labelPolicy | quote }}
+  LABEL_DRIFT_DELETE_BUSY_RUNNERS: {{ .Values.config.labelDriftDeleteBusyRunners | quote }}
+
+  # Database connection pool
+  DB_POOL_SIZE: {{ .Values.database.poolSize | quote }}
+  DB_MAX_OVERFLOW: {{ .Values.database.maxOverflow | quote }}
+  DB_POOL_RECYCLE: {{ .Values.database.poolRecycle | quote }}
+  DB_SSL_MODE: {{ .Values.database.sslMode | quote }}
+  {{- if .Values.database.sslCertPath }}
+  DB_SSL_CERT: {{ .Values.database.sslCertPath | quote }}
+  {{- end }}
+  {{- if .Values.database.sslKeyPath }}
+  DB_SSL_KEY: {{ .Values.database.sslKeyPath | quote }}
+  {{- end }}
+  {{- if .Values.database.sslRootCertPath }}
+  DB_SSL_ROOT_CERT: {{ .Values.database.sslRootCertPath | quote }}
   {{- end }}

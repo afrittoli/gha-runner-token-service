@@ -15,6 +15,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/frontend-config: {{ include (print $.Template.BasePath "/frontend-config-configmap.yaml") . | sha256sum }}
         checksum/nginx: {{ include (print $.Template.BasePath "/nginx-configmap.yaml") . | sha256sum }}
         {{- with .Values.frontend.podAnnotations }}
         {{- toYaml . | nindent 8 }}
@@ -40,7 +41,7 @@ spec:
           containerPort: {{ .Values.frontend.service.targetPort }}
           protocol: TCP
         env:
-        # OIDC configuration from ConfigMap
+        # OIDC configuration from ConfigMap (non-sensitive)
         - name: OIDC_AUTHORITY
           valueFrom:
             configMapKeyRef:
@@ -61,17 +62,15 @@ spec:
             configMapKeyRef:
               name: {{ include "gharts.fullname" . }}-frontend-config
               key: oidc-post-logout-redirect-uri
-        - name: API_BASE_URL
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "gharts.fullname" . }}-frontend-config
-              key: api-base-url
-        # OIDC client ID from Secret
+        # OIDC client ID from pre-existing k8s Secret
         - name: OIDC_CLIENT_ID
           valueFrom:
             secretKeyRef:
-              name: {{ include "gharts.fullname" . }}-frontend-secrets
-              key: oidc-client-id
+              name: {{ required "oidc.clientIdSecret must be set to a k8s Secret containing the OIDC client ID" .Values.oidc.clientIdSecret }}
+              key: {{ .Values.oidc.clientIdSecretKey }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         livenessProbe:
           {{- toYaml .Values.frontend.livenessProbe | nindent 10 }}
         readinessProbe:
@@ -113,5 +112,3 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-
-

@@ -1,25 +1,28 @@
 # Production Environment Values
-# High availability configuration with autoscaling and monitoring
+# High availability configuration with external managed database and autoscaling.
+#
+# All secrets are expected to exist as k8s Secret resources before installation.
+# Create them via your secret management tool (e.g. kubectl, Vault Agent, ESO):
+#
+#   kubectl create secret generic gharts-github \
+#     --from-file=private-key.pem=/path/to/private-key.pem
+#
+#   kubectl create secret generic gharts-oidc \
+#     --from-literal=oidc-client-id=<your-client-id>
+#
+#   kubectl create secret generic gharts-db \
+#     --from-literal=DATABASE_URL="postgresql://user:pass@host:5432/gharts?sslmode=require"
 
 replicaCount:
   backend: 3
   frontend: 2
 
-image:
-  backend:
-    repository: ghcr.io/your-org/gha-runner-token-service-backend
-    tag: "1.0.0"
-    pullPolicy: IfNotPresent
-  frontend:
-    repository: ghcr.io/your-org/gha-runner-token-service-frontend
-    tag: "1.0.0"
-    pullPolicy: IfNotPresent
-
-# Pull from private registry if needed
-imagePullSecrets:
-  - name: ghcr-credentials
-
 backend:
+  image:
+    repository: ghcr.io/afrittoli/gharts-backend
+    tag: ""  # Defaults to chart appVersion; pin to a specific version in production
+    pullPolicy: IfNotPresent
+
   autoscaling:
     enabled: true
     minReplicas: 3
@@ -35,9 +38,19 @@ backend:
       cpu: 1000m
       memory: 1Gi
 
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 2
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
 
   nodeSelector:
     workload: application
@@ -61,21 +74,12 @@ backend:
                     - backend
             topologyKey: kubernetes.io/hostname
 
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
-    seccompProfile:
-      type: RuntimeDefault
-
-  securityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
-
 frontend:
+  image:
+    repository: ghcr.io/afrittoli/gharts-frontend
+    tag: ""  # Defaults to chart appVersion; pin to a specific version in production
+    pullPolicy: IfNotPresent
+
   autoscaling:
     enabled: true
     minReplicas: 2
@@ -90,9 +94,19 @@ frontend:
       cpu: 200m
       memory: 256Mi
 
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
 
   nodeSelector:
     workload: application
@@ -110,66 +124,53 @@ frontend:
                     - frontend
             topologyKey: kubernetes.io/hostname
 
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 101  # nginx user
-    fsGroup: 101
-    seccompProfile:
-      type: RuntimeDefault
+# ─── OIDC ─────────────────────────────────────────────────────────────────────
+oidc:
+  enabled: true
+  issuer: "https://auth.example.com/"
+  audience: "gharts"
+  jwksUrl: "https://auth.example.com/.well-known/jwks.json"
+  # redirectUri and postLogoutRedirectUri default to the ingress host below
+  clientIdSecret: "gharts-oidc"       # pre-existing k8s Secret
+  clientIdSecretKey: "oidc-client-id"
 
-  securityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
+# ─── GitHub App ───────────────────────────────────────────────────────────────
+github:
+  organization: "your-org"
+  appId: "123456"
+  installationId: "12345678"
+  privateKeySecret: "gharts-github"   # pre-existing k8s Secret
+  privateKeySecretKey: "private-key.pem"
+  # webhookSecret: "gharts-webhook"   # uncomment to enable webhook verification
 
-# Disable built-in PostgreSQL - use external managed database
+# ─── Database ─────────────────────────────────────────────────────────────────
 postgresql:
-  enabled: false
+  enabled: false  # Use external managed database for production
 
-# External managed database (AWS RDS, Cloud SQL, Azure DB, etc.)
-externalDatabase:
-  host: "prod-db.123456789012.us-east-1.rds.amazonaws.com"  # Your managed DB endpoint
-  port: 5432
-  username: gharts
-  password: ""  # Set via external secret manager or --set
-  database: gharts
-  sslMode: require  # Use verify-full for maximum security
+database:
+  host: "prod-db.xxxx.us-east-1.rds.amazonaws.com"
+  sslMode: require
+  databaseUrlSecret: "gharts-db"      # pre-existing k8s Secret
+  databaseUrlSecretKey: "DATABASE_URL"
+  poolSize: 20
+  maxOverflow: 10
+  poolRecycle: 1800
 
-# Production configuration
+# ─── Application ──────────────────────────────────────────────────────────────
 config:
-  # GitHub App credentials
-  github:
-    appId: "123456"
-    installationId: "12345678"
-    organization: "your-org"
-    privateKey: ""  # Set via external secret manager or --set-file
-
-  # OIDC authentication
-  oidc:
-    enabled: true
-    issuer: "https://auth.example.com/"
-    audience: "gharts"
-    jwksUrl: "https://auth.example.com/.well-known/jwks.json"
-
-  # Bootstrap admin (disable after initial setup)
-  bootstrap:
-    enabled: true
-    username: "admin"
-    password: ""  # Set via --set or external secret
-    email: "admin@example.com"
-
-  # Sync with GitHub
+  logLevel: "INFO"
+  adminIdentities: "admin@example.com"
   sync:
     enabled: true
     intervalSeconds: 300
     onStartup: true
+  runner:
+    defaultGroupId: 1
+    tokenExpiryHours: 1
+    cleanupStaleHours: 24
+  labelPolicy: "enforce"
 
-  # Production logging
-  logLevel: "INFO"
-
-# Production ingress with TLS
+# ─── Ingress ──────────────────────────────────────────────────────────────────
 ingress:
   enabled: true
   className: "nginx"
@@ -179,9 +180,6 @@ ingress:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/rate-limit: "100"
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
   hosts:
     - host: gharts.example.com
       paths:
@@ -192,19 +190,27 @@ ingress:
       hosts:
         - gharts.example.com
 
-# Enable Prometheus monitoring
-serviceMonitor:
-  enabled: true
-  interval: 30s
-  scrapeTimeout: 10s
-  labels:
-    prometheus: kube-prometheus
-
-# Service account with IRSA for AWS
+# ─── Service account with IRSA for AWS ────────────────────────────────────────
 serviceAccount:
   create: true
   annotations:
     eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/gharts-role"
   name: "gharts"
 
+# ─── Availability ─────────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  backend:
+    minAvailable: 2
+  frontend:
+    minAvailable: 1
 
+# ─── Monitoring ───────────────────────────────────────────────────────────────
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    labels:
+      prometheus: kube-prometheus

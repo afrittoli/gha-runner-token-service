@@ -1,27 +1,33 @@
 # Staging Environment Values
-# Production-like configuration with reduced resources
+# Production-like configuration with reduced resources.
+#
+# Pre-create the required Secrets before installing:
+#
+#   kubectl create secret generic gharts-github \
+#     --from-file=private-key.pem=/path/to/staging-private-key.pem
+#
+#   kubectl create secret generic gharts-oidc \
+#     --from-literal=oidc-client-id=<staging-client-id>
+#
+# The built-in PostgreSQL sub-chart is used for staging to avoid needing a
+# managed database. For a production-grade staging, switch to an external DB.
 
 replicaCount:
   backend: 2
   frontend: 1
 
-image:
-  backend:
-    repository: ghcr.io/your-org/gha-runner-token-service-backend
-    tag: "staging"
-    pullPolicy: Always
-  frontend:
-    repository: ghcr.io/your-org/gha-runner-token-service-frontend
-    tag: "staging"
+backend:
+  image:
+    repository: ghcr.io/afrittoli/gharts-backend
+    tag: ""
     pullPolicy: Always
 
-backend:
   autoscaling:
     enabled: true
     minReplicas: 2
     maxReplicas: 5
     targetCPUUtilizationPercentage: 75
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -29,18 +35,19 @@ backend:
     requests:
       cpu: 500m
       memory: 512Mi
-  
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
 
 frontend:
+  image:
+    repository: ghcr.io/afrittoli/gharts-frontend
+    tag: ""
+    pullPolicy: Always
+
   autoscaling:
     enabled: true
     minReplicas: 1
     maxReplicas: 3
     targetCPUUtilizationPercentage: 75
-  
+
   resources:
     limits:
       cpu: 500m
@@ -48,16 +55,30 @@ frontend:
     requests:
       cpu: 100m
       memory: 128Mi
-  
-  podDisruptionBudget:
-    enabled: false
 
-# Use built-in PostgreSQL with persistence
+# ─── OIDC ─────────────────────────────────────────────────────────────────────
+oidc:
+  enabled: true
+  issuer: "https://staging-auth.example.com/"
+  audience: "gharts"
+  jwksUrl: "https://staging-auth.example.com/.well-known/jwks.json"
+  clientIdSecret: "gharts-oidc"
+  clientIdSecretKey: "oidc-client-id"
+
+# ─── GitHub App ───────────────────────────────────────────────────────────────
+github:
+  organization: "your-org"
+  appId: "123456"
+  installationId: "12345678"
+  privateKeySecret: "gharts-github"
+  privateKeySecretKey: "private-key.pem"
+
+# ─── Database (built-in for staging) ──────────────────────────────────────────
 postgresql:
   enabled: true
   auth:
     username: gharts
-    password: stagingpassword
+    password: "staging-db-password"  # change to a real password
     database: gharts
   primary:
     persistence:
@@ -65,30 +86,16 @@ postgresql:
       size: 5Gi
       storageClass: "standard"
 
-# Staging configuration
+# ─── Application ──────────────────────────────────────────────────────────────
 config:
-  githubAppId: "123456"
-  githubAppPrivateKey: |
-    -----BEGIN RSA PRIVATE KEY-----
-    Your staging private key here
-    -----END RSA PRIVATE KEY-----
-  oidcClientId: "staging-client-id"
-  oidcClientSecret: "staging-client-secret"
-  oidcDiscoveryUrl: "https://staging-auth.example.com/.well-known/openid-configuration"
   logLevel: "INFO"
-  databasePoolSize: 20
-  databaseMaxOverflow: 10
-  corsOrigins: "https://staging.gharts.example.com"
+  sync:
+    enabled: true
+    intervalSeconds: 300
+    onStartup: true
+  labelPolicy: "audit"
 
-# Bootstrap admin for staging
-bootstrap:
-  enabled: true
-  admin:
-    username: "admin"
-    password: "staging-admin-password"
-    email: "admin@staging.example.com"
-
-# Staging ingress with TLS
+# ─── Ingress ──────────────────────────────────────────────────────────────────
 ingress:
   enabled: true
   className: "nginx"
@@ -105,9 +112,17 @@ ingress:
       hosts:
         - staging.gharts.example.com
 
-# Enable monitoring for staging
-serviceMonitor:
+# ─── Availability ─────────────────────────────────────────────────────────────
+podDisruptionBudget:
   enabled: true
-  interval: 60s
+  backend:
+    minAvailable: 1
+  frontend:
+    minAvailable: 1
 
-
+# ─── Monitoring ───────────────────────────────────────────────────────────────
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 60s

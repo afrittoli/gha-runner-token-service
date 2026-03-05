@@ -1,5 +1,17 @@
 # Development Environment Values
-# Minimal configuration for local development and testing
+# Minimal configuration for local development and testing.
+#
+# Pre-create the required Secrets before installing:
+#
+#   kubectl create secret generic gharts-github \
+#     --from-file=private-key.pem=/path/to/dev-private-key.pem
+#
+#   kubectl create secret generic gharts-oidc \
+#     --from-literal=oidc-client-id=dev-client-id
+#
+# Then install (with port-forward for access):
+#   helm install gharts ./helm/gharts -f helm/gharts/examples/values-development.yaml
+#   kubectl port-forward svc/gharts-frontend 8080:80
 
 replicaCount:
   backend: 1
@@ -7,13 +19,13 @@ replicaCount:
 
 backend:
   image:
-    repository: ghcr.io/afrittoli/gha-runner-token-service-backend
+    repository: ghcr.io/afrittoli/gharts-backend
     tag: "latest"
     pullPolicy: Always
-  
+
   autoscaling:
     enabled: false
-  
+
   resources:
     limits:
       cpu: 500m
@@ -21,19 +33,16 @@ backend:
     requests:
       cpu: 100m
       memory: 256Mi
-  
-  podDisruptionBudget:
-    enabled: false
 
 frontend:
   image:
-    repository: ghcr.io/afrittoli/gha-runner-token-service-frontend
+    repository: ghcr.io/afrittoli/gharts-frontend
     tag: "latest"
     pullPolicy: Always
-  
+
   autoscaling:
     enabled: false
-  
+
   resources:
     limits:
       cpu: 200m
@@ -41,60 +50,57 @@ frontend:
     requests:
       cpu: 50m
       memory: 64Mi
-  
-  podDisruptionBudget:
-    enabled: false
-  
-  # Frontend runtime configuration
-  config:
-    oidc:
-      authority: "https://dev-oidc.example.com"
-      clientId: "dev-client-id"
-      audience: "runner-token-service"
-      redirectUri: "http://localhost:8080/app/callback"
-      postLogoutRedirectUri: "http://localhost:8080/app"
-    api:
-      baseUrl: ""  # Same-origin
 
-# Use built-in PostgreSQL for development
+# ─── OIDC ─────────────────────────────────────────────────────────────────────
+oidc:
+  enabled: true
+  issuer: "https://dev-oidc.example.com"
+  audience: "gharts"
+  jwksUrl: "https://dev-oidc.example.com/.well-known/jwks.json"
+  redirectUri: "http://localhost:8080/app/callback"
+  postLogoutRedirectUri: "http://localhost:8080/app"
+  clientIdSecret: "gharts-oidc"
+  clientIdSecretKey: "oidc-client-id"
+
+# ─── GitHub App ───────────────────────────────────────────────────────────────
+github:
+  organization: "your-org"
+  appId: "123456"
+  installationId: "12345678"
+  privateKeySecret: "gharts-github"
+  privateKeySecretKey: "private-key.pem"
+
+# ─── Database (built-in for development) ──────────────────────────────────────
 postgresql:
   enabled: true
   auth:
     username: gharts
-    password: devpassword
+    password: "devpassword"
     database: gharts
   primary:
     persistence:
       enabled: true
       size: 1Gi
 
-# Development configuration
+# ─── Application ──────────────────────────────────────────────────────────────
 config:
-  githubAppId: "123456"
-  githubAppPrivateKey: |
-    -----BEGIN RSA PRIVATE KEY-----
-    Your development private key here
-    -----END RSA PRIVATE KEY-----
-  oidcClientId: "dev-client-id"
-  oidcClientSecret: "dev-client-secret"
-  oidcDiscoveryUrl: "https://dev-oidc.example.com/.well-known/openid-configuration"
   logLevel: "DEBUG"
-  databasePoolSize: 5
-  databaseMaxOverflow: 5
-
-# Bootstrap admin for development
-bootstrap:
-  enabled: true
-  admin:
-    username: "admin"
-    password: "admin123"
-    email: "admin@dev.local"
+  sync:
+    enabled: true
+    intervalSeconds: 60
+    onStartup: true
+  labelPolicy: "audit"
 
 # No ingress for development (use port-forward)
 ingress:
   enabled: false
 
-# No monitoring for development
-serviceMonitor:
+podDisruptionBudget:
   enabled: false
+  backend:
+    minAvailable: 1
+  frontend:
+    minAvailable: 1
 
+monitoring:
+  enabled: false

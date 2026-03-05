@@ -1,294 +1,202 @@
 # GitHub Actions Runner Token Service Helm Chart
 
-This Helm chart deploys the GitHub Actions Runner Token Service to Kubernetes.
+This Helm chart deploys the GitHub Actions Runner Token Service (gharts) to Kubernetes.
 
 ## Prerequisites
 
 - Kubernetes 1.24+
 - Helm 3.13+
-- PostgreSQL database (can be deployed with this chart)
-- GitHub App credentials
-- OIDC provider configuration
+- A GitHub App with the required permissions
+- An OIDC provider for authentication
+- PostgreSQL database (built-in sub-chart for dev; managed database for production)
+
+## Design principle: secrets stay out of Helm values
+
+The chart never creates Secret resources from inline values. All sensitive material
+(GitHub private key, OIDC client ID, database credentials) must be pre-loaded into
+k8s Secrets before installation. The chart references these Secrets by name.
+
+This means Helm release history is clean of credentials, and secret rotation is
+decoupled from chart upgrades.
 
 ## Installation
 
-### From OCI Registry (Recommended)
-
-The chart is published to GitHub Container Registry (GHCR) and can be installed directly:
+### 1. Create the required k8s Secrets
 
 ```bash
-# Install latest stable release
-helm install gharts oci://ghcr.io/afrittoli/gharts --version latest
+# GitHub App private key
+kubectl create secret generic gharts-github \
+  --from-file=private-key.pem=/path/to/github-app-private-key.pem
 
-# Install specific version
-helm install gharts oci://ghcr.io/afrittoli/gharts --version 1.2.3
+# OIDC client ID
+kubectl create secret generic gharts-oidc \
+  --from-literal=oidc-client-id=<your-oidc-client-id>
 
-# Install with custom values
-helm install gharts oci://ghcr.io/afrittoli/gharts \
-  --version 1.2.3 \
-  -f my-values.yaml
+# Database connection string (for external database only)
+kubectl create secret generic gharts-db \
+  --from-literal=DATABASE_URL="postgresql://user:pass@host:5432/gharts?sslmode=require"
 ```
 
-### From Local Chart
+### 2. Create a values file
+
+```yaml
+# my-values.yaml
+oidc:
+  issuer: "https://auth.example.com/"
+  audience: "gharts"
+  jwksUrl: "https://auth.example.com/.well-known/jwks.json"
+  clientIdSecret: "gharts-oidc"
+
+github:
+  organization: "your-org"
+  appId: "123456"
+  installationId: "12345678"
+  privateKeySecret: "gharts-github"
+
+postgresql:
+  enabled: false
+
+database:
+  databaseUrlSecret: "gharts-db"
+
+ingress:
+  hosts:
+    - host: gharts.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: gharts-tls
+      hosts:
+        - gharts.example.com
+```
+
+### 3. Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/afrittoli/gha-runner-token-service.git
-cd gha-runner-token-service
+# From OCI registry
+helm install gharts oci://ghcr.io/afrittoli/gharts --version 1.2.3 -f my-values.yaml
 
-# Install the chart
+# From local checkout
 helm install gharts ./helm/gharts -f my-values.yaml
 ```
 
-### From GitHub Release
+## Configuration reference
 
-```bash
-# Download chart from release
-wget https://github.com/afrittoli/gha-runner-token-service/releases/download/v1.2.3/gharts-1.2.3.tgz
-
-# Install from downloaded file
-helm install gharts ./gharts-1.2.3.tgz -f my-values.yaml
-```
-
-## Quick Start
-
-Create a values file with your configuration:
-
-```bash
-cat > my-values.yaml <<EOF
-config:
-  githubAppId: "YOUR_APP_ID"
-  githubAppPrivateKey: |
-    -----BEGIN RSA PRIVATE KEY-----
-    YOUR_PRIVATE_KEY
-    -----END RSA PRIVATE KEY-----
-  oidcClientId: "YOUR_CLIENT_ID"
-  oidcClientSecret: "YOUR_CLIENT_SECRET"
-  oidcDiscoveryUrl: "https://your-oidc-provider/.well-known/openid-configuration"
-
-bootstrap:
-  admin:
-    password: "SECURE_PASSWORD"
-EOF
-
-# Install from OCI registry
-helm install gharts oci://ghcr.io/afrittoli/gharts --version latest -f my-values.yaml
-```
-
-## Common Installation Scenarios
-
-### Using External PostgreSQL
-
-```bash
-helm install gharts oci://ghcr.io/afrittoli/gharts \
-  --version latest \
-  --set postgresql.enabled=false \
-  --set config.databaseUrl="postgresql://user:pass@host:5432/dbname" \
-  -f my-values.yaml
-```
-
-### With Ingress
-
-```bash
-helm install gharts oci://ghcr.io/afrittoli/gharts \
-  --version latest \
-  --set ingress.enabled=true \
-  --set ingress.hosts[0].host=gharts.example.com \
-  --set ingress.hosts[0].paths[0].path=/ \
-  --set ingress.hosts[0].paths[0].pathType=Prefix \
-  -f my-values.yaml
-```
-
-## Version Management
-
-The chart is published with multiple tags for flexibility:
-
-| Tag | Description | Example |
-|-----|-------------|---------|
-| `latest` | Latest stable release | `helm install gharts oci://ghcr.io/afrittoli/gharts --version latest` |
-| `1.2.3` | Specific version | `helm install gharts oci://ghcr.io/afrittoli/gharts --version 1.2.3` |
-| `1.2` | Latest patch in 1.2.x | `helm install gharts oci://ghcr.io/afrittoli/gharts --version 1.2` |
-| `1` | Latest minor in 1.x | `helm install gharts oci://ghcr.io/afrittoli/gharts --version 1` |
-| `main` | Latest from main branch (testing) | `helm install gharts oci://ghcr.io/afrittoli/gharts --version main` |
-| `sha-<commit>` | Specific commit (testing) | `helm install gharts oci://ghcr.io/afrittoli/gharts --version sha-abc123` |
-
-**Recommendation**: Use specific versions (e.g., `1.2.3`) in production for reproducibility.
-
-## Configuration
-
-### Image Configuration
+### OIDC (`oidc.*`)
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.backend.repository` | Backend image repository | `ghcr.io/your-org/gha-runner-token-service-backend` |
-| `image.backend.tag` | Backend image tag | `latest` |
-| `image.backend.pullPolicy` | Backend image pull policy | `IfNotPresent` |
-| `image.frontend.repository` | Frontend image repository | `ghcr.io/your-org/gha-runner-token-service-frontend` |
-| `image.frontend.tag` | Frontend image tag | `latest` |
-| `image.frontend.pullPolicy` | Frontend image pull policy | `IfNotPresent` |
+| `oidc.enabled` | Enable OIDC authentication | `true` |
+| `oidc.issuer` | OIDC provider issuer URL (used as authority by frontend) | `""` |
+| `oidc.audience` | Expected audience claim | `""` |
+| `oidc.jwksUrl` | JWKS URL for backend token validation | `""` |
+| `oidc.redirectUri` | Frontend post-login redirect (defaults to ingress host) | `""` |
+| `oidc.postLogoutRedirectUri` | Frontend post-logout redirect (defaults to ingress host) | `""` |
+| `oidc.clientIdSecret` | **k8s Secret name** containing the OIDC client ID | `""` (required) |
+| `oidc.clientIdSecretKey` | Key within the Secret | `"oidc-client-id"` |
 
-### Application Configuration
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `config.githubAppId` | GitHub App ID | `""` |
-| `config.githubAppPrivateKey` | GitHub App private key | `""` |
-| `config.oidcClientId` | OIDC client ID | `""` |
-| `config.oidcClientSecret` | OIDC client secret | `""` |
-| `config.oidcDiscoveryUrl` | OIDC discovery URL | `""` |
-| `config.logLevel` | Log level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
-| `config.corsOrigins` | CORS allowed origins | `*` |
-
-### Database Configuration
+### GitHub App (`github.*`)
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `postgresql.enabled` | Deploy PostgreSQL with the chart | `true` |
-| `postgresql.auth.username` | PostgreSQL username | `gharts` |
-| `postgresql.auth.password` | PostgreSQL password | `changeme` |
-| `postgresql.auth.database` | PostgreSQL database name | `gharts` |
-| `config.databaseUrl` | External database URL (if postgresql.enabled=false) | `""` |
-| `config.databasePoolSize` | Database connection pool size | `20` |
-| `config.databaseMaxOverflow` | Database connection pool max overflow | `10` |
+| `github.organization` | GitHub organization name | `""` |
+| `github.appId` | GitHub App ID | `""` |
+| `github.installationId` | GitHub App installation ID | `""` |
+| `github.apiUrl` | GitHub API URL (override for GHES) | `"https://api.github.com"` |
+| `github.privateKeySecret` | **k8s Secret name** containing the PEM private key | `""` (required) |
+| `github.privateKeySecretKey` | Key within the Secret | `"private-key.pem"` |
+| `github.webhookSecret` | **k8s Secret name** for webhook HMAC verification (optional) | `""` |
+| `github.webhookSecretKey` | Key within the Secret | `"webhook-secret"` |
 
-### Bootstrap Configuration
+### Database
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `bootstrap.enabled` | Enable bootstrap admin creation | `true` |
-| `bootstrap.admin.username` | Bootstrap admin username | `admin` |
-| `bootstrap.admin.password` | Bootstrap admin password | `changeme` |
-| `bootstrap.admin.email` | Bootstrap admin email | `admin@example.com` |
+#### Built-in PostgreSQL (`postgresql.*`)
 
-### Backend Configuration
+For development and CI only. Uses the [Bitnami PostgreSQL chart](https://github.com/bitnami/charts/tree/main/bitnami/postgresql).
+Set `postgresql.enabled: false` for any persistent environment.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `replicaCount.backend` | Number of backend replicas | `2` |
-| `backend.resources.limits.cpu` | Backend CPU limit | `1000m` |
-| `backend.resources.limits.memory` | Backend memory limit | `1Gi` |
-| `backend.resources.requests.cpu` | Backend CPU request | `500m` |
-| `backend.resources.requests.memory` | Backend memory request | `512Mi` |
-| `backend.autoscaling.enabled` | Enable backend autoscaling | `false` |
-| `backend.autoscaling.minReplicas` | Minimum backend replicas | `2` |
-| `backend.autoscaling.maxReplicas` | Maximum backend replicas | `10` |
-| `backend.autoscaling.targetCPUUtilizationPercentage` | Target CPU for autoscaling | `70` |
+| `postgresql.enabled` | Deploy built-in PostgreSQL | `true` |
+| `postgresql.auth.username` | Database username | `"gharts"` |
+| `postgresql.auth.password` | Database password | `""` |
+| `postgresql.auth.database` | Database name | `"gharts"` |
 
-### Frontend Configuration
+#### External database (`database.*`)
+
+Required when `postgresql.enabled: false`.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `replicaCount.frontend` | Number of frontend replicas | `2` |
-| `frontend.resources.limits.cpu` | Frontend CPU limit | `500m` |
-| `frontend.resources.limits.memory` | Frontend memory limit | `256Mi` |
-| `frontend.resources.requests.cpu` | Frontend CPU request | `100m` |
-| `frontend.resources.requests.memory` | Frontend memory request | `128Mi` |
-| `frontend.autoscaling.enabled` | Enable frontend autoscaling | `false` |
-| `frontend.autoscaling.minReplicas` | Minimum frontend replicas | `2` |
-| `frontend.autoscaling.maxReplicas` | Maximum frontend replicas | `5` |
+| `database.sslMode` | SSL mode | `"require"` |
+| `database.databaseUrlSecret` | **k8s Secret name** containing full `DATABASE_URL` | `""` (required) |
+| `database.databaseUrlSecretKey` | Key within the Secret | `"DATABASE_URL"` |
+| `database.poolSize` | Connection pool size | `10` |
+| `database.maxOverflow` | Max overflow connections | `20` |
+| `database.poolRecycle` | Connection recycle interval (seconds) | `3600` |
+| `database.sslCertPath` | Path to SSL client cert (in-container) | `""` |
+| `database.sslKeyPath` | Path to SSL client key (in-container) | `""` |
+| `database.sslRootCertPath` | Path to SSL root cert (in-container) | `""` |
 
-### Ingress Configuration
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `ingress.enabled` | Enable ingress | `false` |
-| `ingress.className` | Ingress class name | `nginx` |
-| `ingress.annotations` | Ingress annotations | `{}` |
-| `ingress.hosts` | Ingress hosts configuration | `[]` |
-| `ingress.tls` | Ingress TLS configuration | `[]` |
-
-### Monitoring Configuration
+### Application behavior (`config.*`)
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `serviceMonitor.enabled` | Enable Prometheus ServiceMonitor | `false` |
-| `serviceMonitor.interval` | Scrape interval | `30s` |
-| `serviceMonitor.scrapeTimeout` | Scrape timeout | `10s` |
+| `config.logLevel` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `"INFO"` |
+| `config.accessLogTracing` | Enable detailed access log tracing | `false` |
+| `config.adminIdentities` | Comma-separated admin emails or OIDC sub claims | `""` |
+| `config.sync.enabled` | Enable background runner sync | `true` |
+| `config.sync.intervalSeconds` | Sync interval | `300` |
+| `config.sync.onStartup` | Sync on startup | `true` |
+| `config.runner.defaultGroupId` | Default runner group ID | `1` |
+| `config.runner.tokenExpiryHours` | Registration token expiry (hours) | `1` |
+| `config.runner.cleanupStaleHours` | Hours before a runner is considered stale | `24` |
+| `config.labelPolicy` | Label policy mode: `audit` or `enforce` | `"audit"` |
+| `config.labelDriftDeleteBusyRunners` | Delete runners with label drift even if busy | `false` |
+
+### Pod disruption budgets (`podDisruptionBudget.*`)
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `podDisruptionBudget.enabled` | Enable PDBs | `true` |
+| `podDisruptionBudget.backend.minAvailable` | Min available backend pods | `1` |
+| `podDisruptionBudget.frontend.minAvailable` | Min available frontend pods | `1` |
 
 ## Examples
 
-See the [examples](./examples/) directory for complete configuration examples:
+See the [examples](./examples/) directory for environment-specific configurations:
 
-- [Development](./examples/values-development.yaml) - Minimal configuration for local testing
-- [Staging](./examples/values-staging.yaml) - Production-like with reduced resources
-- [Production](./examples/values-production.yaml) - Full production configuration with HA
+- [Development](./examples/values-development.yaml) — single replica, built-in postgres, port-forward access
+- [Staging](./examples/values-staging.yaml) — HA backend, built-in postgres, Let's Encrypt staging
+- [Production](./examples/values-production.yaml) — full HA, external managed DB, Prometheus monitoring
+- [Kind](./examples/values-kind.yaml) — local kind cluster testing
 
 ## Upgrading
 
 ```bash
-# Upgrade to new version
-helm upgrade gharts ./helm/gharts \
-  -f my-values.yaml \
-  --set image.backend.tag=1.1.0 \
-  --set image.frontend.tag=1.1.0
-
-# Rollback if needed
-helm rollback gharts
-```
-
-## Uninstalling
-
-```bash
-helm uninstall gharts
-```
-
-## Testing
-
-The chart includes Helm tests that verify the deployment:
-
-```bash
-helm test gharts
+helm upgrade gharts ./helm/gharts -f my-values.yaml
 ```
 
 ## Troubleshooting
 
-### Pods Not Starting
+### Pods not starting
 
 ```bash
-# Check pod status
 kubectl get pods -l app.kubernetes.io/name=gharts
-
-# Check pod logs
 kubectl logs -l app.kubernetes.io/component=backend
-kubectl logs -l app.kubernetes.io/component=frontend
-
-# Describe pod for events
 kubectl describe pod <pod-name>
 ```
 
-### Database Connection Issues
+### Secret not found
+
+If a pod fails with `secret "..." not found`, the referenced k8s Secret does not exist.
+Create it with `kubectl create secret` before running `helm install`.
+
+### Database connection issues
 
 ```bash
-# Check database pod
-kubectl get pods -l app.kubernetes.io/name=postgresql
-
-# Check database logs
-kubectl logs -l app.kubernetes.io/name=postgresql
-
-# Test database connection
+kubectl logs -l app.kubernetes.io/component=backend | grep -i database
 kubectl run -it --rm debug --image=postgres:15 --restart=Never -- \
-  psql postgresql://gharts:PASSWORD@gharts-postgresql:5432/gharts
+  psql "$DATABASE_URL"
 ```
-
-### Ingress Not Working
-
-```bash
-# Check ingress status
-kubectl get ingress
-kubectl describe ingress gharts
-
-# Check ingress controller logs
-kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller
-```
-
-## Support
-
-For issues and questions:
-
-- [GitHub Issues](https://github.com/your-org/gha-runner-token-service/issues)
-- [Documentation](../../docs/kubernetes_deployment.md)
-- [Runbook](../../docs/kubernetes_runbook.md)
-
-## License
-
-See [LICENSE](../../LICENSE) file.

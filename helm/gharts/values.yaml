@@ -1,10 +1,8 @@
-# Default values for gharts
+# Default values for gharts.
 # This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
 
 # Global settings
 global:
-  # Image pull secrets for private registries
   imagePullSecrets: []
   # - name: regcred
 
@@ -41,7 +39,6 @@ backend:
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
 
-  # Liveness and readiness probes
   livenessProbe:
     httpGet:
       path: /health
@@ -60,45 +57,21 @@ backend:
     timeoutSeconds: 3
     failureThreshold: 3
 
-  # Pod security context (applied at pod level)
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 1000
     fsGroup: 1000
 
-  # Container security context (applied at container level)
   securityContext:
     capabilities:
       drop:
         - ALL
     readOnlyRootFilesystem: true
 
-  # Pod annotations
   podAnnotations: {}
-
-  # Node selector
   nodeSelector: {}
-
-  # Tolerations
   tolerations: []
-
-  # Affinity rules
   affinity: {}
-
-  # CORS configuration
-  cors:
-    # Allowed origins for CORS. Empty list disables CORS middleware (same-origin deployment).
-    # Set when the frontend and backend are served from different hosts.
-    # Example: ["https://dashboard.example.com"]
-    allowedOrigins: []
-
-  # Direct ingress routing for the backend API.
-  # When enabled, /api/ is routed directly from the ingress to the backend service,
-  # bypassing the Nginx proxy. Set frontend.nginx.apiProxy.enabled=false in tandem.
-  ingress:
-    enabled: false
-    path: /api/
-    pathType: Prefix
 
 # Frontend (Nginx + React) configuration
 frontend:
@@ -128,7 +101,6 @@ frontend:
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
 
-  # Liveness and readiness probes
   livenessProbe:
     httpGet:
       path: /health
@@ -147,68 +119,77 @@ frontend:
     timeoutSeconds: 2
     failureThreshold: 3
 
-  # Pod security context (applied at pod level)
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000  # Changed from 101 to match appuser in Dockerfile
+    runAsUser: 1000
     fsGroup: 1000
 
-  # Container security context (applied at container level)
   securityContext:
     capabilities:
       drop:
         - ALL
-    readOnlyRootFilesystem: false  # Changed to false to allow config.js generation
+    readOnlyRootFilesystem: false  # nginx writes config.js at startup
 
-  # Pod annotations
   podAnnotations: {}
-
-  # Node selector
   nodeSelector: {}
-
-  # Tolerations
   tolerations: []
-
-  # Affinity rules
   affinity: {}
 
-  # Runtime configuration (injected at container startup)
-  # These values are passed as environment variables to the container
-  # and used to generate config.js from config.template.js
-  config:
-    oidc:
-      # OIDC provider authority URL (e.g., https://your-tenant.auth0.com)
-      authority: ""
-      # OIDC client ID (stored in Secret)
-      clientId: ""
-      # OIDC audience (API identifier)
-      audience: "runner-token-service"
-      # Redirect URI after login (supports templating)
-      # Example: "https://{{ .Values.ingress.hosts[0].host }}/app/callback"
-      redirectUri: ""
-      # Redirect URI after logout (supports templating)
-      # Example: "https://{{ .Values.ingress.hosts[0].host }}/app"
-      postLogoutRedirectUri: ""
-    api:
-      # API base URL seen by the browser. Empty string means same-origin (recommended default).
-      # Set to a full URL only when the backend is on a different host from the frontend.
-      # Example: "https://api.example.com"
-      baseUrl: ""
+# ─── OIDC configuration (shared by backend and frontend) ──────────────────────
+# Non-sensitive values go to ConfigMap. The client ID is read from a
+# pre-existing k8s Secret — the chart creates no Secret resources for OIDC.
+oidc:
+  enabled: true
 
-  # Nginx configuration
-  nginx:
-    apiProxy:
-      # Proxy /api/ requests to the backend from within Nginx.
-      # Set to false when backend.ingress.enabled=true (backend has its own ingress route).
-      enabled: true
+  # OIDC provider issuer URL — used as the backend issuer and frontend authority
+  issuer: ""
 
-# PostgreSQL database configuration (Bitnami subchart)
-# Set enabled=false to use an external managed database (recommended for production)
+  # Audience claim expected by the backend and requested by the frontend
+  audience: ""
+
+  # JWKS URL used by the backend to validate tokens
+  jwksUrl: ""
+
+  # Frontend redirect URLs (non-sensitive, stored in ConfigMap).
+  # When empty, defaults to https://<first ingress host>/app/callback and /app.
+  redirectUri: ""
+  postLogoutRedirectUri: ""
+
+  # OIDC client ID (SENSITIVE).
+  # Reference a pre-existing k8s Secret containing the client ID.
+  clientIdSecret: ""                    # k8s Secret name  (required)
+  clientIdSecretKey: "oidc-client-id"   # key within the Secret
+
+# ─── GitHub App configuration ─────────────────────────────────────────────────
+# Non-sensitive fields go to ConfigMap. The private key is read from a
+# pre-existing k8s Secret — the chart creates no Secret resources for GitHub.
+github:
+  organization: ""
+  appId: ""
+  installationId: ""
+
+  # Override for GitHub Enterprise Server; leave as default for github.com
+  apiUrl: "https://api.github.com"
+
+  # GitHub App private key (SENSITIVE).
+  # Reference a pre-existing k8s Secret containing the PEM private key.
+  privateKeySecret: ""                    # k8s Secret name  (required)
+  privateKeySecretKey: "private-key.pem"  # key within the Secret
+
+  # Webhook HMAC secret (SENSITIVE, optional).
+  # Leave webhookSecret empty to disable webhook signature verification.
+  webhookSecret: ""                     # k8s Secret name
+  webhookSecretKey: "webhook-secret"    # key within the Secret
+
+# ─── Database ─────────────────────────────────────────────────────────────────
+# Bitnami PostgreSQL sub-chart — for development and CI only.
+# Set enabled: false for any persistent or production environment and configure
+# the external database section below instead.
 postgresql:
-  enabled: true  # Set to false for production with managed database
+  enabled: true
   auth:
     username: gharts
-    password: changeme  # CHANGE IN PRODUCTION
+    password: ""  # Set a password before use
     database: gharts
   primary:
     persistence:
@@ -223,58 +204,56 @@ postgresql:
         cpu: 250m
         memory: 512Mi
 
-# External PostgreSQL configuration (used when postgresql.enabled=false)
-# Configure this for production with managed database services like:
-# - AWS RDS
-# - Google Cloud SQL
-# - Azure Database for PostgreSQL
-# - Self-managed PostgreSQL cluster
-externalDatabase:
-  host: ""  # e.g., "mydb.123456789012.us-east-1.rds.amazonaws.com"
+# External managed database — required when postgresql.enabled=false.
+# Typical for AWS RDS, Google Cloud SQL, Azure Database for PostgreSQL, etc.
+database:
+  host: ""   # e.g. mydb.xxxx.us-east-1.rds.amazonaws.com
   port: 5432
+  name: gharts
   username: gharts
-  password: ""  # Store in external secret manager for production
-  database: gharts
-  sslMode: require  # Options: disable, allow, prefer, require, verify-ca, verify-full
-  # Optional SSL certificates (for verify-ca or verify-full modes)
-  sslCert: ""
-  sslKey: ""
-  sslRootCert: ""
+  sslMode: require  # disable|allow|prefer|require|verify-ca|verify-full
 
-# Application configuration
+  # Full DATABASE_URL (SENSITIVE).
+  # Reference a pre-existing k8s Secret containing the complete connection string,
+  # e.g.: postgresql://user:pass@host:5432/dbname?sslmode=require
+  databaseUrlSecret: ""                 # k8s Secret name  (required when postgresql.enabled=false)
+  databaseUrlSecretKey: "DATABASE_URL"  # key within the Secret
+
+  # Connection pool tuning (applies regardless of postgresql.enabled)
+  poolSize: 10
+  maxOverflow: 20
+  poolRecycle: 3600
+
+  # SSL certificate file paths (optional, for verify-ca / verify-full).
+  # Provide the certificate files via extraVolumes + extraVolumeMounts and
+  # set the in-container paths here.
+  sslCertPath: ""
+  sslKeyPath: ""
+  sslRootCertPath: ""
+
+# ─── Application behavior (non-sensitive) ─────────────────────────────────────
 config:
-  # GitHub App credentials (required)
-  github:
-    appId: ""
-    installationId: ""
-    privateKey: ""  # Base64 encoded
-    organization: ""
-
-  # OIDC authentication
-  oidc:
-    enabled: true
-    issuer: ""
-    audience: ""
-    jwksUrl: ""
-
-  # Logging
   logLevel: "INFO"
+  accessLogTracing: false
 
-  # Admin identities (comma-separated)
+  # Comma-separated list of admin identities (email addresses or OIDC sub claims)
   adminIdentities: ""
 
-  # Sync configuration
   sync:
     enabled: true
     intervalSeconds: 300
     onStartup: true
 
-  # Security
-  security:
-    jwtSecret: ""  # Auto-generated if empty
-    sessionSecret: ""  # Auto-generated if empty
+  runner:
+    defaultGroupId: 1
+    tokenExpiryHours: 1
+    cleanupStaleHours: 24
 
-# Ingress configuration
+  # Label policy enforcement: audit (log violations) or enforce (block workflow)
+  labelPolicy: "audit"
+  labelDriftDeleteBusyRunners: false
+
+# ─── Ingress ──────────────────────────────────────────────────────────────────
 ingress:
   enabled: true
   className: "nginx"
@@ -306,17 +285,20 @@ gateway:
           name: gharts-tls
           namespace: default
 
-# Service Account
+# ─── Kubernetes resources ─────────────────────────────────────────────────────
 serviceAccount:
   create: true
-  annotations: {}
+  annotations: {}  # e.g. for AWS IRSA: eks.amazonaws.com/role-arn: "arn:aws:iam::..."
   name: ""
 
-# Pod Security Policy
-podSecurityPolicy:
-  enabled: false
+# Per-component pod disruption budgets
+podDisruptionBudget:
+  enabled: true
+  backend:
+    minAvailable: 1
+  frontend:
+    minAvailable: 1
 
-# Network Policy
 networkPolicy:
   enabled: false
   policyTypes:
@@ -336,45 +318,26 @@ networkPolicy:
         - protocol: TCP
           port: 5432  # PostgreSQL
 
-# Pod Disruption Budget
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 1
-
-# Monitoring
 monitoring:
   enabled: false
   serviceMonitor:
     enabled: false
     interval: 30s
     scrapeTimeout: 10s
+    labels: {}
 
-# Secrets management
-secrets:
-  # Use external secrets operator
-  externalSecrets:
-    enabled: false
-    backendType: "secretsManager"  # or "vault", "gcpSecretsManager"
-    region: "us-east-1"
-    secretName: "gharts-secrets"
-
-# Additional environment variables
+# ─── Extensibility ────────────────────────────────────────────────────────────
 extraEnv: []
 # - name: CUSTOM_VAR
 #   value: "custom-value"
 
-# Additional volumes
 extraVolumes: []
 # - name: custom-volume
 #   emptyDir: {}
 
-# Additional volume mounts
 extraVolumeMounts: []
 # - name: custom-volume
 #   mountPath: /custom
 
-# Init containers
 initContainers: []
-
-# Sidecar containers
 sidecars: []
