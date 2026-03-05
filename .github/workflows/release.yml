@@ -203,30 +203,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push chart to GHCR with semantic versions
+      - name: Push chart to GHCR
         run: |
           VERSION=${{ needs.create-release.outputs.version }}
           CHART_FILE="gharts-${VERSION}.tgz"
 
-          # Push with full version (e.g., 1.2.3)
-          echo "Pushing chart with version: ${VERSION}"
+          # Push the chart to GHCR
+          # The chart version is embedded in the package filename
+          echo "Pushing chart: $CHART_FILE (version: ${VERSION})"
           helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
 
-          # Extract major.minor (e.g., 1.2)
-          MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
-          echo "Pushing chart with version: ${MAJOR_MINOR}"
-          helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }} --version "${MAJOR_MINOR}"
-
-          # Extract major (e.g., 1)
-          MAJOR=$(echo "$VERSION" | cut -d. -f1)
-          echo "Pushing chart with version: ${MAJOR}"
-          helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }} --version "${MAJOR}"
-
-          # Push as latest
-          echo "Pushing chart with version: latest"
-          helm push "$CHART_FILE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }} --version "latest"
-
-          echo "✅ Helm chart published to GHCR with tags: ${VERSION}, ${MAJOR_MINOR}, ${MAJOR}, latest"
+          echo "✅ Helm chart published to GHCR"
+          echo "Chart can be installed with:"
+          echo "  helm install gharts oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/gharts --version ${VERSION}"
 
   verify-deployment:
     runs-on: ubuntu-latest

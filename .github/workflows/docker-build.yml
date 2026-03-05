@@ -1,4 +1,4 @@
-name: Docker Build
+name: Docker and Helm
 
 on:
   push:
@@ -135,6 +135,11 @@ jobs:
           postgresql:
             enabled: false
 
+          # Use external secrets to provide DATABASE_URL via extraEnv
+          secrets:
+            externalSecrets:
+              enabled: true
+
           # In-memory SQLite configuration (no persistence needed for tests)
           extraEnv:
             - name: DATABASE_URL
@@ -224,14 +229,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for chart tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/gharts
-          tags: |
-            type=ref,event=branch
-            type=sha
+      - name: Update Chart version for main branch
+        run: |
+          # Use a development version with commit SHA
+          CHART_VERSION="0.0.0-main.${GITHUB_SHA::7}"
+          sed -i "s/^version:.*/version: ${CHART_VERSION}/" helm/gharts/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"main-${GITHUB_SHA::7}\"/" helm/gharts/Chart.yaml
+          echo "Updated chart version to: ${CHART_VERSION}"
 
       - name: Package Helm chart
         run: |
@@ -239,18 +243,15 @@ jobs:
 
       - name: Push chart to GHCR
         run: |
-          # Extract tags from metadata
-          TAGS="${{ steps.meta.outputs.tags }}"
-
-          # Push chart with each tag
-          for tag in $TAGS; do
-            # Extract just the tag part (after the last :)
-            chart_tag="${tag##*:}"
-            echo "Pushing chart with tag: $chart_tag"
-            helm push gharts-*.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }} --version "$chart_tag"
-          done
+          # Push the chart to GHCR
+          # The chart version is embedded in the package filename
+          CHART_PACKAGE=$(ls gharts-*.tgz)
+          echo "Pushing chart: $CHART_PACKAGE"
+          helm push "$CHART_PACKAGE" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
 
           echo "✅ Helm chart published to GHCR"
+          echo "Chart can be installed with:"
+          echo "  helm install gharts oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/gharts"
 
   build-frontend:
     runs-on: ubuntu-latest
