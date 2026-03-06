@@ -249,3 +249,11 @@ helm/*/charts/
 .claude
 .zencoder
 .zenflow
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+terraform.tfvars
+.terraform.lock.hcl
