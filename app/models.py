@@ -246,6 +246,45 @@ class SecurityEvent(Base):
     )
 
 
+class OAuthClient(Base):
+    """OAuth M2M clients registered for team-level access.
+
+    Each record links an Auth0 M2M ``client_id`` to a team. When gharts
+    receives a JWT with a ``team`` claim it validates that the sub/client is
+    known and active. This table also provides an audit trail for credential
+    rotation and activity monitoring.
+    """
+
+    __tablename__ = "oauth_clients"
+
+    # Primary key
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    # Auth0 client_id (matches ``sub`` claim in client_credentials tokens)
+    client_id = Column(String, nullable=False, unique=True, index=True)
+
+    # Team association
+    team_id = Column(
+        String,
+        ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Human-readable label
+    description = Column(Text, nullable=True)
+
+    # Soft disable
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+
+    # Audit
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    created_by = Column(String, nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (Index("ix_oauth_clients_team_active", "team_id", "is_active"),)
+
+
 class Team(Base):
     """Team for organizing users and managing runner policies."""
 
