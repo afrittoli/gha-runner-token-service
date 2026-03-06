@@ -20,6 +20,9 @@ export interface RunnerFilters {
   ephemeral?: boolean
   limit?: number
   offset?: number
+  /** Filter by team name. Individual users see all their team runners by
+   *  default; this narrows to one specific team. */
+  team?: string
 }
 
 export function useRunners(filters: RunnerFilters = {}) {
