@@ -1,0 +1,40 @@
+# Copy this file to terraform.tfvars (git-ignored) and fill in your values.
+# Alternatively, export TF_VAR_* environment variables.
+
+# ---------------------------------------------------------------------------
+# Auth0 Management API credentials
+# Obtain from: Auth0 Dashboard → Applications → APIs → Management API
+# → Machine-to-Machine Apps → your management app → Settings
+# ---------------------------------------------------------------------------
+auth0_domain             = "your-tenant.auth0.com"
+auth0_mgmt_client_id     = "REPLACE_WITH_MGMT_CLIENT_ID"
+auth0_mgmt_client_secret = "REPLACE_WITH_MGMT_CLIENT_SECRET"
+
+# ---------------------------------------------------------------------------
+# Teams — one Auth0 M2M application is created per team.
+# Team names should match the team names in the gharts database.
+# ---------------------------------------------------------------------------
+teams = [
+  "platform-team",
+  "infra",
+  "security",
+]
+
+# ---------------------------------------------------------------------------
+# SPA URLs — update to match your deployment hostname(s).
+# Multiple values are supported for staging + production in one tenant.
+# ---------------------------------------------------------------------------
+spa_callback_urls = [
+  "https://gharts.example.com/app/callback",
+  "http://localhost:5173/app/callback",  # local development
+]
+
+spa_logout_urls = [
+  "https://gharts.example.com/app",
+  "http://localhost:5173/app",
+]
+
+spa_web_origins = [
+  "https://gharts.example.com",
+  "http://localhost:5173",
+]
