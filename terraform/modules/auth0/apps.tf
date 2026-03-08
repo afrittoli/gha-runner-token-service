@@ -9,10 +9,10 @@ resource "auth0_client" "spa" {
 
   oidc_conformant = true
 
-  callbacks               = var.spa_urls.callback
-  allowed_logout_urls     = var.spa_urls.logout
-  web_origins             = var.spa_urls.web_origins
-  allowed_origins         = var.spa_urls.web_origins
+  callbacks           = var.spa_urls.callback
+  allowed_logout_urls = var.spa_urls.logout
+  web_origins         = var.spa_urls.web_origins
+  allowed_origins     = var.spa_urls.web_origins
 
   jwt_configuration {
     alg = "RS256"
