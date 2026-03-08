@@ -240,7 +240,7 @@ async def get_current_user(
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=("User not authorized. " "Contact administrator to request access."),
+            detail=("User not authorized. Contact administrator to request access."),
         )
 
     if not db_user.is_active:
