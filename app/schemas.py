@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ProvisionRunnerRequest(BaseModel):
@@ -395,11 +395,17 @@ class UserCreate(BaseModel):
         default=True,
         description="Allow access to JIT API",
     )
+    team_ids: List[str] = Field(
+        default_factory=list,
+        description="Team IDs to add the user to on creation",
+    )
 
     def model_post_init(self, __context) -> None:
         """Validate that at least one identifier is provided."""
         if not self.email and not self.oidc_sub:
             raise ValueError("Either 'email' or 'oidc_sub' must be provided")
+        if not self.is_admin and not self.team_ids:
+            raise ValueError("Non-admin users must belong to at least one team")
 
 
 class UserUpdate(BaseModel):
@@ -702,4 +708,52 @@ class UserTeamsResponse(BaseModel):
 
     user_id: str
     teams: List[TeamResponse]
+    total: int
+
+
+# ---------------------------------------------------------------------------
+# OAuth M2M client schemas
+# ---------------------------------------------------------------------------
+
+
+class OAuthClientCreate(BaseModel):
+    """Request to register a new OAuth M2M client for a team."""
+
+    client_id: str = Field(
+        ...,
+        description="Auth0 client_id of the M2M application",
+        min_length=1,
+    )
+    team_id: str = Field(..., description="Team this client is authorized for")
+    description: Optional[str] = Field(
+        None, description="Human-readable label (e.g. 'CI pipeline')"
+    )
+
+
+class OAuthClientUpdate(BaseModel):
+    """Request to update an OAuth M2M client."""
+
+    description: Optional[str] = Field(None, description="New description")
+    is_active: Optional[bool] = Field(None, description="Enable or disable")
+
+
+class OAuthClientResponse(BaseModel):
+    """OAuth M2M client details."""
+
+    id: str
+    client_id: str
+    team_id: str
+    description: Optional[str]
+    is_active: bool
+    created_at: datetime
+    created_by: Optional[str]
+    last_used_at: Optional[datetime]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OAuthClientListResponse(BaseModel):
+    """Paginated list of OAuth M2M clients."""
+
+    clients: List[OAuthClientResponse]
     total: int

@@ -283,10 +283,12 @@ def auth_override(test_db: Session, mock_user: AuthenticatedUser):
     test_db.commit()
     test_db.refresh(db_user)
 
-    # Attach db_user to AuthenticatedUser
+    # Attach db_user to AuthenticatedUser and sync computed fields
     mock_user.db_user = db_user
     mock_user.user_id = db_user.id
-    mock_user.is_admin = False
+    mock_user.is_admin = db_user.is_admin
+    mock_user.can_use_registration_token = db_user.can_use_registration_token
+    mock_user.can_use_jit = db_user.can_use_jit
 
     async def override_get_current_user():
         return mock_user
@@ -316,10 +318,14 @@ def admin_auth_override(
     test_db.commit()
     test_db.refresh(admin_db_user)
 
-    # Attach db_user to AuthenticatedUser
+    # Attach db_user to AuthenticatedUser and sync computed fields
     mock_admin_user.db_user = admin_db_user
     mock_admin_user.user_id = admin_db_user.id
-    mock_admin_user.is_admin = True
+    mock_admin_user.is_admin = admin_db_user.is_admin
+    mock_admin_user.can_use_registration_token = (
+        admin_db_user.can_use_registration_token
+    )
+    mock_admin_user.can_use_jit = admin_db_user.can_use_jit
 
     async def override_get_current_user():
         return mock_admin_user

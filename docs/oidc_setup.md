@@ -325,18 +325,150 @@ export AUTH0_NATIVE_CLIENT_ID="your-native-client-id-from-step-4"
 
 Note: The CLI script uses the device flow which doesn't require a client secret.
 
-### Step 6: (Optional) Create Machine-to-Machine Application
+### Step 6: Create Machine-to-Machine Applications (Team Credentials)
 
-Only needed for service accounts that authenticate without user interaction.
+M2M applications allow CI/CD pipelines and automation tools to authenticate at
+**team level** using OAuth `client_credentials` grant.  Each team gets its own
+M2M application so that credentials are independent and isolated.
+
+#### 6a: Create the Auth0 Action (one-time setup)
+
+The Action embeds the `team` claim into M2M tokens automatically.
+
+1. Go to **Actions → Library**
+2. Click **Build Custom**
+3. Configure:
+   - **Name**: `Add Team Claim`
+   - **Trigger**: Machine to Machine
+
+4. Paste the following code:
+
+```javascript
+// Auth0 Action: "Add Team Claim"
+// Trigger: Machine to Machine / Post Token
+
+exports.onExecuteCredentialsExchange = async (event, api) => {
+  const teamName = event.client.metadata?.team;
+  if (teamName) {
+    api.accessToken.setCustomClaim("team", teamName);
+  }
+};
+```
+
+5. Click **Deploy**
+6. Go to **Actions → Flows → Machine to Machine**
+7. Drag the **Add Team Claim** action into the flow and click **Apply**
+
+#### 6b: Create one M2M application per team
+
+Repeat for each team that needs automated runner provisioning:
 
 1. Go to **Applications → Applications**
 2. Click **Create Application**
 3. Select **Machine to Machine Applications**
-4. Name it "Runner Token Service M2M"
-5. Select **Runner Token Service** API and authorize it
-6. Note the Client ID and Client Secret
+4. Name it `gharts-<team-name>` (e.g. `gharts-platform-team`)
+5. Select **Runner Token Service** API, choose **All scopes**, click **Authorize**
+6. Go to the **Settings** tab → scroll to **Application Metadata**
+7. Add a key `team` with the team name value (e.g. `platform-team`)
+8. Click **Save Changes**
+9. Note the **Client ID** and **Client Secret** (store in a secret manager)
 
-**Note**: M2M tokens contain no user context - the `sub` claim is the client_id, not a user identifier.
+#### 6c: Register the M2M client in gharts
+
+After the M2M app is created, register its `client_id` in gharts so that
+authentication events are tracked and you can revoke credentials without
+rotating the secret:
+
+```bash
+# Get an admin token first (device flow or dashboard)
+source docs/scripts/oidc.sh
+TOKEN=$(get_oidc_token)
+
+# Register the M2M client
+curl -X POST http://localhost:8000/api/v1/admin/oauth-clients \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "<Auth0-client-id>",
+    "team_id": "<gharts-team-uuid>",
+    "description": "CI pipeline for platform-team"
+  }'
+```
+
+You can list and manage OAuth clients via the admin API:
+
+```bash
+# List all registered M2M clients
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/admin/oauth-clients
+
+# Deactivate a client (without deleting it - keeps audit trail)
+curl -X PATCH \
+  http://localhost:8000/api/v1/admin/oauth-clients/<client-internal-id> \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": false}'
+```
+
+#### 6d: Use M2M credentials to provision runners
+
+```bash
+# Obtain a team token using client_credentials grant
+M2M_TOKEN=$(curl -s --request POST \
+  --url "https://${AUTH0_DOMAIN}/oauth/token" \
+  --header "content-type: application/json" \
+  --data '{
+    "client_id": "'"${AUTH0_M2M_CLIENT_ID}"'",
+    "client_secret": "'"${AUTH0_M2M_CLIENT_SECRET}"'",
+    "audience": "runner-token-service",
+    "grant_type": "client_credentials"
+  }' | jq -r '.access_token')
+
+# Provision a runner using the team token
+curl -X POST http://localhost:8000/api/v1/runners/provision \
+  -H "Authorization: Bearer ${M2M_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name_prefix": "ci",
+    "labels": ["linux", "x64"]
+  }'
+```
+
+The JWT returned by Auth0 will contain `"team": "platform-team"` and the
+backend will resolve team membership directly from this claim — no database
+user record is required.
+
+**Shell helper** (save as `scripts/m2m_token.sh`):
+
+```bash
+#!/usr/bin/env bash
+# Usage: source scripts/m2m_token.sh
+# Exports M2M_TOKEN with a valid client_credentials token.
+# Requires: AUTH0_DOMAIN, AUTH0_M2M_CLIENT_ID, AUTH0_M2M_CLIENT_SECRET,
+#           AUTH0_AUDIENCE (defaults to runner-token-service)
+
+AUTH0_AUDIENCE="${AUTH0_AUDIENCE:-runner-token-service}"
+
+M2M_TOKEN=$(curl -s --request POST \
+  --url "https://${AUTH0_DOMAIN}/oauth/token" \
+  --header "content-type: application/json" \
+  --data "{
+    \"client_id\": \"${AUTH0_M2M_CLIENT_ID}\",
+    \"client_secret\": \"${AUTH0_M2M_CLIENT_SECRET}\",
+    \"audience\": \"${AUTH0_AUDIENCE}\",
+    \"grant_type\": \"client_credentials\"
+  }" | jq -r '.access_token')
+
+export M2M_TOKEN
+echo "Token obtained (expires in ~24h)"
+```
+
+**Important security notes:**
+- Store `client_secret` in a secrets manager (Vault, AWS Secrets Manager,
+  GitHub Actions Secrets, etc.) — **never** in source control.
+- Prefer short-lived tokens: configure Auth0 API token lifetime to 3600s (1h)
+  for M2M apps used in ephemeral pipelines.
+- Rotate secrets regularly. Auth0 supports "Rotate Secret" without downtime.
 
 ## Obtaining Tokens
 
@@ -403,12 +535,14 @@ curl -s --request POST \
   }' | jq -r '.access_token'
 ```
 
-### Option 4: Client Credentials (Service Accounts)
+### Option 4: Client Credentials (Team M2M — Recommended for CI/CD)
 
-For automated services without user context:
+For CI/CD pipelines and automation tools using team-level credentials (see
+[Step 6](#step-6-create-machine-to-machine-applications-team-credentials)):
 
 ```bash
-curl -s --request POST \
+# Obtain a team token (JWT will contain "team": "<team-name>")
+M2M_TOKEN=$(curl -s --request POST \
   --url "https://${AUTH0_DOMAIN}/oauth/token" \
   --header "content-type: application/json" \
   --data '{
@@ -416,8 +550,17 @@ curl -s --request POST \
     "client_secret": "'"${AUTH0_M2M_CLIENT_SECRET}"'",
     "audience": "'"${AUTH0_AUDIENCE}"'",
     "grant_type": "client_credentials"
-  }' | jq -r '.access_token'
+  }' | jq -r '.access_token')
+
+# Provision a runner — no user record needed, team is in the JWT
+curl -X POST http://localhost:8000/api/v1/runners/provision \
+  -H "Authorization: Bearer ${M2M_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"runner_name_prefix": "ci", "labels": ["linux", "x64"]}'
 ```
+
+See [scripts/m2m_token.sh](#6d-use-m2m-credentials-to-provision-runners) for
+a reusable shell helper.
 
 ## User Authorization
 

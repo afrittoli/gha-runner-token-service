@@ -3,8 +3,8 @@ import {
   useTeamMembers,
   useAddTeamMember,
   useRemoveTeamMember,
-  AddTeamMemberRequest,
 } from '@hooks/useTeams'
+import { useUsers } from '@hooks/useAdmin'
 
 interface TeamMembersProps {
   teamId: string
@@ -16,18 +16,17 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
   const { data: membersData, isLoading } = useTeamMembers(teamId)
   const addMember = useAddTeamMember(teamId)
   const removeMember = useRemoveTeamMember(teamId)
+  const { data: usersData } = useUsers()
 
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newMemberData, setNewMemberData] = useState<AddTeamMemberRequest>({
-    user_id: '',
-  })
+  const [selectedUserId, setSelectedUserId] = useState('')
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await addMember.mutateAsync(newMemberData)
+      await addMember.mutateAsync({ user_id: selectedUserId })
       setShowAddModal(false)
-      setNewMemberData({ user_id: '' })
+      setSelectedUserId('')
     } catch (error) {
       console.error('Failed to add member:', error)
     }
@@ -169,21 +168,26 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
               <h3 className="text-lg font-bold mb-4">Add Team Member</h3>
               <form onSubmit={handleAddMember} className="space-y-4">
                 <div>
-                  <label htmlFor="user-id-input" className="block text-sm font-medium text-gray-700">
-                    User ID / Email
+                  <label htmlFor="user-select" className="block text-sm font-medium text-gray-700">
+                    User
                   </label>
-                  <input
-                    id="user-id-input"
-                    type="text"
+                  <select
+                    id="user-select"
                     required
-                    value={newMemberData.user_id}
-                    onChange={(e) => setNewMemberData({ ...newMemberData, user_id: e.target.value })}
-                    placeholder="user@example.com"
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-gh-blue focus:border-gh-blue"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Enter the user's email address or identity
-                  </p>
+                  >
+                    <option value="">Select a user...</option>
+                    {usersData?.users
+                      .filter(u => u.is_active && !membersData?.members.some(m => m.user_id === u.id))
+                      .map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.email}{u.display_name ? ` (${u.display_name})` : ''}
+                        </option>
+                      ))
+                    }
+                  </select>
                 </div>
 
                 {addMember.isError && (
@@ -197,7 +201,7 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                     type="button"
                     onClick={() => {
                       setShowAddModal(false)
-                      setNewMemberData({ user_id: '' })
+                      setSelectedUserId('')
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >

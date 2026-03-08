@@ -420,17 +420,24 @@ class TestUserAdminEndpoints:
     """Tests for user management admin endpoints."""
 
     def test_create_user_endpoint(self, client: TestClient, test_db: Session):
-        """Test creating a user via admin API."""
-        from app.auth.dependencies import get_current_user
+        """Test creating a non-admin user via admin API, including team assignment."""
         from app.api.v1.admin import require_admin
+        from app.auth.dependencies import get_current_user
         from app.config import get_settings
         from app.database import get_db
         from app.main import app
+        from app.services.team_service import TeamService
 
-        # Create admin user for auth
         user_service = UserService(test_db)
         admin_db_user = user_service.create_user(
             email="admin@example.com", is_admin=True
+        )
+        # Create a team so we can assign the new non-admin user to it
+        team_service = TeamService(test_db)
+        team = team_service.create_team(
+            name="engineering",
+            required_labels=["linux"],
+            created_by="admin@example.com",
         )
 
         admin_user = AuthenticatedUser(
@@ -463,6 +470,7 @@ class TestUserAdminEndpoints:
                     "is_admin": False,
                     "can_use_registration_token": True,
                     "can_use_jit": False,
+                    "team_ids": [team.id],
                 },
             )
             assert response.status_code == 201
@@ -473,6 +481,11 @@ class TestUserAdminEndpoints:
             assert data["is_admin"] is False
             assert data["can_use_registration_token"] is True
             assert data["can_use_jit"] is False
+
+            # Verify the user was added to the team
+            members = team_service.get_team_members(team.id)
+            member_ids = [str(m.id) for m in members]
+            assert data["id"] in member_ids
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(require_admin, None)
@@ -779,10 +792,118 @@ class TestUserAdminEndpoints:
                 "/api/v1/admin/users",
                 json={
                     "email": "existing@example.com",  # Duplicate
+                    "is_admin": True,
                 },
             )
             assert response.status_code == 409
             assert "already exists" in response.json()["detail"].lower()
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+            app.dependency_overrides.pop(require_admin, None)
+            app.dependency_overrides.pop(get_db, None)
+            app.dependency_overrides.pop(get_settings, None)
+
+    def test_create_non_admin_user_without_team_rejected(
+        self, client: TestClient, test_db: Session
+    ):
+        """Non-admin users must belong to at least one team."""
+        from app.api.v1.admin import require_admin
+        from app.auth.dependencies import get_current_user
+        from app.config import get_settings
+        from app.database import get_db
+        from app.main import app
+
+        user_service = UserService(test_db)
+        admin_db_user = user_service.create_user(
+            email="admin2@example.com", is_admin=True
+        )
+        admin_user = AuthenticatedUser(
+            identity="admin2@example.com",
+            claims={"sub": "auth0|admin2", "email": "admin2@example.com"},
+            db_user=admin_db_user,
+        )
+
+        mock_settings = MagicMock()
+        mock_settings.enable_oidc_auth = True
+        mock_settings.admin_identities = ""
+
+        async def override_get_current_user():
+            return admin_user
+
+        async def override_require_admin():
+            return admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[require_admin] = override_require_admin
+        app.dependency_overrides[get_db] = lambda: test_db
+        app.dependency_overrides[get_settings] = lambda: mock_settings
+
+        try:
+            response = client.post(
+                "/api/v1/admin/users",
+                json={
+                    "email": "nogroup@example.com",
+                    "is_admin": False,
+                    # team_ids intentionally omitted
+                },
+            )
+            assert response.status_code == 422
+            assert response.json()["error_code"] == "VALIDATION_ERROR"
+        finally:
+            app.dependency_overrides.pop(get_current_user, None)
+            app.dependency_overrides.pop(require_admin, None)
+            app.dependency_overrides.pop(get_db, None)
+            app.dependency_overrides.pop(get_settings, None)
+
+    def test_create_admin_user_without_team_allowed(
+        self, client: TestClient, test_db: Session
+    ):
+        """Admin users do not require team membership on creation."""
+        from app.api.v1.admin import require_admin
+        from app.auth.dependencies import get_current_user
+        from app.config import get_settings
+        from app.database import get_db
+        from app.main import app
+
+        user_service = UserService(test_db)
+        admin_db_user = user_service.create_user(
+            email="superadmin@example.com", is_admin=True
+        )
+        admin_user = AuthenticatedUser(
+            identity="superadmin@example.com",
+            claims={
+                "sub": "auth0|superadmin",
+                "email": "superadmin@example.com",
+            },
+            db_user=admin_db_user,
+        )
+
+        mock_settings = MagicMock()
+        mock_settings.enable_oidc_auth = True
+        mock_settings.admin_identities = ""
+
+        async def override_get_current_user():
+            return admin_user
+
+        async def override_require_admin():
+            return admin_user
+
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        app.dependency_overrides[require_admin] = override_require_admin
+        app.dependency_overrides[get_db] = lambda: test_db
+        app.dependency_overrides[get_settings] = lambda: mock_settings
+
+        try:
+            response = client.post(
+                "/api/v1/admin/users",
+                json={
+                    "email": "newadmin@example.com",
+                    "is_admin": True,
+                    # team_ids omitted — should be fine for admins
+                },
+            )
+            assert response.status_code == 201
+            assert response.json()["is_admin"] is True
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(require_admin, None)

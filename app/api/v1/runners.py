@@ -141,19 +141,32 @@ async def list_runners(
         None,
         description="Filter by ephemeral flag (true/false)",
     ),
+    team: Optional[str] = Query(
+        None,
+        description=(
+            "Filter by team name. Individual users see runners for all "
+            "their teams by default; this narrows to one team."
+        ),
+    ),
     limit: int = Query(50, ge=1, le=200, description="Limit results (1-200)"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
 ):
-    """
-    List all runners provisioned by the authenticated user.
+    """List runners with team-scoped visibility.
 
     **Required Authentication:** OIDC Bearer token
 
+    **Visibility rules:**
+    - Individual users see all runners they provisioned **plus** all runners
+      belonging to any team they are a member of.
+    - M2M (team credential) tokens see only runners for their own team.
+    - Admins see all runners.
+
     **Query Parameters:**
-    - `status`: Filter by runner status (active, offline, pending)
-    - `ephemeral`: Filter by ephemeral flag
-    - `limit`: Results per page (1-200, default 50)
-    - `offset`: Pagination offset (default 0)
+    - `team`: Narrow results to a specific team name.
+    - `status`: Filter by runner status (active, offline, pending).
+    - `ephemeral`: Filter by ephemeral flag.
+    - `limit`: Results per page (1-200, default 50).
+    - `offset`: Pagination offset (default 0).
 
     **Returns:**
     - List of runners with their current status
@@ -161,7 +174,7 @@ async def list_runners(
     """
     service = RunnerService(settings, db)
 
-    all_runners = await service.list_runners(user)
+    all_runners = await service.list_runners(user, team_name=team)
 
     # Apply filters
     filtered_runners = all_runners

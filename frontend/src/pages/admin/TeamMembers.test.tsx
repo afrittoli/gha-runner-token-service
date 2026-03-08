@@ -7,6 +7,16 @@ import * as useTeamsHooks from '@hooks/useTeams'
 
 // Mock the hooks
 vi.mock('@hooks/useTeams')
+vi.mock('@hooks/useAdmin', () => ({
+  useUsers: vi.fn(() => ({
+    data: {
+      users: [
+        { id: 'user-3', email: 'charlie@example.com', display_name: 'Charlie', is_active: true },
+      ],
+    },
+    isLoading: false,
+  })),
+}))
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -177,7 +187,7 @@ describe('TeamMembers', () => {
       await user.click(addButton)
 
       expect(screen.getByText('Add Team Member')).toBeInTheDocument()
-      expect(screen.getByLabelText(/user id \/ email/i)).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: /user/i })).toBeInTheDocument()
     })
 
     it('should add member when form is submitted', async () => {
@@ -210,10 +220,9 @@ describe('TeamMembers', () => {
       const addButton = screen.getByRole('button', { name: /add member/i })
       await user.click(addButton)
 
-      // Fill form
-      const emailInput = screen.getByLabelText(/user id \/ email/i)
-      await user.type(emailInput, 'charlie@example.com')
-
+      // Select user from dropdown
+      const userSelect = screen.getByRole('combobox', { name: /user/i })
+      await user.selectOptions(userSelect, 'user-3')
 
       // Submit - get the second "Add Member" button (the one in the modal form)
       const addMemberButtons = screen.getAllByRole('button', { name: /add member/i })
@@ -221,8 +230,7 @@ describe('TeamMembers', () => {
 
       await waitFor(() => {
         expect(mockAddMember).toHaveBeenCalledWith({
-          user_id: 'charlie@example.com',
-          
+          user_id: 'user-3',
         })
       })
     })

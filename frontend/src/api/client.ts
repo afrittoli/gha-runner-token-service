@@ -147,6 +147,11 @@ export interface User {
   last_login_at: string | null
 }
 
+export interface TeamSummary {
+  id: string
+  name: string
+}
+
 export interface AuthInfo {
   user_id: string
   email: string | null
@@ -156,6 +161,8 @@ export interface AuthInfo {
   can_use_registration_token: boolean
   can_use_jit: boolean
   roles: string[]
+  /** Teams the user belongs to (populated from DB memberships). */
+  teams: TeamSummary[]
 }
 
 // Impersonation types

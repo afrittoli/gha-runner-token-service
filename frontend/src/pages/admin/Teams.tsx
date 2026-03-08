@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTeams, useCreateTeam, useDeactivateTeam, useReactivateTeam, TeamCreate, Team } from '@hooks/useTeams'
+import { useTeams, useCreateTeam, useUpdateTeam, useDeactivateTeam, useReactivateTeam, TeamCreate, TeamUpdate, Team } from '@hooks/useTeams'
 import TeamMembers from './TeamMembers'
 
 export default function Teams() {
@@ -11,6 +11,7 @@ export default function Teams() {
   const reactivateTeam = useReactivateTeam()
 
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [selectedTeamName, setSelectedTeamName] = useState<string>('')
   const [deactivateDialog, setDeactivateDialog] = useState<{
@@ -29,6 +30,10 @@ export default function Teams() {
   })
   const [labelInput, setLabelInput] = useState('')
   const [patternInput, setPatternInput] = useState('')
+  const [editFormData, setEditFormData] = useState<TeamUpdate>({})
+  const [editLabelInput, setEditLabelInput] = useState('')
+  const [editPatternInput, setEditPatternInput] = useState('')
+  const updateTeam = useUpdateTeam(editingTeam?.id ?? '')
 
   const isAdminTeam = (team: Team) => team.name.toLowerCase().includes('admin')
   
@@ -157,6 +162,29 @@ export default function Teams() {
     })
     setLabelInput('')
     setPatternInput('')
+  }
+
+  const openEditModal = (team: Team) => {
+    setEditingTeam(team)
+    setEditFormData({
+      description: team.description ?? '',
+      required_labels: [...team.required_labels],
+      optional_label_patterns: [...(team.optional_label_patterns ?? [])],
+      max_runners: team.max_runners ?? null,
+    })
+    setEditLabelInput('')
+    setEditPatternInput('')
+  }
+
+  const handleEditTeam = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingTeam) return
+    try {
+      await updateTeam.mutateAsync(editFormData)
+      setEditingTeam(null)
+    } catch (error) {
+      console.error('Failed to update team:', error)
+    }
   }
 
   const addLabel = () => {
@@ -320,6 +348,14 @@ export default function Teams() {
             >
               Manage Members
             </button>
+            {team.is_active && (
+              <button
+                onClick={() => openEditModal(team)}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Edit
+              </button>
+            )}
             {team.is_active && (
               <button
                 onClick={() => handleDeactivateTeam(team.id, team.name)}
@@ -769,6 +805,150 @@ export default function Teams() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Team Modal */}
+      {editingTeam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Edit Team: {editingTeam.name}</h2>
+            <form onSubmit={handleEditTeam} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <textarea
+                  value={editFormData.description ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  rows={3}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-gh-blue focus:border-gh-blue"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Required Labels</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={editLabelInput}
+                    onChange={(e) => setEditLabelInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const trimmed = editLabelInput.trim()
+                        if (trimmed && !(editFormData.required_labels ?? []).includes(trimmed)) {
+                          setEditFormData({ ...editFormData, required_labels: [...(editFormData.required_labels ?? []), trimmed] })
+                          setEditLabelInput('')
+                        }
+                      }
+                    }}
+                    placeholder="e.g., linux, docker"
+                    className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-gh-blue focus:border-gh-blue"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = editLabelInput.trim()
+                      if (trimmed && !(editFormData.required_labels ?? []).includes(trimmed)) {
+                        setEditFormData({ ...editFormData, required_labels: [...(editFormData.required_labels ?? []), trimmed] })
+                        setEditLabelInput('')
+                      }
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(editFormData.required_labels ?? []).map((label) => (
+                    <span key={label} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      {label}
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData({ ...editFormData, required_labels: (editFormData.required_labels ?? []).filter(l => l !== label) })}
+                        className="ml-2 text-blue-600 hover:text-blue-800"
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Optional Label Patterns (regex)</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={editPatternInput}
+                    onChange={(e) => setEditPatternInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const trimmed = editPatternInput.trim()
+                        if (trimmed && !(editFormData.optional_label_patterns ?? []).includes(trimmed)) {
+                          setEditFormData({ ...editFormData, optional_label_patterns: [...(editFormData.optional_label_patterns ?? []), trimmed] })
+                          setEditPatternInput('')
+                        }
+                      }
+                    }}
+                    placeholder="e.g., custom-.*"
+                    className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-gh-blue focus:border-gh-blue"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = editPatternInput.trim()
+                      if (trimmed && !(editFormData.optional_label_patterns ?? []).includes(trimmed)) {
+                        setEditFormData({ ...editFormData, optional_label_patterns: [...(editFormData.optional_label_patterns ?? []), trimmed] })
+                        setEditPatternInput('')
+                      }
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(editFormData.optional_label_patterns ?? []).map((pattern) => (
+                    <span key={pattern} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                      {pattern}
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData({ ...editFormData, optional_label_patterns: (editFormData.optional_label_patterns ?? []).filter(p => p !== pattern) })}
+                        className="ml-2 text-purple-600 hover:text-purple-800"
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Max Runners (optional)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editFormData.max_runners ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, max_runners: e.target.value ? parseInt(e.target.value) : null })}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-gh-blue focus:border-gh-blue"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingTeam(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateTeam.isPending}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gh-blue hover:bg-gh-blue-dark disabled:opacity-50"
+                >
+                  {updateTeam.isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

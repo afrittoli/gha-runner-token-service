@@ -114,10 +114,14 @@ class RunnerService:
 
         # Get team ID for provisioning (team-based authorization)
         try:
-            team_id = label_policy_service.get_user_team_for_provisioning(
-                user_id=user.db_user.id if user.db_user else None,
-                team_id=request.team_id,
-            )
+            if user.team is not None:
+                # M2M token: team is resolved directly from JWT claim, no membership lookup
+                team_id = user.team.id
+            else:
+                team_id = label_policy_service.get_user_team_for_provisioning(
+                    user_id=user.db_user.id if user.db_user else None,
+                    team_id=request.team_id,
+                )
         except ValueError as e:
             self._log_audit(
                 event_type="provision_failed",
@@ -347,10 +351,14 @@ class RunnerService:
 
         # Get team ID for provisioning (team-based authorization)
         try:
-            team_id = label_policy_service.get_user_team_for_provisioning(
-                user_id=user.db_user.id if user.db_user else None,
-                team_id=request.team_id,
-            )
+            if user.team is not None:
+                # M2M token: team is resolved directly from JWT claim, no membership lookup
+                team_id = user.team.id
+            else:
+                team_id = label_policy_service.get_user_team_for_provisioning(
+                    user_id=user.db_user.id if user.db_user else None,
+                    team_id=request.team_id,
+                )
         except ValueError as e:
             self._log_audit(
                 event_type="provision_jit_failed",
@@ -593,38 +601,63 @@ class RunnerService:
 
         return query.order_by(Runner.created_at.desc()).first()
 
-    async def list_runners(self, user: AuthenticatedUser) -> List[Runner]:
-        """
-        List all runners.
+    async def list_runners(
+        self,
+        user: AuthenticatedUser,
+        team_name: Optional[str] = None,
+    ) -> List[Runner]:
+        """List runners with team-scoped visibility.
 
-        For standard users, only returns runners they provisioned.
-        For admins, returns all runners.
+        Visibility rules:
+        - **Admin**: all runners (optionally filtered by ``team_name``).
+        - **M2M team token**: only runners belonging to the token's team.
+        - **Individual user**: runners provisioned by the user *or* any runner
+          belonging to a team the user is a member of.  Optionally filtered by
+          ``team_name`` (must be one of the user's teams).
 
         Args:
-            user: Authenticated user
+            user: Authenticated user.
+            team_name: Optional team name to filter results.
 
         Returns:
-            List of runners
-
-        Note:
-            Ownership is determined by matching either:
-            - provisioned_by == user.identity (email or preferred_username)
-            - oidc_sub == user.sub (OIDC subject claim)
+            List of non-deleted runners matching the visibility rules.
         """
         from sqlalchemy import or_
 
+        from app.auth.token_types import TokenType
+        from app.models import UserTeamMembership
+
         query = self.db.query(Runner).filter(Runner.status != "deleted")
 
-        # If not admin, enforce ownership
-        if not user.is_admin:
-            ownership_conditions = [Runner.provisioned_by == user.identity]
+        if user.is_admin:
+            # Admins see everything; optional team filter
+            if team_name:
+                query = query.filter(Runner.team_name == team_name)
+
+        elif user.token_type == TokenType.M2M_TEAM:
+            # M2M: restricted to the credential's own team
+            query = query.filter(Runner.team_id == user.team.id)
+
+        else:
+            # Individual user: own runners + all runners for their teams
+            memberships = (
+                self.db.query(UserTeamMembership.team_id)
+                .filter(UserTeamMembership.user_id == user.user_id)
+                .scalar_subquery()
+            )
+            own_conditions = [Runner.provisioned_by == user.identity]
             if user.sub:
-                ownership_conditions.append(Runner.oidc_sub == user.sub)
-            query = query.filter(or_(*ownership_conditions))
+                own_conditions.append(Runner.oidc_sub == user.sub)
+            query = query.filter(
+                or_(
+                    or_(*own_conditions),
+                    Runner.team_id.in_(memberships),
+                )
+            )
+            if team_name:
+                query = query.filter(Runner.team_name == team_name)
 
-        runners = query.order_by(Runner.created_at.desc()).all()
-
-        return runners
+        return query.order_by(Runner.created_at.desc()).all()
 
     async def update_runner_status(
         self, runner_id: str, user: AuthenticatedUser

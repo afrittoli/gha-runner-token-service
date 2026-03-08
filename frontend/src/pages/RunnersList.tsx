@@ -5,18 +5,21 @@ import { useBulkDeprovision } from '@hooks/useAdmin'
 import { useAuthStore } from '@store/authStore'
 import StatusBadge from '@components/StatusBadge'
 import LabelPill from '@components/LabelPill'
+import TeamSelector from '@components/TeamSelector'
 import { formatDate } from '@utils/formatters'
 
 export default function RunnersList() {
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [teamFilter, setTeamFilter] = useState<string | undefined>(undefined)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [selectedRunners, setSelectedRunners] = useState<Set<string>>(new Set())
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [bulkComment, setBulkComment] = useState('')
 
   const { user } = useAuthStore()
-  const { data, isLoading, error } = useRunners({ 
-    status: statusFilter || undefined 
+  const { data, isLoading, error } = useRunners({
+    status: statusFilter || undefined,
+    team: teamFilter,
   })
 
   const bulkDeprovision = useBulkDeprovision()
@@ -104,6 +107,13 @@ export default function RunnersList() {
                        focus:outline-none focus:ring-2 focus:ring-gh-blue focus:border-transparent"
             />
           </div>
+          {user?.teams && user.teams.length > 0 && (
+            <TeamSelector
+              teams={user.teams}
+              selectedTeam={teamFilter}
+              onChange={setTeamFilter}
+            />
+          )}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
