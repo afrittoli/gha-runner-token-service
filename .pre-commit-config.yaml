@@ -38,7 +38,17 @@ repos:
         
       - id: frontend-test
         name: Frontend Tests
-        entry: bash -c 'cd frontend && npm run test:run'
+        entry: bash -c 'cd frontend && npm run test:coverage'
         language: system
         files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  # Terraform formatting
+  - repo: local
+    hooks:
+      - id: terraform-fmt
+        name: Terraform fmt
+        entry: terraform fmt -check -recursive
+        language: system
+        files: ^terraform/.*\.tf$
         pass_filenames: false
