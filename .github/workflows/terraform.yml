@@ -1,0 +1,39 @@
+name: Terraform
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Check formatting (modules)
+        run: terraform fmt -check -recursive terraform/modules
+
+      - name: Check formatting (environments)
+        run: terraform fmt -check -recursive terraform/environments
+
+      - name: Validate auth0 module
+        working-directory: terraform/modules/auth0
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate example environment
+        working-directory: terraform/environments/example
+        run: |
+          terraform init -backend=false
+          terraform validate

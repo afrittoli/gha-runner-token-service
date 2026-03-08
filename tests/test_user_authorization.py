@@ -460,7 +460,7 @@ class TestUserAdminEndpoints:
                 json={
                     "email": "newuser@example.com",
                     "display_name": "New User",
-                    "is_admin": False,
+                    "is_admin": True,
                     "can_use_registration_token": True,
                     "can_use_jit": False,
                 },
@@ -470,7 +470,7 @@ class TestUserAdminEndpoints:
             data = response.json()
             assert data["email"] == "newuser@example.com"
             assert data["display_name"] == "New User"
-            assert data["is_admin"] is False
+            assert data["is_admin"] is True
             assert data["can_use_registration_token"] is True
             assert data["can_use_jit"] is False
         finally:
@@ -779,6 +779,7 @@ class TestUserAdminEndpoints:
                 "/api/v1/admin/users",
                 json={
                     "email": "existing@example.com",  # Duplicate
+                    "is_admin": True,
                 },
             )
             assert response.status_code == 409

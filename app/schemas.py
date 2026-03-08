@@ -395,11 +395,17 @@ class UserCreate(BaseModel):
         default=True,
         description="Allow access to JIT API",
     )
+    team_ids: List[str] = Field(
+        default_factory=list,
+        description="Team IDs to add the user to on creation",
+    )
 
     def model_post_init(self, __context) -> None:
         """Validate that at least one identifier is provided."""
         if not self.email and not self.oidc_sub:
             raise ValueError("Either 'email' or 'oidc_sub' must be provided")
+        if not self.is_admin and not self.team_ids:
+            raise ValueError("Non-admin users must belong to at least one team")
 
 
 class UserUpdate(BaseModel):
