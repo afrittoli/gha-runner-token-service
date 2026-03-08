@@ -58,6 +58,14 @@ resource "auth0_client" "m2m_team" {
   }
 }
 
+# Read back the auto-generated client secret for each M2M app
+resource "auth0_client_credentials" "m2m_team" {
+  for_each = local.teams_set
+
+  client_id             = auth0_client.m2m_team[each.key].client_id
+  authentication_method = "client_secret_post"
+}
+
 # Grant each M2M app access to the API
 resource "auth0_client_grant" "m2m_team" {
   for_each = local.teams_set

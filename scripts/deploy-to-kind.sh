@@ -41,6 +41,11 @@ OIDC_ISSUER="${OIDC_ISSUER:-https://placeholder.invalid}"
 OIDC_AUDIENCE="${OIDC_AUDIENCE:-gharts}"
 OIDC_JWKS_URL="${OIDC_JWKS_URL:-https://placeholder.invalid/.well-known/jwks.json}"
 
+# M2M team credentials configuration
+TEAM_CREDENTIALS_ENABLED="${TEAM_CREDENTIALS_ENABLED:-true}"
+TEAM_CREDENTIALS_CLAIM="${TEAM_CREDENTIALS_CLAIM:-team}"
+TEAM_CREDENTIALS_REQUIRE_IN_DB="${TEAM_CREDENTIALS_REQUIRE_IN_DB:-true}"
+
 # Frontend OIDC configuration (for runtime injection via Helm)
 # Use VITE_* variables from .env if available, otherwise use backend OIDC settings
 FRONTEND_OIDC_AUTHORITY="${VITE_OIDC_AUTHORITY:-$OIDC_ISSUER}"
@@ -285,6 +290,11 @@ $(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null | sed 's/^/      /' || echo "      
     issuer: "${OIDC_ISSUER}"
     audience: "${OIDC_AUDIENCE}"
     jwksUrl: "${OIDC_JWKS_URL}"
+
+  teamCredentials:
+    enabled: ${TEAM_CREDENTIALS_ENABLED}
+    teamClaim: "${TEAM_CREDENTIALS_CLAIM}"
+    requireTeamInDB: ${TEAM_CREDENTIALS_REQUIRE_IN_DB}
 
   sync:
     enabled: true

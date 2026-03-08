@@ -18,7 +18,7 @@ variable "auth0_client_secret" {
 variable "audience" {
   description = "API identifier (audience) for the resource server"
   type        = string
-  default     = "runner-token-service"
+  default     = "gharts"
 }
 
 variable "teams" {

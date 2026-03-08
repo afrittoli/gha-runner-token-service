@@ -33,6 +33,7 @@ from app.schemas import (
 )
 from app.services.label_policy_service import LabelPolicyService
 from app.services.sync_service import SyncService
+from app.services.team_service import TeamService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -470,6 +471,22 @@ async def create_user(
             can_use_jit=user_data.can_use_jit,
             created_by=admin.identity,
         )
+
+        # Add user to requested teams
+        if user_data.team_ids:
+            team_service = TeamService(db)
+            for team_id in user_data.team_ids:
+                try:
+                    team_service.add_user_to_team(
+                        user_id=db_user.id,
+                        team_id=team_id,
+                        added_by=admin.identity,
+                    )
+                except ValueError as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Failed to add user to team '{team_id}': {e}",
+                    )
 
         return UserResponse(
             id=db_user.id,

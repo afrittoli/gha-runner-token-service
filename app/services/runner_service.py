@@ -114,10 +114,14 @@ class RunnerService:
 
         # Get team ID for provisioning (team-based authorization)
         try:
-            team_id = label_policy_service.get_user_team_for_provisioning(
-                user_id=user.db_user.id if user.db_user else None,
-                team_id=request.team_id,
-            )
+            if user.team is not None:
+                # M2M token: team is resolved directly from JWT claim, no membership lookup
+                team_id = user.team.id
+            else:
+                team_id = label_policy_service.get_user_team_for_provisioning(
+                    user_id=user.db_user.id if user.db_user else None,
+                    team_id=request.team_id,
+                )
         except ValueError as e:
             self._log_audit(
                 event_type="provision_failed",
@@ -347,10 +351,14 @@ class RunnerService:
 
         # Get team ID for provisioning (team-based authorization)
         try:
-            team_id = label_policy_service.get_user_team_for_provisioning(
-                user_id=user.db_user.id if user.db_user else None,
-                team_id=request.team_id,
-            )
+            if user.team is not None:
+                # M2M token: team is resolved directly from JWT claim, no membership lookup
+                team_id = user.team.id
+            else:
+                team_id = label_policy_service.get_user_team_for_provisioning(
+                    user_id=user.db_user.id if user.db_user else None,
+                    team_id=request.team_id,
+                )
         except ValueError as e:
             self._log_audit(
                 event_type="provision_jit_failed",
