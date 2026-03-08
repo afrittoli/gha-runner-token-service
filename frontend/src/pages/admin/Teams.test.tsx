@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Teams from './Teams'
 
@@ -127,6 +128,76 @@ describe('Teams', () => {
       const deactivateButtons = screen.getAllByText('Deactivate')
       expect(deactivateButtons.length).toBeGreaterThan(0)
     })
+  })
+
+  it('opens create team modal when Create Team button is clicked', async () => {
+    const user = userEvent.setup()
+    renderTeams()
+
+    await waitFor(() => expect(screen.getByText('Create Team')).toBeInTheDocument())
+    await user.click(screen.getByText('Create Team'))
+
+    expect(screen.getByText('Create New Team')).toBeInTheDocument()
+    expect(screen.getByText('Team Name')).toBeInTheDocument()
+  })
+
+  it('closes create team modal when Cancel is clicked', async () => {
+    const user = userEvent.setup()
+    renderTeams()
+
+    await waitFor(() => expect(screen.getByText('Create Team')).toBeInTheDocument())
+    await user.click(screen.getByText('Create Team'))
+    expect(screen.getByText('Create New Team')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.queryByText('Create New Team')).not.toBeInTheDocument()
+  })
+
+  it('opens edit modal when Edit button is clicked for an active team', async () => {
+    const user = userEvent.setup()
+    renderTeams()
+
+    await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
+    const editButtons = screen.getAllByText('Edit')
+    await user.click(editButtons[0])
+
+    expect(screen.getByText(/Edit Team:/)).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Engineering team')).toBeInTheDocument()
+  })
+
+  it('calls updateTeam when edit form is submitted', async () => {
+    const user = userEvent.setup()
+    const mockUpdate = vi.fn().mockResolvedValue(undefined)
+    const { useUpdateTeam } = await import('@hooks/useTeams')
+    vi.mocked(useUpdateTeam).mockReturnValue({ mutateAsync: mockUpdate, isPending: false } as any)
+
+    renderTeams()
+
+    await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
+    const editButtons = screen.getAllByText('Edit')
+    await user.click(editButtons[0])
+
+    // Change description
+    const descInput = screen.getByDisplayValue('Engineering team')
+    await user.clear(descInput)
+    await user.type(descInput, 'Updated description')
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled())
+  })
+
+  it('closes edit modal when Cancel is clicked', async () => {
+    const user = userEvent.setup()
+    renderTeams()
+
+    await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
+    const editButtons = screen.getAllByText('Edit')
+    await user.click(editButtons[0])
+    expect(screen.getByText(/Edit Team:/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.queryByText(/Edit Team:/)).not.toBeInTheDocument()
   })
 })
 
