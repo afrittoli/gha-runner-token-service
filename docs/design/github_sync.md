@@ -407,4 +407,61 @@ Events include:
 1. **Metrics**: Prometheus metrics for sync duration, runner counts, violations
 2. **Selective Sync**: Sync only runners modified since last sync
 3. **Sync Queue**: Queue sync requests to avoid concurrent syncs
+
+## Sync Worker Architecture (Issue #33)
+
+### Problem: Multi-Replica Race Conditions
+
+When multiple API replicas run sync independently, several issues occur:
+- Duplicate GitHub API calls (wastes rate limit quota)
+- Duplicate security events logged
+- Race conditions when deleting runners
+- Inconsistent sync status across replicas
+
+### Solution: Dedicated Sync Worker with Leader Election
+
+A separate deployment runs the sync worker with leader election:
+- Only one worker (the leader) performs sync operations
+- Hot standby workers watch for leader failure
+- Sub-second failover when leader pod is evicted
+- Sync status stored in database (consistent across all API replicas)
+
+### Database Schema: sync_state Table
+
+The `sync_state` table coordinates sync worker state:
+
+```sql
+CREATE TABLE sync_state (
+    id INTEGER PRIMARY KEY DEFAULT 1,  -- Always 1 (single row)
+    worker_hostname VARCHAR NOT NULL,   -- Current leader's hostname
+    worker_heartbeat TIMESTAMP NOT NULL,  -- Last heartbeat from leader
+    last_sync_time TIMESTAMP,           -- When last sync completed
+    last_sync_result TEXT,              -- JSON with sync results
+    last_sync_error TEXT,               -- Last error message if any
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    INDEX ix_sync_state_heartbeat (worker_heartbeat)
+);
+```
+
+**Key Properties:**
+- Single row enforced (id=1) - only one sync state exists
+- `worker_heartbeat` updated every sync cycle for monitoring
+- `last_sync_result` stores JSON: `{"updated": 5, "deleted": 2, "errors": 0}`
+- Used by API pods to serve `GET /api/v1/admin/sync/status`
+
+**Leader Election:**
+- Workers use PostgreSQL advisory locks (`pg_try_advisory_lock`)
+- Lock is session-scoped (released on connection loss)
+- Automatic failover when leader pod is evicted
+
+### Migration from In-Process Sync
+
+1. Add `sync_state` table (this commit)
+2. Implement sync worker with leader election
+3. Update API to read sync status from database
+4. Remove sync loop from API pods
+5. Deploy sync worker deployment
+
+See `IMPLEMENTATION_PLAN.md` for detailed migration steps.
 4. **Webhook for queued events**: Optionally validate on `queued` action to reject jobs earlier
