@@ -90,21 +90,6 @@ run-frontend: ## Run frontend container locally
 		-p 8080:80 \
 		$(FRONTEND_IMAGE):$(VERSION)
 
-.PHONY: compose-up
-compose-up: ## Start all services with docker-compose/podman-compose
-	@echo "$(GREEN)Starting services with compose...$(NC)"
-	$(CONTAINER_TOOL)-compose up -d
-	@echo "$(GREEN)Services started. Access at http://localhost:8080$(NC)"
-
-.PHONY: compose-down
-compose-down: ## Stop all services
-	@echo "$(GREEN)Stopping services...$(NC)"
-	$(CONTAINER_TOOL)-compose down
-
-.PHONY: compose-logs
-compose-logs: ## Show logs from all services
-	$(CONTAINER_TOOL)-compose logs -f
-
 .PHONY: push-backend
 push-backend: build-backend ## Push backend image to registry
 	@echo "$(GREEN)Pushing backend image...$(NC)"
@@ -221,30 +206,6 @@ list-images: ## List all project images
 .PHONY: verify-build
 verify-build: build test ## Build and test all images
 	@echo "$(GREEN)All images built and tested successfully!$(NC)"
-
-# Development helpers
-.PHONY: dev-setup
-dev-setup: ## Setup development environment
-	@echo "$(GREEN)Setting up development environment...$(NC)"
-	python -m pip install -r requirements.txt
-	python -m pip install -r requirements-dev.txt
-	cd frontend && npm install
-	@echo "$(GREEN)Development environment ready$(NC)"
-
-.PHONY: dev-test
-dev-test: ## Run tests locally (without containers)
-	@echo "$(GREEN)Running backend tests...$(NC)"
-	python -m pytest tests/ -v
-	@echo "$(GREEN)Running frontend tests...$(NC)"
-	cd frontend && npm test
-
-.PHONY: dev-lint
-dev-lint: ## Run linters
-	@echo "$(GREEN)Running backend linters...$(NC)"
-	python -m ruff check app/ tests/
-	python -m mypy app/
-	@echo "$(GREEN)Running frontend linters...$(NC)"
-	cd frontend && npm run lint
 
 # CI/CD helpers
 .PHONY: ci-build

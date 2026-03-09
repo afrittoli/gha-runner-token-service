@@ -86,7 +86,6 @@ runner-token-service/
 │   └── main.py                # FastAPI app
 ├── tests/                      # Test suite
 ├── requirements.txt            # Python dependencies
-├── docker-compose.yml          # Docker compose setup
 └── Dockerfile                  # Docker image
 ```
 
