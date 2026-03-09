@@ -12,6 +12,7 @@ import asyncio
 import json
 import socket
 import sys
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -28,6 +29,19 @@ from app.config import get_settings
 from app.database import SessionLocal
 from app.models import SyncState
 from app.services.sync_service import SyncService, SyncError
+from app.metrics import (
+    sync_leadership_status,
+    sync_last_success_timestamp,
+    sync_duration_seconds,
+    sync_runners_updated,
+    sync_runners_deleted,
+    sync_runners_unchanged,
+    sync_errors_total,
+    sync_heartbeat_timestamp,
+    leader_election_attempts,
+    leader_election_transitions,
+    db_advisory_lock_held,
+)
 
 logger = structlog.get_logger()
 
@@ -89,27 +103,54 @@ class SyncWorker:
                     "SELECT pg_try_advisory_lock($1)", SYNC_LEADER_LOCK_ID
                 )
 
+                # Record election attempt
+                leader_election_attempts.labels(
+                    result="success" if acquired else "failed"
+                ).inc()
+
                 if acquired:
                     if not self.is_leader:
                         logger.info("leader_elected", hostname=self.hostname)
+                        # Record leadership transition
+                        leader_election_transitions.labels(
+                            from_state="standby", to_state="leader"
+                        ).inc()
                         self.is_leader = True
+
+                    # Update metrics
+                    sync_leadership_status.labels(hostname=self.hostname).set(1)
+                    db_advisory_lock_held.labels(
+                        hostname=self.hostname, lock_id=str(SYNC_LEADER_LOCK_ID)
+                    ).set(1)
 
                     # Run sync as leader
                     await self._run_sync_cycle()
                 else:
                     if self.is_leader:
                         logger.warning("leadership_lost", hostname=self.hostname)
+                        # Record leadership transition
+                        leader_election_transitions.labels(
+                            from_state="leader", to_state="standby"
+                        ).inc()
                         self.is_leader = False
+
+                    # Update metrics
+                    sync_leadership_status.labels(hostname=self.hostname).set(0)
+                    db_advisory_lock_held.labels(
+                        hostname=self.hostname, lock_id=str(SYNC_LEADER_LOCK_ID)
+                    ).set(0)
 
                     logger.debug("sync_standby", hostname=self.hostname)
                     await asyncio.sleep(self.settings.sync_interval_seconds)
 
             except asyncpg.PostgresError as e:
                 logger.error("postgres_error", error=str(e), hostname=self.hostname)
+                sync_errors_total.labels(error_type="postgres_error").inc()
                 # Connection lost - reconnect
                 await self._reconnect()
             except Exception as e:
                 logger.error("sync_worker_error", error=str(e), hostname=self.hostname)
+                sync_errors_total.labels(error_type="worker_error").inc()
                 await asyncio.sleep(10)  # Back off on errors
 
     @retry(
@@ -132,13 +173,25 @@ class SyncWorker:
     async def _run_sync_cycle(self):
         """Execute a single sync cycle as leader."""
         db = SessionLocal()
+        start_time = time.time()
+
         try:
             # Update heartbeat
             self._update_heartbeat(db)
 
-            # Run sync
+            # Run sync with timing
             sync_service = SyncService(self.settings, db)
             result = await sync_service.sync_all_runners()
+
+            # Record sync duration
+            duration = time.time() - start_time
+            sync_duration_seconds.observe(duration)
+
+            # Update metrics
+            sync_runners_updated.inc(result.updated)
+            sync_runners_deleted.inc(result.deleted)
+            sync_runners_unchanged.inc(result.unchanged)
+            sync_last_success_timestamp.set(time.time())
 
             # Store result in database
             self._store_sync_result(db, result)
@@ -150,11 +203,13 @@ class SyncWorker:
 
         except SyncError as e:
             logger.error("sync_error", error=str(e))
+            sync_errors_total.labels(error_type="sync_error").inc()
             self._store_sync_error(db, str(e))
             # Continue running despite sync errors
             await asyncio.sleep(self.settings.sync_interval_seconds)
         except Exception as e:
             logger.error("sync_cycle_error", error=str(e))
+            sync_errors_total.labels(error_type="sync_cycle_error").inc()
             self._store_sync_error(db, str(e))
             await asyncio.sleep(self.settings.sync_interval_seconds)
         finally:
@@ -179,6 +234,9 @@ class SyncWorker:
             db.add(sync_state)
 
         db.commit()
+
+        # Update heartbeat metric
+        sync_heartbeat_timestamp.labels(hostname=self.hostname).set(now.timestamp())
 
     def _store_sync_result(self, db, result):
         """Store sync result in database."""
