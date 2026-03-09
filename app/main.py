@@ -261,8 +261,16 @@ async def startup_event():
         logger.exception("database_initialization_failed", error=str(e))
         raise
 
-    # Start background sync task if enabled
+    # Start background sync task if enabled (DEPRECATED)
     if settings.sync_enabled:
+        logger.warning(
+            "in_process_sync_deprecated",
+            message=(
+                "In-process sync is deprecated and disabled by default. "
+                "Use dedicated sync worker (app/worker.py) for production. "
+                "Set SYNC_ENABLED=false and deploy sync worker separately."
+            ),
+        )
         _sync_task = asyncio.create_task(run_sync_loop())
         logger.info("sync_task_started")
 
