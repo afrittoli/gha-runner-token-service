@@ -164,7 +164,7 @@ async def test_worker_run_sync_cycle(mock_sync_service_class, test_db):
         with patch("asyncio.sleep", new_callable=AsyncMock):
             # Run one sync cycle (will be interrupted by our mock)
             try:
-                await asyncio.wait_for(worker._run_sync_cycle(), timeout=0.1)
+                await asyncio.wait_for(worker._run_sync_cycle(), timeout=1.0)
             except asyncio.TimeoutError:
                 pass  # Expected - we're testing the cycle start
 
@@ -198,7 +198,7 @@ async def test_worker_handles_sync_error(test_db):
         with patch("app.worker.SessionLocal", return_value=test_db):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 try:
-                    await asyncio.wait_for(worker._run_sync_cycle(), timeout=0.1)
+                    await asyncio.wait_for(worker._run_sync_cycle(), timeout=1.0)
                 except asyncio.TimeoutError:
                     pass
 

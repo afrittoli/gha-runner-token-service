@@ -4,7 +4,10 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from app.worker import SyncWorker
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
@@ -24,7 +27,6 @@ from app.config import get_settings
 from app.database import init_db, SessionLocal
 from app.logging_config import setup_logging, log_access
 from app.schemas import ErrorResponse, HealthResponse
-from app.services.sync_service import SyncService
 from app.metrics import get_metrics
 
 current_file_path = Path(__file__).parent.resolve()
@@ -42,62 +44,9 @@ setup_logging(
 logger = structlog.get_logger()
 
 
-# Global sync task reference
+# Global sync worker reference
+_sync_worker: Optional["SyncWorker"] = None
 _sync_task: Optional[asyncio.Task] = None
-_last_sync_time: Optional[datetime] = None
-_last_sync_result: Optional[dict] = None
-
-
-async def run_sync_loop():
-    """Background sync loop that periodically syncs runners with GitHub."""
-    global _last_sync_time, _last_sync_result
-
-    logger.info(
-        "sync_loop_started",
-        interval_seconds=settings.sync_interval_seconds,
-        sync_on_startup=settings.sync_on_startup,
-    )
-
-    # Initial sync on startup if enabled
-    if settings.sync_on_startup:
-        await _run_sync()
-
-    # Periodic sync loop
-    while True:
-        try:
-            await asyncio.sleep(settings.sync_interval_seconds)
-            logger.info(
-                "periodic_sync_triggered",
-                interval_seconds=settings.sync_interval_seconds,
-            )
-            await _run_sync()
-        except asyncio.CancelledError:
-            logger.info("sync_loop_cancelled")
-            break
-        except Exception as e:
-            logger.error("sync_loop_error", error=str(e))
-            # Continue loop even on error
-
-
-async def _run_sync():
-    """Execute a single sync operation."""
-    global _last_sync_time, _last_sync_result
-
-    db = SessionLocal()
-    try:
-        sync_service = SyncService(settings, db)
-        result = await sync_service.sync_all_runners()
-        _last_sync_time = datetime.now(timezone.utc)
-        _last_sync_result = result.to_dict()
-        logger.info(
-            "periodic_sync_completed",
-            **_last_sync_result,
-        )
-    except Exception as e:
-        logger.error("sync_failed", error=str(e))
-        _last_sync_result = {"error": str(e)}
-    finally:
-        db.close()
 
 
 def get_sync_status(db=None) -> dict:
@@ -145,7 +94,7 @@ def get_sync_status(db=None) -> dict:
                 "last_sync_error": sync_state.last_sync_error,
             }
         else:
-            # No sync state yet (worker hasn't started)
+            # No sync state yet (worker hasn't started or using SQLite)
             return {
                 "enabled": settings.sync_enabled,
                 "interval_seconds": settings.sync_interval_seconds,
@@ -153,7 +102,7 @@ def get_sync_status(db=None) -> dict:
                 "worker_heartbeat": None,
                 "last_sync_time": None,
                 "last_sync_result": None,
-                "last_sync_error": "No sync worker running",
+                "last_sync_error": "Sync worker not initialized (requires PostgreSQL)",
             }
     finally:
         if close_db:
@@ -248,7 +197,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup."""
-    global _sync_task
+    global _sync_worker, _sync_task
 
     logger.info(
         "application_starting", version=__version__, github_org=settings.github_org
@@ -262,14 +211,16 @@ async def startup_event():
         logger.exception("database_initialization_failed", error=str(e))
         raise
 
-    # Start background sync task if enabled
-    # Uses leader election to ensure only one pod performs sync
+    # Start sync worker with leader election if enabled
     if settings.sync_enabled:
-        _sync_task = asyncio.create_task(run_sync_loop())
+        from app.worker import SyncWorker
+
+        _sync_worker = SyncWorker()
+        _sync_task = asyncio.create_task(_sync_worker.start())
         logger.info(
-            "sync_task_started",
+            "sync_worker_started",
             leader_election_enabled=True,
-            note="Only one pod will become sync leader",
+            note="Only one pod will become sync leader via PostgreSQL advisory lock",
         )
 
 
@@ -277,9 +228,14 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown."""
-    global _sync_task
+    global _sync_worker, _sync_task
 
     logger.info("application_shutting_down")
+
+    # Request graceful shutdown of sync worker
+    if _sync_worker is not None:
+        _sync_worker.request_shutdown()
+        logger.info("sync_worker_shutdown_requested")
 
     # Cancel sync task if running
     if _sync_task is not None:
@@ -288,7 +244,7 @@ async def shutdown_event():
             await _sync_task
         except asyncio.CancelledError:
             pass
-        logger.info("sync_task_stopped")
+        logger.info("sync_worker_stopped")
 
 
 # Health check endpoint (no auth required)

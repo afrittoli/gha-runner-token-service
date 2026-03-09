@@ -62,7 +62,9 @@ def test_get_sync_status_no_worker(test_db):
     status = get_sync_status(test_db)
 
     assert "enabled" in status  # Config value
-    assert status["last_sync_error"] == "No sync worker running"
+    assert (
+        status["last_sync_error"] == "Sync worker not initialized (requires PostgreSQL)"
+    )
 
 
 def test_get_sync_status_invalid_json(test_db):
@@ -98,7 +100,7 @@ def test_get_sync_status_api_endpoint(client, admin_auth_override, test_db):
     test_db.add(sync_state)
     test_db.commit()
     # Ensure data is visible to other sessions
-    test_db.close()
+    test_db.flush()
 
     # Call API - admin_auth_override fixture already sets up auth
     response = client.get("/api/v1/admin/sync/status")
