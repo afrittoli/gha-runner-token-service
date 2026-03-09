@@ -3,6 +3,7 @@
 from sqlalchemy.orm import Session
 
 from app.models import Runner, SecurityEvent
+from app.services.team_service import TeamService
 from app.services.user_service import UserService
 
 
@@ -468,3 +469,380 @@ class TestBatchDeleteRunners:
         data = response.json()
         assert data["success"] is True
         assert data["affected_count"] == 0
+
+
+class TestBatchDeactivateTeams:
+    """Tests for POST /api/v1/admin/batch/deactivate-teams endpoint."""
+
+    def test_requires_comment(self, client, admin_auth_override):
+        """Test that batch deactivate requires a comment."""
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={"reason": "Security audit"},
+        )
+        assert response.status_code == 422
+
+    def test_requires_reason(self, client, admin_auth_override):
+        """Test that batch deactivate requires a reason."""
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={"comment": "Security incident action required"},
+        )
+        assert response.status_code == 422
+
+    def test_comment_min_length(self, client, admin_auth_override):
+        """Test that comment must be at least 10 characters."""
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={"comment": "short", "reason": "Security audit"},
+        )
+        assert response.status_code == 422
+
+    def test_deactivate_specific_teams(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test deactivating specific teams by ID."""
+        service = TeamService(test_db)
+        team1 = service.create_team(
+            name="batch-deact-one",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        team2 = service.create_team(
+            name="batch-deact-two",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        team3 = service.create_team(
+            name="batch-deact-three",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={
+                "comment": "Security incident: deactivating contractor teams",
+                "team_ids": [team1.id, team2.id],
+                "reason": "Security audit Q1-2026",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["action"] == "deactivate_teams"
+        assert data["affected_count"] == 2
+        assert data["comment"] == "Security incident: deactivating contractor teams"
+
+        test_db.refresh(team1)
+        test_db.refresh(team2)
+        test_db.refresh(team3)
+        assert team1.is_active is False
+        assert team1.deactivation_reason == "Security audit Q1-2026"
+        assert team2.is_active is False
+        assert team3.is_active is True  # Not in the list
+
+    def test_deactivate_all_active_teams(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test deactivating all active teams when no team_ids provided."""
+        service = TeamService(test_db)
+        team1 = service.create_team(
+            name="deact-all-one",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        team2 = service.create_team(
+            name="deact-all-two",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={
+                "comment": "Emergency: deactivating all teams for review",
+                "reason": "Emergency security review",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["affected_count"] == 2
+
+        test_db.refresh(team1)
+        test_db.refresh(team2)
+        assert team1.is_active is False
+        assert team2.is_active is False
+
+    def test_skips_already_inactive_teams(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test that batch deactivate skips teams already inactive."""
+        service = TeamService(test_db)
+        team = service.create_team(
+            name="already-inactive-tm",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        service.deactivate_team(
+            team_id=team.id,
+            reason="Pre-existing reason",
+            deactivated_by="admin@example.com",
+        )
+
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={
+                "comment": "Testing: should skip already inactive team",
+                "team_ids": [team.id],
+                "reason": "Should not overwrite",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["affected_count"] == 0
+
+        test_db.refresh(team)
+        assert team.deactivation_reason == "Pre-existing reason"
+
+    def test_creates_security_event(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test that batch deactivate creates a security event."""
+        service = TeamService(test_db)
+        team = service.create_team(
+            name="deact-audit-team",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+
+        initial_count = test_db.query(SecurityEvent).count()
+
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={
+                "comment": "Audit test: deactivating team",
+                "team_ids": [team.id],
+                "reason": "Audit test reason",
+            },
+        )
+
+        assert response.status_code == 200
+        assert test_db.query(SecurityEvent).count() == initial_count + 1
+
+        event = (
+            test_db.query(SecurityEvent)
+            .filter(SecurityEvent.event_type == "batch_deactivate_teams")
+            .order_by(SecurityEvent.timestamp.desc())
+            .first()
+        )
+        assert event is not None
+        assert event.severity == "high"
+        assert "Audit test: deactivating team" in event.violation_data
+
+    def test_requires_admin(self, client, auth_override):
+        """Test that non-admin users cannot use batch deactivate."""
+        response = client.post(
+            "/api/v1/admin/batch/deactivate-teams",
+            json={
+                "comment": "Unauthorized attempt to deactivate teams",
+                "reason": "Should fail",
+            },
+        )
+        assert response.status_code == 403
+
+
+class TestBatchReactivateTeams:
+    """Tests for POST /api/v1/admin/batch/reactivate-teams endpoint."""
+
+    def test_requires_comment(self, client, admin_auth_override):
+        """Test that batch reactivate requires a comment."""
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={},
+        )
+        assert response.status_code == 422
+
+    def test_comment_min_length(self, client, admin_auth_override):
+        """Test that comment must be at least 10 characters."""
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={"comment": "short"},
+        )
+        assert response.status_code == 422
+
+    def test_reactivate_specific_teams(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test reactivating specific teams by ID."""
+        service = TeamService(test_db)
+        team1 = service.create_team(
+            name="react-specific-one",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        team2 = service.create_team(
+            name="react-specific-two",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        team3 = service.create_team(
+            name="react-specific-three",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        for t in [team1, team2, team3]:
+            service.deactivate_team(
+                t.id, reason="test", deactivated_by="admin@example.com"
+            )
+
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={
+                "comment": "Incident resolved: restoring team access",
+                "team_ids": [team1.id, team2.id],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["action"] == "reactivate_teams"
+        assert data["affected_count"] == 2
+        assert data["comment"] == "Incident resolved: restoring team access"
+
+        test_db.refresh(team1)
+        test_db.refresh(team2)
+        test_db.refresh(team3)
+        assert team1.is_active is True
+        assert team2.is_active is True
+        assert team3.is_active is False  # Not in the list
+
+    def test_reactivate_all_inactive_teams(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test reactivating all inactive teams when no team_ids provided."""
+        service = TeamService(test_db)
+        team1 = service.create_team(
+            name="react-all-one",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        team2 = service.create_team(
+            name="react-all-two",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        team3 = service.create_team(
+            name="react-all-three",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        service.deactivate_team(
+            team1.id, reason="test", deactivated_by="admin@example.com"
+        )
+        service.deactivate_team(
+            team2.id, reason="test", deactivated_by="admin@example.com"
+        )
+        # team3 stays active
+
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={"comment": "Maintenance complete: restoring all teams"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["affected_count"] == 2
+
+        test_db.refresh(team1)
+        test_db.refresh(team2)
+        test_db.refresh(team3)
+        assert team1.is_active is True
+        assert team2.is_active is True
+        assert team3.is_active is True
+
+    def test_skips_already_active_teams(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test that batch reactivate skips teams already active."""
+        service = TeamService(test_db)
+        team = service.create_team(
+            name="already-active-tm",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={
+                "comment": "Testing: should skip already active team",
+                "team_ids": [team.id],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["affected_count"] == 0
+
+    def test_creates_security_event(
+        self, client, admin_auth_override, test_db: Session
+    ):
+        """Test that batch reactivate creates a security event."""
+        service = TeamService(test_db)
+        team = service.create_team(
+            name="react-audit-team",
+            required_labels=["linux"],
+            created_by="admin@example.com",
+        )
+        service.deactivate_team(
+            team.id, reason="test", deactivated_by="admin@example.com"
+        )
+
+        initial_count = test_db.query(SecurityEvent).count()
+
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={
+                "comment": "Audit test: reactivating team",
+                "team_ids": [team.id],
+            },
+        )
+
+        assert response.status_code == 200
+        assert test_db.query(SecurityEvent).count() == initial_count + 1
+
+        event = (
+            test_db.query(SecurityEvent)
+            .filter(SecurityEvent.event_type == "batch_reactivate_teams")
+            .order_by(SecurityEvent.timestamp.desc())
+            .first()
+        )
+        assert event is not None
+        assert event.severity == "medium"
+        assert "Audit test: reactivating team" in event.violation_data
+
+    def test_empty_result(self, client, admin_auth_override):
+        """Test batch reactivate with no inactive teams."""
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={"comment": "No teams to reactivate - testing empty case"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["affected_count"] == 0
+
+    def test_requires_admin(self, client, auth_override):
+        """Test that non-admin users cannot use batch reactivate."""
+        response = client.post(
+            "/api/v1/admin/batch/reactivate-teams",
+            json={"comment": "Unauthorized reactivation attempt"},
+        )
+        assert response.status_code == 403

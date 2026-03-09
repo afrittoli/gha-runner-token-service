@@ -17,8 +17,10 @@ from app.models import (
 )
 from app.schemas import (
     BatchActionResponse,
+    BatchDeactivateTeamsRequest,
     BatchDeleteRunnersRequest,
     BatchDisableUsersRequest,
+    BatchReactivateTeamsRequest,
     BatchRestoreUsersRequest,
     DeactivateUserRequest,
     LabelPolicyCreate,
@@ -1204,6 +1206,218 @@ async def batch_delete_runners(
     return BatchActionResponse(
         success=len(failed) == 0,
         action="delete_runners",
+        affected_count=len(affected),
+        failed_count=len(failed),
+        comment=request.comment,
+        details=affected + failed if affected or failed else None,
+    )
+
+
+@router.post("/batch/deactivate-teams", response_model=BatchActionResponse)
+async def batch_deactivate_teams(
+    request: BatchDeactivateTeamsRequest,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Deactivate multiple teams in a single operation.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Quickly block runner provisioning for multiple teams, e.g., during
+    security incidents or organisational restructuring.
+
+    **Request Body:**
+    - **comment**: Required audit trail comment (10-500 chars)
+    - **team_ids**: Optional list of team IDs. If null/empty, deactivates
+      all currently active teams.
+    - **reason**: Required reason stored on each team record.
+
+    **Returns:**
+    Batch operation result with affected count and details
+
+    **Example:**
+    ```json
+    {
+      "comment": "Security incident: suspending contractor teams",
+      "team_ids": ["uuid1", "uuid2"],
+      "reason": "Security audit Q1-2026"
+    }
+    ```
+    """
+    service = TeamService(db)
+    label_policy_service = LabelPolicyService(db)
+
+    if request.team_ids:
+        teams_to_deactivate = [service.get_team(tid) for tid in request.team_ids]
+        teams_to_deactivate = [
+            t for t in teams_to_deactivate if t is not None and t.is_active
+        ]
+    else:
+        teams_to_deactivate = service.list_teams(include_inactive=False)
+
+    affected = []
+    failed = []
+
+    for team in teams_to_deactivate:
+        try:
+            service.deactivate_team(
+                team_id=team.id,
+                reason=request.reason,
+                deactivated_by=admin.identity,
+            )
+            affected.append(
+                {
+                    "team_id": team.id,
+                    "team_name": team.name,
+                    "status": "deactivated",
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            failed.append(
+                {
+                    "team_id": team.id,
+                    "team_name": team.name,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
+    label_policy_service.log_security_event(
+        event_type="batch_deactivate_teams",
+        severity="high",
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        runner_id=None,
+        runner_name=None,
+        violation_data={
+            "comment": request.comment,
+            "reason": request.reason,
+            "affected_count": len(affected),
+            "failed_count": len(failed),
+            "team_ids": [t["team_id"] for t in affected],
+        },
+        action_taken=f"deactivated {len(affected)} teams",
+    )
+
+    audit_entry = AuditLog(
+        event_type="batch_deactivate_teams",
+        runner_id=None,
+        runner_name=None,
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        success=len(failed) == 0,
+        error_message=f"{len(failed)} failures" if failed else None,
+        event_data=json.dumps(
+            {
+                "comment": request.comment,
+                "reason": request.reason,
+                "affected_count": len(affected),
+                "failed_count": len(failed),
+                "team_ids": [t["team_id"] for t in affected],
+                "team_names": [t["team_name"] for t in affected],
+            }
+        ),
+    )
+    db.add(audit_entry)
+    db.commit()
+
+    return BatchActionResponse(
+        success=len(failed) == 0,
+        action="deactivate_teams",
+        affected_count=len(affected),
+        failed_count=len(failed),
+        comment=request.comment,
+        details=affected + failed if affected or failed else None,
+    )
+
+
+@router.post("/batch/reactivate-teams", response_model=BatchActionResponse)
+async def batch_reactivate_teams(
+    request: BatchReactivateTeamsRequest,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Reactivate multiple teams in a single operation.
+
+    **Required Authentication:** Admin privileges
+
+    **Purpose:**
+    Restore runner provisioning for multiple teams after a security incident
+    is resolved or following organisational changes.
+
+    **Request Body:**
+    - **comment**: Required audit trail comment (10-500 chars)
+    - **team_ids**: Optional list of team IDs. If null/empty, reactivates
+      all currently inactive teams.
+
+    **Returns:**
+    Batch operation result with affected count and details
+
+    **Example:**
+    ```json
+    {
+      "comment": "Security incident resolved: restoring all team access",
+      "team_ids": null
+    }
+    ```
+    """
+    service = TeamService(db)
+    label_policy_service = LabelPolicyService(db)
+
+    if request.team_ids:
+        teams_to_reactivate = [service.get_team(tid) for tid in request.team_ids]
+        teams_to_reactivate = [
+            t for t in teams_to_reactivate if t is not None and not t.is_active
+        ]
+    else:
+        all_teams = service.list_teams(include_inactive=True)
+        teams_to_reactivate = [t for t in all_teams if not t.is_active]
+
+    affected = []
+    failed = []
+
+    for team in teams_to_reactivate:
+        try:
+            service.reactivate_team(team_id=team.id)
+            affected.append(
+                {
+                    "team_id": team.id,
+                    "team_name": team.name,
+                    "status": "reactivated",
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            failed.append(
+                {
+                    "team_id": team.id,
+                    "team_name": team.name,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
+    label_policy_service.log_security_event(
+        event_type="batch_reactivate_teams",
+        severity="medium",
+        user_identity=admin.identity,
+        oidc_sub=admin.sub,
+        runner_id=None,
+        runner_name=None,
+        violation_data={
+            "comment": request.comment,
+            "affected_count": len(affected),
+            "failed_count": len(failed),
+            "team_ids": [t["team_id"] for t in affected],
+        },
+        action_taken=f"reactivated {len(affected)} teams",
+    )
+
+    return BatchActionResponse(
+        success=len(failed) == 0,
+        action="reactivate_teams",
         affected_count=len(affected),
         failed_count=len(failed),
         comment=request.comment,

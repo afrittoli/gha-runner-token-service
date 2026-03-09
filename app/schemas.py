@@ -541,6 +541,30 @@ class BatchDeleteRunnersRequest(BatchActionRequest):
     )
 
 
+class BatchDeactivateTeamsRequest(BatchActionRequest):
+    """Request to deactivate multiple teams."""
+
+    team_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of team IDs to deactivate. If empty/null, deactivates all active teams.",
+    )
+    reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Reason stored on each team record (separate from the audit comment)",
+    )
+
+
+class BatchReactivateTeamsRequest(BatchActionRequest):
+    """Request to reactivate multiple teams."""
+
+    team_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of team IDs to reactivate. If empty/null, reactivates all inactive teams.",
+    )
+
+
 class BatchActionResponse(BaseModel):
     """Response for batch admin actions."""
 
