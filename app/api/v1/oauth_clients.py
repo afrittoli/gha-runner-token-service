@@ -64,9 +64,10 @@ async def create_oauth_client(
             detail=f"OAuth client '{data.client_id}' already registered.",
         )
 
-    # Enforce one active machine member per team.  A team corresponds to exactly
-    # one Auth0 M2M application (provisioned by terraform), so registering a
-    # second active client for the same team indicates a misconfiguration.
+    # Enforce one active machine member per team.  A team corresponds
+    # to exactly one Auth0 M2M application (provisioned by terraform),
+    # so registering a second active client for the same team
+    # indicates a misconfiguration.
     existing_for_team = (
         db.query(OAuthClient)
         .filter(
@@ -81,7 +82,8 @@ async def create_oauth_client(
             detail=(
                 f"Team '{data.team_id}' already has an active M2M client "
                 f"(client_id='{existing_for_team.client_id}'). "
-                "Disable or delete the existing registration before adding a new one."
+                "Disable or delete the existing registration before "
+                "adding a new one."
             ),
         )
 
@@ -118,7 +120,10 @@ async def list_oauth_clients(
         query = query.filter(OAuthClient.is_active.is_(True))
     total = query.count()
     clients = query.offset(skip).limit(limit).all()
-    return OAuthClientListResponse(clients=clients, total=total)
+    client_responses = [
+        OAuthClientResponse.model_validate(client) for client in clients
+    ]
+    return OAuthClientListResponse(clients=client_responses, total=total)
 
 
 @router.get(

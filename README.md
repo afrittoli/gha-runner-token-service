@@ -42,10 +42,10 @@ See [Kubernetes Deployment Guide](docs/kubernetes_deployment.md) for detailed in
 # Clone and setup
 git clone https://github.com/afrittoli/gha-runner-token-service.git
 cd gha-runner-token-service
-make dev-setup
 
-# Run with Docker Compose
-docker-compose up
+# Run with Kind
+make kind-setup
+make build && make kind-deploy
 ```
 
 See [Development Guide](docs/development.md) for more details.

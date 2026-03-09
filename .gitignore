@@ -236,6 +236,7 @@ runner_service.db.*
 .bob
 audit.json
 .cli.env*
+kind-config.yaml
 
 # Helm chart dependencies (downloaded via helm dependency update)
 helm/*/charts/
