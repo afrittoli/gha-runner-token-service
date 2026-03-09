@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -25,6 +25,7 @@ from app.database import init_db, SessionLocal
 from app.logging_config import setup_logging, log_access
 from app.schemas import ErrorResponse, HealthResponse
 from app.services.sync_service import SyncService
+from app.metrics import get_metrics
 
 current_file_path = Path(__file__).parent.resolve()
 favicon_path = current_file_path / "favicon.ico"
@@ -304,6 +305,18 @@ async def health_check():
     )
 
 
+@app.get("/metrics", tags=["System"], include_in_schema=False)
+async def metrics():
+    """
+    Prometheus metrics endpoint.
+
+    Returns metrics in Prometheus text format for scraping.
+    No authentication required for monitoring.
+    """
+    metrics_data, content_type = get_metrics()
+    return Response(content=metrics_data, media_type=content_type)
+
+
 # Root endpoint
 @app.get("/", tags=["System"])
 async def root():
@@ -315,6 +328,7 @@ async def root():
         "version": __version__,
         "docs": "/docs",
         "health": "/health",
+        "metrics": "/metrics",
     }
 
 
