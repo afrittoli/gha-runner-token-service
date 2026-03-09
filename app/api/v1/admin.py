@@ -30,7 +30,6 @@ from app.schemas import (
     UserUpdate,
 )
 from app.services.label_policy_service import LabelPolicyService
-from app.services.sync_service import SyncService
 from app.services.team_service import TeamService
 from app.services.user_service import UserService
 
@@ -181,35 +180,6 @@ async def get_sync_status_endpoint(
     from app.main import get_sync_status
 
     return get_sync_status(db=db)
-
-
-@router.post("/sync/trigger")
-async def trigger_sync(
-    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-):
-    """
-    Manually trigger a sync with GitHub.
-
-    **Required Authentication:** Admin privileges
-
-    **Returns:**
-    Sync result with counts of updated, deleted, unchanged runners
-    """
-    sync_service = SyncService(settings, db)
-
-    try:
-        result = await sync_service.sync_all_runners()
-        return {
-            "status": "completed",
-            "result": result.to_dict(),
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Sync failed: {str(e)}",
-        )
 
 
 # User Management Endpoints

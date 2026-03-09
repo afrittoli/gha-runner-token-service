@@ -18,7 +18,6 @@ class TestAdminEndpointsRBAC:
         ("GET", "/api/v1/admin/security-events"),
         # Sync endpoints
         ("GET", "/api/v1/admin/sync/status"),
-        ("POST", "/api/v1/admin/sync/trigger"),
         # User management
         ("GET", "/api/v1/admin/users"),
         ("POST", "/api/v1/admin/users"),
