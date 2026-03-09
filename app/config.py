@@ -100,13 +100,13 @@ class Settings(BaseSettings):
         default=24, description="Hours before considering a runner stale"
     )
 
-    # Sync Configuration (DEPRECATED - use dedicated sync worker instead)
+    # Sync Configuration
     sync_enabled: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "DEPRECATED: Enable in-process background sync. "
-            "Use dedicated sync worker (app/worker.py) instead for production. "
-            "Only enable for development/testing."
+            "Enable background runner sync with GitHub. "
+            "Uses leader election to ensure only one pod performs sync "
+            "when running multiple replicas."
         ),
     )
     sync_interval_seconds: int = Field(
