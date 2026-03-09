@@ -38,6 +38,7 @@ The **Runner Token Service** is a secure central service that enables third part
 ## Documentation Index
 
 ### Getting Started
+- [End-User Guide](user_guide.md) - How to obtain credentials, provision runners, use the dashboard
 - [Quick Start Guide](quickstart.md) - Get up and running in 5 minutes with JIT provisioning
 - [Usage Examples](usage_examples.md) - Practical examples and workflows
 
