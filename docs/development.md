@@ -76,6 +76,110 @@ GITHUB_APP_ID=123456                    # From app settings page
 GITHUB_APP_INSTALLATION_ID=12345678     # From installation URL
 GITHUB_APP_PRIVATE_KEY_PATH=./github-app-private-key.pem
 GITHUB_ORG=your-organization
+### Configure Webhooks (Optional)
+
+GitHub webhooks provide real-time notifications for workflow job events, enabling immediate label policy enforcement. For local development, use [smee.io](https://smee.io) to proxy webhooks to your local machine.
+
+#### 1. Set Up Smee.io Proxy
+
+```bash
+# Install smee-client globally
+npm install -g smee-client
+
+# Start a new smee channel (visit https://smee.io to get a URL)
+# Or use the CLI to create one:
+smee --url https://smee.io/YOUR_UNIQUE_ID --target http://localhost:8000/api/v1/webhooks/github
+
+# Keep this running in a separate terminal
+```
+
+#### 2. Configure GitHub App Webhook
+
+1. Go to your GitHub App settings: `https://github.com/organizations/YOUR-ORG/settings/apps/YOUR-APP`
+2. Scroll to "Webhook" section
+3. Configure:
+
+   | Field | Value |
+   |-------|-------|
+   | **Webhook URL** | `https://smee.io/YOUR_UNIQUE_ID` |
+   | **Webhook secret** | Generate a secure random string (e.g., `openssl rand -hex 32`) |
+   | **SSL verification** | Enable SSL verification |
+   | **Active** | ✓ Check "Active" |
+
+4. Under "Subscribe to events", select:
+   - ✓ **Workflow jobs** (required for label policy enforcement)
+
+5. Click "Save changes"
+
+#### 3. Update Local Configuration
+
+Edit `.env` with your webhook secret:
+
+```bash
+# Webhook Configuration
+GITHUB_WEBHOOK_SECRET=your-generated-secret-here
+
+# Label Policy Enforcement Mode
+LABEL_POLICY_ENFORCEMENT=audit  # or "enforce" to cancel violating workflows
+```
+
+#### 4. Test Webhook Delivery
+
+```bash
+# Trigger a workflow in your GitHub org
+# Watch the smee-client terminal for incoming webhooks
+# Check your application logs for webhook processing
+
+# Example log output:
+# webhook_received event=workflow_job action=in_progress
+# label_policy_check runner=test-runner-001 result=pass
+```
+
+#### Webhook Events
+
+The service listens for `workflow_job` events with these actions:
+
+| Action | Description | Service Response |
+|--------|-------------|------------------|
+| `queued` | Job queued, waiting for runner | No action (runner not assigned yet) |
+| `in_progress` | Job started on runner | Validate runner labels against policy |
+| `completed` | Job finished | No action (validation already done) |
+
+#### Enforcement Modes
+
+Configure via `LABEL_POLICY_ENFORCEMENT`:
+
+- **`audit`** (default): Log policy violations as security events, but allow workflow to continue
+- **`enforce`**: Log violation AND cancel the workflow run immediately
+
+#### Troubleshooting Webhooks
+
+**Webhook not received:**
+- Verify smee-client is running and connected
+- Check GitHub App webhook settings show recent deliveries
+- Ensure webhook URL matches your smee.io channel
+- Check firewall/network allows connections to localhost:8000
+
+**Signature verification failed:**
+- Verify `GITHUB_WEBHOOK_SECRET` in `.env` matches GitHub App webhook secret
+- Check for extra whitespace in secret value
+- Ensure secret is the same in both GitHub and local config
+
+**Policy not enforced:**
+- Check `LABEL_POLICY_ENFORCEMENT` is set to `enforce` (not `audit`)
+- Verify user has a label policy configured
+- Check application logs for policy evaluation details
+
+#### Production Webhook Setup
+
+For production deployments (not using smee.io):
+
+1. Set webhook URL to your public endpoint: `https://your-domain.com/api/v1/webhooks/github`
+2. Use a strong webhook secret (32+ random characters)
+3. Enable SSL verification
+4. Configure `LABEL_POLICY_ENFORCEMENT=enforce` for strict enforcement
+5. Monitor security events via `/api/v1/admin/security-events` endpoint
+
 ```
 
 ## 2. Auth0 OIDC Setup
