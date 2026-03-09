@@ -166,8 +166,9 @@ async def list_security_events(
 
 
 @router.get("/sync/status")
-async def get_sync_status(
+async def get_sync_status_endpoint(
     admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
 ):
     """
     Get sync service status.
@@ -179,7 +180,7 @@ async def get_sync_status(
     """
     from app.main import get_sync_status
 
-    return get_sync_status()
+    return get_sync_status(db=db)
 
 
 @router.post("/sync/trigger")

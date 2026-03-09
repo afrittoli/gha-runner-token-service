@@ -99,14 +99,64 @@ async def _run_sync():
         db.close()
 
 
-def get_sync_status() -> dict:
-    """Get current sync status for API."""
-    return {
-        "enabled": settings.sync_enabled,
-        "interval_seconds": settings.sync_interval_seconds,
-        "last_sync_time": _last_sync_time.isoformat() if _last_sync_time else None,
-        "last_sync_result": _last_sync_result,
-    }
+def get_sync_status(db=None) -> dict:
+    """
+    Get current sync status for API.
+
+    Reads from sync_state table in database, which is updated by the sync worker.
+    This allows all API replicas to show consistent sync status.
+
+    Args:
+        db: Optional database session (for testing)
+    """
+    from app.models import SyncState
+
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+
+    try:
+        sync_state = db.query(SyncState).filter_by(id=1).first()
+
+        if sync_state:
+            # Parse last_sync_result from JSON
+            import json
+
+            last_sync_result = None
+            if sync_state.last_sync_result:
+                try:
+                    last_sync_result = json.loads(sync_state.last_sync_result)
+                except json.JSONDecodeError:
+                    last_sync_result = {"error": "Invalid JSON in sync result"}
+
+            return {
+                "enabled": settings.sync_enabled,
+                "interval_seconds": settings.sync_interval_seconds,
+                "worker_hostname": sync_state.worker_hostname,
+                "worker_heartbeat": sync_state.worker_heartbeat.isoformat()
+                if sync_state.worker_heartbeat
+                else None,
+                "last_sync_time": sync_state.last_sync_time.isoformat()
+                if sync_state.last_sync_time
+                else None,
+                "last_sync_result": last_sync_result,
+                "last_sync_error": sync_state.last_sync_error,
+            }
+        else:
+            # No sync state yet (worker hasn't started)
+            return {
+                "enabled": settings.sync_enabled,
+                "interval_seconds": settings.sync_interval_seconds,
+                "worker_hostname": None,
+                "worker_heartbeat": None,
+                "last_sync_time": None,
+                "last_sync_result": None,
+                "last_sync_error": "No sync worker running",
+            }
+    finally:
+        if close_db:
+            db.close()
 
 
 # Create FastAPI app
