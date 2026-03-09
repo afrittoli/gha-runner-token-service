@@ -455,13 +455,70 @@ CREATE TABLE sync_state (
 - Lock is session-scoped (released on connection loss)
 - Automatic failover when leader pod is evicted
 
+### Sync Worker Implementation
+
+The sync worker is implemented in `app/worker.py` as a standalone process:
+
+```python
+class SyncWorker:
+    """Sync worker with leader election using PostgreSQL advisory locks."""
+    
+    async def start(self):
+        """Start the sync worker with leader election."""
+        # Connect to PostgreSQL for advisory locks
+        # Run leader election loop
+        # Execute sync cycles when leader
+        
+    async def _run_with_leader_election(self):
+        """Main loop with leader election."""
+        while not self.shutdown_requested:
+            # Try to acquire advisory lock
+            acquired = await self.pg_conn.fetchval(
+                "SELECT pg_try_advisory_lock($1)", SYNC_LEADER_LOCK_ID
+            )
+            
+            if acquired:
+                # We are the leader - run sync
+                await self._run_sync_cycle()
+            else:
+                # Not leader - wait and retry
+                await asyncio.sleep(5)
+```
+
+**Key Features:**
+- **Advisory Lock ID**: `1847293847` (stable integer for coordination)
+- **Heartbeat Updates**: Every sync cycle updates `worker_heartbeat`
+- **Graceful Shutdown**: Finishes current cycle before exiting (60s timeout)
+- **Automatic Reconnection**: Retries PostgreSQL connection with backoff
+- **Error Handling**: Stores sync errors in `last_sync_error` field
+
+**Dependencies:**
+- `asyncpg`: For PostgreSQL advisory locks (async connection)
+- `tenacity`: For retry logic with exponential backoff
+
+**Running the Worker:**
+```bash
+# Standalone mode
+python -m app.worker
+
+# With custom settings
+SYNC_INTERVAL_SECONDS=60 python -m app.worker
+```
+
 ### Migration from In-Process Sync
 
-1. Add `sync_state` table (this commit)
-2. Implement sync worker with leader election
-3. Update API to read sync status from database
-4. Remove sync loop from API pods
-5. Deploy sync worker deployment
+1. Add `sync_state` table (Commit 1)
+2. Implement sync worker with leader election (Commit 2)
+3. Update API to read sync status from database (Commit 3)
+4. Remove manual sync trigger endpoint (Commit 4)
+5. Disable sync in API pods (Commit 5)
+6. Deploy sync worker deployment (Commit 6)
 
 See `IMPLEMENTATION_PLAN.md` for detailed migration steps.
-4. **Webhook for queued events**: Optionally validate on `queued` action to reject jobs earlier
+
+## Future Enhancements
+
+1. **Metrics**: Prometheus metrics for sync duration, runner counts, violations
+2. **Selective Sync**: Sync only runners modified since last sync
+3. **Sync Queue**: Queue sync requests to avoid concurrent syncs
+4. **Webhook for queued events**: Optionally validate on `queued` action
