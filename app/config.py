@@ -100,9 +100,14 @@ class Settings(BaseSettings):
         default=24, description="Hours before considering a runner stale"
     )
 
-    # Sync Configuration
+    # Sync Configuration (DEPRECATED - use dedicated sync worker instead)
     sync_enabled: bool = Field(
-        default=True, description="Enable background runner sync with GitHub"
+        default=False,
+        description=(
+            "DEPRECATED: Enable in-process background sync. "
+            "Use dedicated sync worker (app/worker.py) instead for production. "
+            "Only enable for development/testing."
+        ),
     )
     sync_interval_seconds: int = Field(
         default=120, description="Seconds between sync cycles (default: 2 min)"
