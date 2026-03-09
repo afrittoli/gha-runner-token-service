@@ -55,18 +55,6 @@ class Runner(Base):
         String, nullable=False, default="pending", index=True
     )  # pending, active, offline, deleted
 
-    # Provisioning method (registration_token or jit)
-    provisioning_method = Column(
-        String, nullable=False, default="registration_token"
-    )  # "registration_token" or "jit"
-    provisioned_labels = Column(
-        Text, nullable=True
-    )  # Original labels at provisioning time (JSON array)
-
-    # Tokens (masked in logs)
-    registration_token = Column(Text, nullable=True)  # Cleared after use
-    registration_token_expires_at = Column(DateTime, nullable=True)
-
     # GitHub URL
     github_url = Column(String, nullable=False)
 
@@ -142,33 +130,6 @@ class GitHubRunnerCache(Base):
     __table_args__ = (Index("ix_cache_name_status", "runner_name", "status"),)
 
 
-class LabelPolicy(Base):
-    """Label policy enforcement for runner provisioning."""
-
-    __tablename__ = "label_policies"
-
-    # Primary key
-    user_identity = Column(String, primary_key=True, index=True)
-
-    # Policy configuration
-    allowed_labels = Column(Text, nullable=False)  # JSON array of allowed labels
-    label_patterns = Column(Text, nullable=True)  # JSON array of regex patterns
-
-    # Additional constraints
-    max_runners = Column(Integer, nullable=True)  # Maximum concurrent runners
-    require_approval = Column(
-        Boolean, default=False, nullable=False
-    )  # Require admin approval
-
-    # Metadata
-    description = Column(Text, nullable=True)  # Policy description
-    created_by = Column(String, nullable=True)  # Admin who created policy
-
-    # Timestamps
-    created_at = Column(DateTime, nullable=False, default=utcnow)
-    updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
-
-
 class User(Base):
     """Authorized users for the runner token service."""
 
@@ -192,8 +153,7 @@ class User(Base):
     )  # Replaces ADMIN_IDENTITIES
     is_active = Column(Boolean, default=True, nullable=False)  # Soft disable
 
-    # API access controls (per-method authorization)
-    can_use_registration_token = Column(Boolean, default=True, nullable=False)
+    # API access controls
     can_use_jit = Column(Boolean, default=True, nullable=False)
 
     # Timestamps

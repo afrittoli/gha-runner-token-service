@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.github.client import GitHubClient, GitHubRunnerInfo
 from app.models import Runner
-from app.services.label_policy_service import LabelPolicyService, LabelPolicyViolation
+from app.services.label_policy_service import LabelPolicyService
 
 logger = structlog.get_logger()
 
@@ -116,29 +116,15 @@ class SyncService:
                 github_runner = github_by_name.get(runner.runner_name)
 
                 if github_runner:
-                    # Runner exists in GitHub - check label policy first
-                    violation = await self._check_label_policy(
-                        runner, github_runner.labels
-                    )
-                    if violation:
-                        # Policy violation - delete runner from GitHub
-                        await self._handle_policy_violation(
-                            runner, github_runner, violation
-                        )
-                        result.policy_violations += 1
+                    # Check for label drift on JIT runners
+                    drift_handled = await self._check_label_drift(runner, github_runner)
+                    if drift_handled:
+                        result.label_drifts += 1
                         result.deleted += 1
+                    elif self._update_runner_from_github(runner, github_runner):
+                        result.updated += 1
                     else:
-                        # Check for label drift on JIT runners
-                        drift_handled = await self._check_label_drift(
-                            runner, github_runner
-                        )
-                        if drift_handled:
-                            result.label_drifts += 1
-                            result.deleted += 1
-                        elif self._update_runner_from_github(runner, github_runner):
-                            result.updated += 1
-                        else:
-                            result.unchanged += 1
+                        result.unchanged += 1
                 else:
                     # Runner not found in GitHub
                     if runner.status == "pending":
@@ -235,30 +221,14 @@ class SyncService:
             runner.registered_at = datetime.now(timezone.utc)
             changed = True
 
-        # Clear registration token after successful registration
-        if runner.registration_token:
-            runner.registration_token = None
-            runner.registration_token_expires_at = None
-            changed = True
-
         return changed
 
     def _is_token_expired(self, runner: Runner) -> bool:
-        """Check if runner's registration token has expired."""
-        if not runner.registration_token_expires_at:
-            # No expiry set - consider expired after cleanup hours
-            from datetime import timedelta
+        """Check if a pending runner's JIT config has expired (1 hour after creation)."""
+        from datetime import timedelta
 
-            cutoff = datetime.now(timezone.utc) - timedelta(
-                hours=self.settings.cleanup_stale_runners_hours
-            )
-            return runner.created_at.replace(tzinfo=timezone.utc) < cutoff
-
-        # Check actual expiry
-        expiry = runner.registration_token_expires_at
-        if expiry.tzinfo is None:
-            expiry = expiry.replace(tzinfo=timezone.utc)
-        return expiry < datetime.now(timezone.utc)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        return runner.created_at.replace(tzinfo=timezone.utc) < cutoff
 
     def _mark_deleted(self, runner: Runner, reason: str) -> None:
         """Mark a runner as deleted."""
@@ -271,123 +241,36 @@ class SyncService:
         )
         runner.status = "deleted"
         runner.deleted_at = datetime.now(timezone.utc)
-        runner.registration_token = None
-        runner.registration_token_expires_at = None
 
     async def cleanup_expired_tokens(self) -> int:
         """
-        Clear expired registration tokens from pending runners.
+        Mark stale pending JIT runners as deleted (JIT config expires after 1 hour).
 
         Returns:
-            Number of tokens cleared
+            Number of runners cleaned up
         """
-        now = datetime.now(timezone.utc)
+        from datetime import timedelta
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
         expired_runners = (
             self.db.query(Runner)
             .filter(
                 Runner.status == "pending",
-                Runner.registration_token.isnot(None),
-                Runner.registration_token_expires_at < now,
+                Runner.created_at < cutoff,
             )
             .all()
         )
 
         count = 0
         for runner in expired_runners:
-            runner.registration_token = None
-            runner.registration_token_expires_at = None
+            self._mark_deleted(runner, reason="jit_config_expired")
             count += 1
 
         if count > 0:
             self.db.commit()
-            logger.info("expired_tokens_cleared", count=count)
+            logger.info("stale_pending_runners_cleaned", count=count)
 
         return count
-
-    async def _check_label_policy(
-        self, runner: Runner, actual_labels: list[str]
-    ) -> Optional[LabelPolicyViolation]:
-        """
-        Check if runner's labels comply with user's label policy.
-
-        Args:
-            runner: Local runner record
-            actual_labels: Labels configured on the GitHub runner
-
-        Returns:
-            LabelPolicyViolation if policy violated, None otherwise
-        """
-        try:
-            self.label_policy_service.validate_labels(
-                runner.provisioned_by, actual_labels
-            )
-            return None
-        except LabelPolicyViolation as e:
-            return e
-
-    async def _handle_policy_violation(
-        self, runner: Runner, github_runner, violation: LabelPolicyViolation
-    ) -> None:
-        """
-        Handle a label policy violation by deleting the runner and logging.
-
-        Args:
-            runner: Local runner record
-            github_runner: GitHub runner info
-            violation: The policy violation details
-        """
-        logger.error(
-            "label_policy_violation_detected",
-            runner_id=runner.id,
-            runner_name=runner.runner_name,
-            github_runner_id=github_runner.id,
-            provisioned_by=runner.provisioned_by,
-            actual_labels=github_runner.labels,
-            invalid_labels=list(violation.invalid_labels),
-        )
-
-        # Delete the runner from GitHub
-        try:
-            deleted = await self.github.delete_runner(github_runner.id)
-            if deleted:
-                logger.info(
-                    "runner_deleted_for_policy_violation",
-                    runner_id=runner.id,
-                    runner_name=runner.runner_name,
-                    github_runner_id=github_runner.id,
-                )
-            else:
-                logger.warning(
-                    "runner_not_found_for_deletion",
-                    runner_id=runner.id,
-                    github_runner_id=github_runner.id,
-                )
-        except Exception as e:
-            logger.error(
-                "failed_to_delete_runner",
-                runner_id=runner.id,
-                github_runner_id=github_runner.id,
-                error=str(e),
-            )
-
-        # Log security event
-        self.label_policy_service.log_security_event(
-            event_type="label_policy_violation",
-            severity="high",
-            user_identity=runner.provisioned_by,
-            runner_id=str(runner.id),
-            runner_name=runner.runner_name,
-            github_runner_id=github_runner.id,
-            violation_data={
-                "actual_labels": github_runner.labels,
-                "invalid_labels": list(violation.invalid_labels),
-                "message": str(violation),
-            },
-            action_taken="runner_deleted",
-        )
-
-        # Mark runner as deleted in local DB
-        self._mark_deleted(runner, reason="label_policy_violation")
 
     async def _check_label_drift(
         self, runner: Runner, github_runner: GitHubRunnerInfo
@@ -406,20 +289,16 @@ class SyncService:
         Returns:
             True if drift was detected and handled (runner deleted), False otherwise
         """
-        # Only check JIT-provisioned runners
-        if runner.provisioning_method != "jit":
-            return False
-
-        # Skip if no provisioned_labels stored
-        if not runner.provisioned_labels:
+        # Skip if no labels stored
+        if not runner.labels:
             return False
 
         # Parse original labels
         try:
-            original_labels = set(json.loads(runner.provisioned_labels))
+            original_labels = set(json.loads(runner.labels))
         except (json.JSONDecodeError, TypeError):
             logger.warning(
-                "invalid_provisioned_labels",
+                "invalid_runner_labels",
                 runner_id=runner.id,
                 runner_name=runner.runner_name,
             )
@@ -442,7 +321,6 @@ class SyncService:
             runner_id=runner.id,
             runner_name=runner.runner_name,
             github_runner_id=github_runner.id,
-            provisioning_method="jit",
             original_labels=list(original_labels),
             current_labels=list(current_labels),
             added_labels=list(added_labels),

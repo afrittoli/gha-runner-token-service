@@ -2,7 +2,6 @@
 
 import os
 import tempfile
-from datetime import datetime, timedelta, timezone
 from typing import Generator
 from unittest.mock import AsyncMock, MagicMock
 
@@ -202,8 +201,7 @@ def test_team_membership(test_db: Session, mock_user, test_team) -> UserTeamMemb
             oidc_sub=mock_user.sub,
             display_name="Test User",
             is_active=True,
-            can_provision_registration_token=True,
-            can_provision_jit=True,
+            can_use_jit=True,
         )
         test_db.add(user)
         test_db.commit()
@@ -241,12 +239,6 @@ def mock_settings():
 def mock_github_client():
     """Create a mock GitHub client."""
     mock = AsyncMock()
-    mock.generate_registration_token = AsyncMock(
-        return_value=(
-            "ATEST_REGISTRATION_TOKEN",
-            datetime.now(timezone.utc) + timedelta(hours=1),
-        )
-    )
     mock.get_runner_by_name = AsyncMock(return_value=None)
     mock.get_runner_by_id = AsyncMock(return_value=None)
     mock.delete_runner = AsyncMock(return_value=True)
@@ -287,7 +279,6 @@ def auth_override(test_db: Session, mock_user: AuthenticatedUser):
     mock_user.db_user = db_user
     mock_user.user_id = db_user.id
     mock_user.is_admin = db_user.is_admin
-    mock_user.can_use_registration_token = db_user.can_use_registration_token
     mock_user.can_use_jit = db_user.can_use_jit
 
     async def override_get_current_user():
@@ -322,9 +313,6 @@ def admin_auth_override(
     mock_admin_user.db_user = admin_db_user
     mock_admin_user.user_id = admin_db_user.id
     mock_admin_user.is_admin = admin_db_user.is_admin
-    mock_admin_user.can_use_registration_token = (
-        admin_db_user.can_use_registration_token
-    )
     mock_admin_user.can_use_jit = admin_db_user.can_use_jit
 
     async def override_get_current_user():

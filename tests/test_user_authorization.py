@@ -66,7 +66,6 @@ class TestUserAuthorizationFlow:
         db_user = user_service.create_user(
             email="known@example.com",
             is_admin=False,
-            can_use_registration_token=True,
             can_use_jit=True,
         )
 
@@ -141,73 +140,6 @@ class TestUserAuthorizationFlow:
 class TestPerMethodAuthorization:
     """Tests for per-method API authorization."""
 
-    def test_user_without_registration_token_access_rejected(
-        self, client: TestClient, test_db: Session
-    ):
-        """Test that users without registration token access are rejected from /provision."""
-        from app.auth.dependencies import (
-            get_current_user,
-            require_registration_token_access,
-        )
-        from app.config import get_settings
-        from app.database import get_db
-        from app.main import app
-
-        # Create a user without registration token access
-        user_service = UserService(test_db)
-        db_user = user_service.create_user(
-            email="noregtok@example.com",
-            can_use_registration_token=False,
-            can_use_jit=True,
-        )
-
-        mock_user = AuthenticatedUser(
-            identity="noregtok@example.com",
-            claims={"sub": "auth0|noregtok", "email": "noregtok@example.com"},
-            db_user=db_user,
-        )
-
-        mock_settings = MagicMock()
-        mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
-
-        async def override_get_current_user():
-            return mock_user
-
-        # Override require_registration_token_access to properly check the permission
-        async def override_require_registration_token_access():
-            from fastapi import HTTPException
-
-            if not mock_user.can_use_registration_token:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Registration token API access not permitted for this user",
-                )
-            return mock_user
-
-        app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[require_registration_token_access] = (
-            override_require_registration_token_access
-        )
-        app.dependency_overrides[get_db] = lambda: test_db
-        app.dependency_overrides[get_settings] = lambda: mock_settings
-
-        try:
-            response = client.post(
-                "/api/v1/runners/provision",
-                json={
-                    "runner_name": "test-runner",
-                    "labels": ["test"],
-                },
-            )
-            assert response.status_code == 403
-            assert "registration token" in response.json()["detail"].lower()
-        finally:
-            app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(require_registration_token_access, None)
-            app.dependency_overrides.pop(get_db, None)
-            app.dependency_overrides.pop(get_settings, None)
-
     def test_user_without_jit_access_rejected(
         self, client: TestClient, test_db: Session
     ):
@@ -221,7 +153,6 @@ class TestPerMethodAuthorization:
         user_service = UserService(test_db)
         db_user = user_service.create_user(
             email="nojit@example.com",
-            can_use_registration_token=True,
             can_use_jit=False,
         )
 
@@ -270,30 +201,25 @@ class TestPerMethodAuthorization:
             app.dependency_overrides.pop(get_db, None)
             app.dependency_overrides.pop(get_settings, None)
 
-    def test_user_with_both_permissions_can_access_both(
+    def test_user_with_jit_permission_can_access_jit(
         self, client: TestClient, test_db: Session
     ):
-        """Test that users with both permissions can access both endpoints."""
-        from app.auth.dependencies import (
-            get_current_user,
-            require_jit_access,
-            require_registration_token_access,
-        )
+        """Test that users with JIT permission can access the JIT endpoint."""
+        from app.auth.dependencies import get_current_user, require_jit_access
         from app.config import get_settings
         from app.database import get_db
         from app.main import app
 
-        # Create a user with both permissions
+        # Create a user with JIT permission
         user_service = UserService(test_db)
         db_user = user_service.create_user(
-            email="bothperms@example.com",
-            can_use_registration_token=True,
+            email="jitperms@example.com",
             can_use_jit=True,
         )
 
         mock_user = AuthenticatedUser(
-            identity="bothperms@example.com",
-            claims={"sub": "auth0|bothperms", "email": "bothperms@example.com"},
+            identity="jitperms@example.com",
+            claims={"sub": "auth0|jitperms", "email": "jitperms@example.com"},
             db_user=db_user,
         )
 
@@ -306,32 +232,20 @@ class TestPerMethodAuthorization:
         async def override_get_current_user():
             return mock_user
 
-        async def override_require_registration_token_access():
-            # User has permission, so allow
-            return mock_user
-
         async def override_require_jit_access():
-            # User has permission, so allow
             return mock_user
 
         app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[require_registration_token_access] = (
-            override_require_registration_token_access
-        )
         app.dependency_overrides[require_jit_access] = override_require_jit_access
         app.dependency_overrides[get_db] = lambda: test_db
         app.dependency_overrides[get_settings] = lambda: mock_settings
 
         try:
-            # Both endpoints should pass authorization (may fail later in the flow
-            # due to missing GitHub mock, but that's fine - we're testing auth)
-
             # Test list runners (basic auth check)
             response = client.get("/api/v1/runners")
             assert response.status_code == 200
         finally:
             app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(require_registration_token_access, None)
             app.dependency_overrides.pop(require_jit_access, None)
             app.dependency_overrides.pop(get_db, None)
             app.dependency_overrides.pop(get_settings, None)
@@ -374,7 +288,7 @@ class TestBootstrapMode:
 
         try:
             # Admin endpoints should work in bootstrap mode
-            response = client.get("/api/v1/admin/label-policies")
+            response = client.get("/api/v1/admin/security-events")
             assert response.status_code == 200
         finally:
             app.dependency_overrides.pop(get_current_user, None)
@@ -408,7 +322,7 @@ class TestBootstrapMode:
 
         try:
             # Anyone should be able to access admin endpoints in dev mode
-            response = client.get("/api/v1/admin/label-policies")
+            response = client.get("/api/v1/admin/security-events")
             assert response.status_code == 200
         finally:
             app.dependency_overrides.pop(get_current_user, None)
@@ -468,7 +382,6 @@ class TestUserAdminEndpoints:
                     "email": "newuser@example.com",
                     "display_name": "New User",
                     "is_admin": False,
-                    "can_use_registration_token": True,
                     "can_use_jit": False,
                     "team_ids": [team.id],
                 },
@@ -479,7 +392,6 @@ class TestUserAdminEndpoints:
             assert data["email"] == "newuser@example.com"
             assert data["display_name"] == "New User"
             assert data["is_admin"] is False
-            assert data["can_use_registration_token"] is True
             assert data["can_use_jit"] is False
 
             # Verify the user was added to the team

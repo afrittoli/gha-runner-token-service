@@ -90,11 +90,6 @@ describe('ProvisionRunner', () => {
         reset: vi.fn(),
       } as any)
 
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
-      } as any)
-
       render(<ProvisionRunner />, { wrapper: createWrapper() })
 
       expect(screen.getByLabelText(/team/i)).toBeInTheDocument()
@@ -118,11 +113,6 @@ describe('ProvisionRunner', () => {
         error: null,
         data: undefined,
         reset: vi.fn(),
-      } as any)
-
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
       } as any)
 
       render(<ProvisionRunner />, { wrapper: createWrapper() })
@@ -177,11 +167,6 @@ describe('ProvisionRunner', () => {
         reset: vi.fn(),
       } as any)
 
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
-      } as any)
-
       render(<ProvisionRunner />, { wrapper: createWrapper() })
 
       expect(screen.getByText('Active Team')).toBeInTheDocument()
@@ -226,11 +211,6 @@ describe('ProvisionRunner', () => {
         error: null,
         data: undefined,
         reset: vi.fn(),
-      } as any)
-
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
       } as any)
 
       render(<ProvisionRunner />, { wrapper: createWrapper() })
@@ -294,11 +274,6 @@ describe('ProvisionRunner', () => {
         reset: vi.fn(),
       } as any)
 
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
-      } as any)
-
       render(<ProvisionRunner />, { wrapper: createWrapper() })
 
       // Try to submit without selecting team
@@ -328,11 +303,6 @@ describe('ProvisionRunner', () => {
         error: null,
         data: undefined,
         reset: vi.fn(),
-      } as any)
-
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
       } as any)
 
       render(<ProvisionRunner />, { wrapper: createWrapper() })
@@ -381,11 +351,6 @@ describe('ProvisionRunner', () => {
         reset: vi.fn(),
       } as any)
 
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
-      } as any)
-
       render(<ProvisionRunner />, { wrapper: createWrapper() })
 
       expect(screen.getByText(/runner provisioned successfully/i)).toBeInTheDocument()
@@ -422,11 +387,6 @@ describe('ProvisionRunner', () => {
         error: mockError,
         data: undefined,
         reset: vi.fn(),
-      } as any)
-
-      vi.mocked(useRunnersHooks.useMyLabelPolicy).mockReturnValue({
-        data: null,
-        isLoading: false,
       } as any)
 
       render(<ProvisionRunner />, { wrapper: createWrapper() })

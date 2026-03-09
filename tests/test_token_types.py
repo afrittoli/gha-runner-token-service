@@ -100,7 +100,6 @@ class TestAuthenticatedUserIndividual:
             claims={"sub": "auth0|123", "email": "dev@example.com"},
             token_type=TokenType.INDIVIDUAL,
         )
-        assert not user.can_use_registration_token
         assert not user.can_use_jit
 
     def test_with_db_user_inherits_permissions(self, mock_db_user):
@@ -109,9 +108,6 @@ class TestAuthenticatedUserIndividual:
             claims={"sub": "auth0|123", "email": "dev@example.com"},
             token_type=TokenType.INDIVIDUAL,
             db_user=mock_db_user,
-        )
-        assert user.can_use_registration_token == (
-            mock_db_user.can_use_registration_token
         )
         assert user.can_use_jit == mock_db_user.can_use_jit
         assert user.is_admin == mock_db_user.is_admin
@@ -144,7 +140,6 @@ class TestAuthenticatedUserM2M:
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
-        assert user.can_use_registration_token is True
         assert user.can_use_jit is True
 
     def test_m2m_team_context_set(self):
@@ -238,7 +233,6 @@ def mock_db_user():
     user.id = "user-uuid-456"
     user.is_admin = False
     user.is_active = True
-    user.can_use_registration_token = True
     user.can_use_jit = True
     user.display_name = "Test Developer"
     return user

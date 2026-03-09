@@ -68,9 +68,6 @@ class AuthenticatedUser:
 
         # M2M tokens always have full API access (governed by team policy)
         _is_m2m = token_type == TokenType.M2M_TEAM
-        self.can_use_registration_token = (
-            db_user.can_use_registration_token if db_user else _is_m2m
-        )
         self.can_use_jit = db_user.can_use_jit if db_user else _is_m2m
 
     def __str__(self) -> str:
@@ -340,28 +337,6 @@ async def get_current_user_optional(
         return await get_current_user(credentials, settings, db)
     except HTTPException:
         return None
-
-
-def require_registration_token_access(
-    user: AuthenticatedUser = Depends(get_current_user),
-) -> AuthenticatedUser:
-    """Require access to registration token API.
-
-    Args:
-        user: Authenticated user
-
-    Returns:
-        Authenticated user if authorized
-
-    Raises:
-        HTTPException: If user doesn't have registration token access
-    """
-    if not user.can_use_registration_token:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=("Access to registration token API not permitted for this user."),
-        )
-    return user
 
 
 def require_jit_access(

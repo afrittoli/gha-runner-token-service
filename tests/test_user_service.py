@@ -23,7 +23,6 @@ class TestUserCreation:
         assert user.display_name == "Test User"
         assert user.is_active is True
         assert user.is_admin is False
-        assert user.can_use_registration_token is True
         assert user.can_use_jit is True
 
     def test_create_user_with_oidc_sub(self, test_db: Session):
@@ -79,12 +78,10 @@ class TestUserCreation:
 
         user = service.create_user(
             email="restricted@example.com",
-            can_use_registration_token=False,
-            can_use_jit=True,
+            can_use_jit=False,
         )
 
-        assert user.can_use_registration_token is False
-        assert user.can_use_jit is True
+        assert user.can_use_jit is False
 
     def test_create_user_with_created_by(self, test_db: Session):
         """Test creating a user with created_by audit field."""
@@ -332,18 +329,15 @@ class TestUserUpdate:
 
         user = service.create_user(
             email="perms@example.com",
-            can_use_registration_token=True,
             can_use_jit=True,
         )
 
         updated = service.update_user(
             user.id,
-            can_use_registration_token=False,
             can_use_jit=False,
         )
 
         assert updated is not None
-        assert updated.can_use_registration_token is False
         assert updated.can_use_jit is False
 
     def test_update_user_not_found(self, test_db: Session):

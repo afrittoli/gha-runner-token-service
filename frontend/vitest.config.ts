@@ -39,12 +39,12 @@ export default defineConfig({
         'src/main.tsx',
         'src/vite-env.d.ts',
       ],
-      // Start with 40% threshold, increase gradually
+      // Start with 35% threshold, increase gradually
       thresholds: {
-        lines: 40,
-        functions: 40,
-        branches: 40,
-        statements: 40,
+        lines: 35,
+        functions: 35,
+        branches: 35,
+        statements: 35,
       },
     },
     

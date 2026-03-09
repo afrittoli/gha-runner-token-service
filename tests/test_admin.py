@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import AuthenticatedUser
-from app.models import LabelPolicy, SecurityEvent
+from app.models import SecurityEvent
 
 
 class TestAdminRoleChecking:
@@ -34,7 +34,7 @@ class TestAdminRoleChecking:
         app.dependency_overrides[get_settings] = override_get_settings
 
         try:
-            response = client.get("/api/v1/admin/label-policies")
+            response = client.get("/api/v1/admin/security-events")
             # Should succeed because empty admin list means all users are admins
             assert response.status_code == 200
         finally:
@@ -63,7 +63,7 @@ class TestAdminRoleChecking:
         app.dependency_overrides[get_settings] = override_get_settings
 
         try:
-            response = client.get("/api/v1/admin/label-policies")
+            response = client.get("/api/v1/admin/security-events")
             assert response.status_code == 403
             assert "Admin privileges required" in response.json()["detail"]
         finally:
@@ -97,7 +97,7 @@ class TestAdminRoleChecking:
         app.dependency_overrides[get_settings] = override_get_settings
 
         try:
-            response = client.get("/api/v1/admin/label-policies")
+            response = client.get("/api/v1/admin/security-events")
             assert response.status_code == 200
         finally:
             app.dependency_overrides.pop(get_current_user, None)
@@ -128,101 +128,11 @@ class TestAdminRoleChecking:
         app.dependency_overrides[get_settings] = override_get_settings
 
         try:
-            response = client.get("/api/v1/admin/label-policies")
+            response = client.get("/api/v1/admin/security-events")
             assert response.status_code == 200
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(get_settings, None)
-
-
-class TestLabelPolicyEndpoints:
-    """Tests for label policy management endpoints."""
-
-    def test_create_label_policy(
-        self, client: TestClient, test_db: Session, admin_auth_override
-    ):
-        """Test creating a label policy."""
-        policy_data = {
-            "user_identity": "user@example.com",
-            "allowed_labels": ["team-a", "linux", "docker"],
-            "label_patterns": ["team-a-.*"],
-            "max_runners": 10,
-            "description": "Test policy",
-        }
-
-        response = client.post("/api/v1/admin/label-policies", json=policy_data)
-        assert response.status_code == 201
-
-        data = response.json()
-        assert data["user_identity"] == "user@example.com"
-        assert data["allowed_labels"] == ["team-a", "linux", "docker"]
-        assert data["max_runners"] == 10
-
-    def test_list_label_policies(
-        self, client: TestClient, test_db: Session, admin_auth_override
-    ):
-        """Test listing label policies."""
-        # Create a policy first
-        policy = LabelPolicy(
-            user_identity="user1@example.com",
-            allowed_labels=json.dumps(["label1", "label2"]),
-            max_runners=5,
-        )
-        test_db.add(policy)
-        test_db.commit()
-
-        response = client.get("/api/v1/admin/label-policies")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["total"] >= 1
-        assert len(data["policies"]) >= 1
-
-    def test_get_label_policy(
-        self, client: TestClient, test_db: Session, admin_auth_override
-    ):
-        """Test getting a specific label policy."""
-        # Create a policy first
-        policy = LabelPolicy(
-            user_identity="specific-user@example.com",
-            allowed_labels=json.dumps(["specific-label"]),
-            max_runners=3,
-        )
-        test_db.add(policy)
-        test_db.commit()
-
-        response = client.get("/api/v1/admin/label-policies/specific-user@example.com")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["user_identity"] == "specific-user@example.com"
-        assert data["allowed_labels"] == ["specific-label"]
-
-    def test_get_label_policy_not_found(
-        self, client: TestClient, test_db: Session, admin_auth_override
-    ):
-        """Test getting a non-existent label policy."""
-        response = client.get("/api/v1/admin/label-policies/nonexistent@example.com")
-        assert response.status_code == 404
-
-    def test_delete_label_policy(
-        self, client: TestClient, test_db: Session, admin_auth_override
-    ):
-        """Test deleting a label policy."""
-        # Create a policy first
-        policy = LabelPolicy(
-            user_identity="delete-me@example.com",
-            allowed_labels=json.dumps(["label"]),
-        )
-        test_db.add(policy)
-        test_db.commit()
-
-        response = client.delete("/api/v1/admin/label-policies/delete-me@example.com")
-        assert response.status_code == 204
-
-        # Verify it's deleted
-        response = client.get("/api/v1/admin/label-policies/delete-me@example.com")
-        assert response.status_code == 404
 
 
 class TestSecurityEventsEndpoints:

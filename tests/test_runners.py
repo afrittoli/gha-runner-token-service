@@ -17,14 +17,6 @@ from app.models import Runner
 class TestRunnerEndpointsAuthentication:
     """Tests for runner endpoint authentication."""
 
-    def test_provision_runner_requires_auth(self, client: TestClient, test_db: Session):
-        """Test that provisioning requires authentication."""
-        response = client.post(
-            "/api/v1/runners/provision",
-            json={"runner_name": "test-runner", "labels": ["test"]},
-        )
-        assert response.status_code in [401, 403]
-
     def test_list_runners_requires_auth(self, client: TestClient, test_db: Session):
         """Test that listing runners requires authentication."""
         response = client.get("/api/v1/runners")

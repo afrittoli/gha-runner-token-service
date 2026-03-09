@@ -14,11 +14,6 @@ class TestAdminEndpointsRBAC:
     """Tests that all admin endpoints require admin privileges."""
 
     ADMIN_ENDPOINTS = [
-        # Label policy endpoints
-        ("GET", "/api/v1/admin/label-policies"),
-        ("POST", "/api/v1/admin/label-policies"),
-        ("GET", "/api/v1/admin/label-policies/test@example.com"),
-        ("DELETE", "/api/v1/admin/label-policies/test@example.com"),
         # Security events
         ("GET", "/api/v1/admin/security-events"),
         # Sync endpoints
@@ -72,12 +67,7 @@ class TestAdminEndpointsRBAC:
             for method, endpoint in self.ADMIN_ENDPOINTS:
                 json_body = None
                 # Some endpoints require JSON body
-                if method == "POST" and "label-policies" in endpoint:
-                    json_body = {
-                        "user_identity": "test@example.com",
-                        "allowed_labels": ["test"],
-                    }
-                elif (
+                if (
                     method == "POST"
                     and "users" in endpoint
                     and "activate" not in endpoint
@@ -116,9 +106,6 @@ class TestAdminEndpointsRBAC:
         assert admin_auth_override is not None  # Fixture sets up admin auth
         """Test that admin endpoints accept users with is_admin=True."""
         # Just test a few key endpoints to verify admin access works
-        response = client.get("/api/v1/admin/label-policies")
-        assert response.status_code == 200
-
         response = client.get("/api/v1/admin/users")
         assert response.status_code == 200
 
@@ -330,7 +317,6 @@ class TestAPIMethodPermissions:
         db_user = user_service.create_user(
             email="nojit@example.com",
             can_use_jit=False,
-            can_use_registration_token=True,
         )
 
         mock_user = AuthenticatedUser(
@@ -360,58 +346,6 @@ class TestAPIMethodPermissions:
             )
             assert response.status_code == 403
             assert "JIT API not permitted" in response.json()["detail"]
-        finally:
-            app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_db, None)
-            app.dependency_overrides.pop(get_settings, None)
-
-    def test_user_without_registration_token_access_rejected(
-        self, client: TestClient, test_db: Session
-    ):
-        """Test users without can_use_registration_token cannot use provision."""
-        from app.auth.dependencies import get_current_user
-        from app.config import get_settings
-        from app.database import get_db
-        from app.main import app
-
-        # Create user without registration token access
-        user_service = UserService(test_db)
-        db_user = user_service.create_user(
-            email="noregtoken@example.com",
-            can_use_jit=True,
-            can_use_registration_token=False,
-        )
-
-        mock_user = AuthenticatedUser(
-            identity="noregtoken@example.com",
-            claims={
-                "sub": "auth0|noregtoken",
-                "email": "noregtoken@example.com",
-            },
-            db_user=db_user,
-        )
-
-        mock_settings = MagicMock()
-        mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
-
-        async def override_get_current_user():
-            return mock_user
-
-        app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[get_db] = lambda: test_db
-        app.dependency_overrides[get_settings] = lambda: mock_settings
-
-        try:
-            response = client.post(
-                "/api/v1/runners/provision",
-                json={
-                    "runner_name": "test-runner",
-                    "labels": ["linux"],
-                },
-            )
-            assert response.status_code == 403
-            assert "registration token" in response.json()["detail"].lower()
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(get_db, None)
