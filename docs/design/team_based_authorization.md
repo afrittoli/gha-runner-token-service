@@ -175,58 +175,134 @@ CREATE INDEX idx_runners_team_status ON runners(team_id, status);
 - Existing runners: `team_id` and `team_name` will be NULL
 - New runners: Always associated with a team
 
-#### 4. LabelPolicy Table (To Be Replaced)
+#### 4. LabelPolicy Table (Removed)
 
-The existing [`LabelPolicy`](../../app/models.py:131) table will be replaced by the team-based model. Since GHARTS has no production data yet, the transition will be straightforward:
-
-1. Implement team-based authorization
-2. Update all code to use teams instead of label policies
-3. Remove the `LabelPolicy` table and related code
+The former `label_policies` table has been removed. Label policy is now embedded directly in the `Teams` table via `required_labels` and `optional_label_patterns`. The `scripts/migrate_remove_legacy_provision.py` script drops the table from existing deployments.
 
 ### Data Model Diagram
 
+```mermaid
+erDiagram
+    Users {
+        string id PK
+        string email UK
+        string oidc_sub UK
+        string display_name
+        bool   is_admin
+        bool   is_active
+        bool   can_use_jit
+        datetime created_at
+        datetime updated_at
+        datetime last_login_at
+        string created_by
+    }
+
+    Teams {
+        string   id PK
+        string   name UK
+        string   description
+        text     required_labels        "JSON array – always added to runners"
+        text     optional_label_patterns "JSON array of regex patterns"
+        int      max_runners
+        bool     is_active
+        text     deactivation_reason
+        datetime deactivated_at
+        string   deactivated_by
+        datetime created_at
+        datetime updated_at
+        string   created_by
+    }
+
+    UserTeamMemberships {
+        string   id PK
+        string   user_id FK
+        string   team_id FK
+        datetime joined_at
+        string   added_by
+    }
+
+    OAuthClients {
+        string   id PK
+        string   client_id UK          "Auth0 M2M client_id (= JWT sub)"
+        string   team_id FK
+        text     description
+        bool     is_active
+        datetime created_at
+        string   created_by
+        datetime last_used_at
+    }
+
+    Runners {
+        string   id PK
+        string   runner_name
+        int      github_runner_id
+        int      runner_group_id
+        text     labels               "JSON array – provisioned label set"
+        bool     ephemeral
+        bool     disable_update
+        string   provisioned_by       "OIDC identity"
+        string   oidc_sub
+        string   team_id FK
+        string   team_name            "Denormalized"
+        string   status               "pending | active | offline | deleted"
+        string   github_url
+        datetime created_at
+        datetime updated_at
+        datetime registered_at
+        datetime deleted_at
+    }
+
+    AuditLog {
+        int      id PK
+        string   event_type
+        string   runner_id
+        string   runner_name
+        string   user_identity
+        string   oidc_sub
+        string   request_ip
+        string   user_agent
+        text     event_data            "JSON"
+        bool     success
+        text     error_message
+        datetime timestamp
+    }
+
+    SecurityEvents {
+        int      id PK
+        string   event_type
+        string   severity              "low | medium | high | critical"
+        string   runner_id
+        string   runner_name
+        int      github_runner_id
+        string   user_identity
+        string   oidc_sub
+        text     violation_data        "JSON"
+        string   action_taken
+        datetime timestamp
+    }
+
+    GitHubRunnersCache {
+        int      github_runner_id PK
+        string   runner_name
+        string   status               "online | offline"
+        bool     busy
+        text     labels               "JSON array"
+        string   os
+        datetime cached_at
+        datetime last_seen_at
+    }
+
+    Users ||--o{ UserTeamMemberships : "belongs to"
+    Teams ||--o{ UserTeamMemberships : "has members"
+    Teams ||--o{ OAuthClients        : "has M2M clients"
+    Teams ||--o{ Runners             : "owns"
 ```
-┌─────────────────────┐
-│      Users          │
-│  ─────────────────  │
-│  id (PK)            │
-│  email              │
-│  oidc_sub           │
-│  is_admin           │
-│  is_active          │
-└──────────┬──────────┘
-           │
-           │ 1:N
-           │
-           ▼
-┌─────────────────────────┐         ┌─────────────────────┐
-│ UserTeamMemberships     │   N:1   │      Teams          │
-│  ───────────────────    │────────>│  ─────────────────  │
-│  id (PK)                │         │  id (PK)            │
-│  user_id (FK)           │         │  name (UNIQUE)      │
-│  team_id (FK)           │         │  description        │
-│  joined_at              │         │  required_labels    │
-└─────────────────────────┘         │  optional_patterns  │
-                                    │  max_runners        │
-                                    │  is_active          │
-                                    │  deactivation_*     │
-                                    └──────────┬──────────┘
-                                               │
-                                               │ 1:N
-                                               │
-                                               ▼
-                                    ┌─────────────────────┐
-                                    │      Runners        │
-                                    │  ─────────────────  │
-                                    │  id (PK)            │
-                                    │  runner_name        │
-                                    │  team_id (FK)       │
-                                    │  team_name          │
-                                    │  provisioned_by     │
-                                    │  labels             │
-                                    │  status             │
-                                    └─────────────────────┘
-```
+
+**Key design decisions:**
+
+- **Label policy is embedded in `Teams`** — `required_labels` and `optional_label_patterns` live directly on the team row. There is no separate `label_policies` table; a team *is* its own policy. This is correct because the relationship is strictly 1:1 and the policy is inseparable from the team identity.
+- **`OAuthClients`** links Auth0 M2M `client_id` values to teams, enabling machine-to-machine provisioning with the same team-scoped label policy and quota.
+- **`AuditLog` / `SecurityEvents` / `GitHubRunnersCache`** are auxiliary tables with no FK relationships to the core entities — they reference identities by string fields for append-only integrity.
 
 ---
 

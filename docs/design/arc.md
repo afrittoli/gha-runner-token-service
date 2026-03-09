@@ -27,16 +27,15 @@ This design prioritizes **minimal divergence** from upstream ARC to facilitate e
 **Language**: Python (FastAPI)  
 **Authentication**: OIDC (JWT tokens)  
 **Key Endpoints**:
-- `POST /api/v1/runners/provision` - Registration token flow (legacy)
-- `POST /api/v1/runners/jit` - JIT configuration flow (recommended)
+- `POST /api/v1/runners/jit` - JIT configuration flow
 - `GET /api/v1/runners` - List runners
 - `DELETE /api/v1/runners/{id}` - Deprovision runner
 
 **Features**:
 - OIDC token validation against provider's JWKS
-- Label policy enforcement (allowed labels + regex patterns)
-- User authorization (can_use_registration_token, can_use_jit flags)
-- Quota management (max_runners per user)
+- Team-based label policy enforcement (required labels + optional regex patterns)
+- User authorization (can_use_jit flag, team membership)
+- Quota management (max_runners per team)
 - Security event logging
 - Audit trail
 
