@@ -206,6 +206,42 @@ class SecurityEvent(Base):
     )
 
 
+class SyncState(Base):
+    """Sync worker state and coordination.
+
+    This table maintains a single row (id=1) that tracks the sync worker's
+    status, heartbeat, and last sync results. Used for leader election
+    coordination and monitoring.
+    """
+
+    __tablename__ = "sync_state"
+
+    # Primary key - enforced to be exactly 1
+    id = Column(Integer, primary_key=True, default=1)
+
+    # Worker identification
+    worker_hostname = Column(String, nullable=False)  # Current leader's hostname
+    worker_heartbeat = Column(
+        DateTime, nullable=False, index=True
+    )  # Last heartbeat from leader
+
+    # Sync execution tracking
+    last_sync_time = Column(DateTime, nullable=True)  # When last sync completed
+    last_sync_result = Column(Text, nullable=True)  # JSON with sync results
+    last_sync_error = Column(Text, nullable=True)  # Last error message if any
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=utcnow)
+    updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        # Ensure only one row can exist
+        # Note: This is enforced at application level for SQLite compatibility
+        # PostgreSQL can use: CheckConstraint('id = 1', name='single_row_check')
+        Index("ix_sync_state_heartbeat", "worker_heartbeat"),
+    )
+
+
 class OAuthClient(Base):
     """OAuth M2M clients registered for team-level access.
 
