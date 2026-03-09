@@ -1,14 +1,16 @@
 <mxfile host="65bd71144e">
     <diagram name="GHARTS Data Model" id="data-model">
-        <mxGraphModel dx="867" dy="831" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+        <mxGraphModel dx="1100" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
                 <mxCell id="title" value="GHARTS Data Model" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" parent="1" vertex="1">
-                    <mxGeometry x="400" y="20" width="369" height="40" as="geometry"/>
+                    <mxGeometry x="600" y="20" width="400" height="40" as="geometry"/>
                 </mxCell>
+
+                <!-- Users table -->
                 <mxCell id="user-table" value="&lt;b&gt;User&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
-                    <mxGeometry x="80" y="144" width="240" height="270" as="geometry"/>
+                    <mxGeometry x="80" y="120" width="240" height="270" as="geometry"/>
                 </mxCell>
                 <mxCell id="user-id" value="🔑 id: VARCHAR (PK, UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="user-table" vertex="1">
                     <mxGeometry y="30" width="240" height="30" as="geometry"/>
@@ -31,41 +33,51 @@
                 <mxCell id="user-jit" value="can_use_jit: BOOLEAN" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="user-table" vertex="1">
                     <mxGeometry y="210" width="240" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="user-timestamps" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="user-table" vertex="1">
+                <mxCell id="user-timestamps" value="created_at, updated_at, last_login_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="user-table" vertex="1">
                     <mxGeometry y="240" width="240" height="30" as="geometry"/>
                 </mxCell>
+
+                <!-- Teams table -->
                 <mxCell id="team-table" value="&lt;b&gt;Team&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
-                    <mxGeometry x="480" y="100" width="280" height="300" as="geometry"/>
+                    <mxGeometry x="460" y="80" width="290" height="360" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-id" value="🔑 id: VARCHAR (PK, UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="30" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="30" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-name" value="📛 name: VARCHAR (UNIQUE)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="60" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="60" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-desc" value="description: TEXT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="90" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="90" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="team-required" value="🏷️ required_labels: TEXT (JSON)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="120" width="280" height="30" as="geometry"/>
+                <mxCell id="team-required" value="🏷️ required_labels: TEXT (JSON array)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
+                    <mxGeometry y="120" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-optional" value="🔖 optional_label_patterns: TEXT (JSON)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="150" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="150" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-quota" value="📊 max_runners: INTEGER" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="180" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="180" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-active" value="✓ is_active: BOOLEAN" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="210" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="210" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="team-deactivation" value="deactivation_reason, deactivated_at/by" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
+                    <mxGeometry y="240" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-created" value="created_by: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="team-table" vertex="1">
-                    <mxGeometry y="240" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="270" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="team-timestamps" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="team-table" vertex="1">
-                    <mxGeometry y="270" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="300" width="290" height="30" as="geometry"/>
                 </mxCell>
+                <mxCell id="team-note" value="Label policy is embedded here (no separate table)" style="text;strokeColor=none;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=2;fontColor=#856404;" parent="team-table" vertex="1">
+                    <mxGeometry y="330" width="290" height="30" as="geometry"/>
+                </mxCell>
+
+                <!-- UserTeamMembership table -->
                 <mxCell id="membership-table" value="&lt;b&gt;UserTeamMembership&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
-                    <mxGeometry x="80" y="480" width="240" height="150" as="geometry"/>
+                    <mxGeometry x="80" y="470" width="240" height="150" as="geometry"/>
                 </mxCell>
                 <mxCell id="membership-id" value="🔑 id: VARCHAR (PK, UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="membership-table" vertex="1">
                     <mxGeometry y="30" width="240" height="30" as="geometry"/>
@@ -79,96 +91,141 @@
                 <mxCell id="membership-joined" value="joined_at, added_by" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="membership-table" vertex="1">
                     <mxGeometry y="120" width="240" height="30" as="geometry"/>
                 </mxCell>
+
+                <!-- OAuthClients table -->
+                <mxCell id="oauth-table" value="&lt;b&gt;OAuthClient&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+                    <mxGeometry x="460" y="530" width="290" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="oauth-id" value="🔑 id: VARCHAR (PK, UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="oauth-table" vertex="1">
+                    <mxGeometry y="30" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="oauth-client" value="🔐 client_id: VARCHAR (UNIQUE)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="oauth-table" vertex="1">
+                    <mxGeometry y="60" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="oauth-team" value="🔗 team_id: VARCHAR (FK → Team)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="oauth-table" vertex="1">
+                    <mxGeometry y="90" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="oauth-desc" value="description: TEXT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="oauth-table" vertex="1">
+                    <mxGeometry y="120" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="oauth-active" value="✓ is_active: BOOLEAN" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="oauth-table" vertex="1">
+                    <mxGeometry y="150" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="oauth-timestamps" value="created_at, created_by, last_used_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="oauth-table" vertex="1">
+                    <mxGeometry y="180" width="290" height="30" as="geometry"/>
+                </mxCell>
+
+                <!-- Runner table -->
                 <mxCell id="runner-table" value="&lt;b&gt;Runner&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
-                    <mxGeometry x="480" y="450" width="280" height="330" as="geometry"/>
+                    <mxGeometry x="870" y="80" width="290" height="390" as="geometry"/>
                 </mxCell>
                 <mxCell id="runner-id" value="🔑 id: VARCHAR (PK, UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="30" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="30" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="runner-name" value="🏃 runner_name: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="60" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="60" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="runner-github" value="github_runner_id: INTEGER" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="90" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="90" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="runner-labels" value="🏷️ labels: TEXT (JSON)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="120" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-group" value="runner_group_id: INTEGER" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="120" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="runner-status" value="📊 status: VARCHAR (pending/active/offline)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="150" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-labels" value="🏷️ labels: TEXT (JSON – provisioned label set)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="150" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="runner-provisioned" value="👤 provisioned_by: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="180" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-ephemeral" value="ephemeral, disable_update: BOOLEAN" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="180" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="runner-team" value="🔗 team_id: VARCHAR (FK → Team)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="210" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-provisioned" value="👤 provisioned_by: VARCHAR (OIDC identity)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="210" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="runner-method" value="provisioning_method: VARCHAR (jit/token)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="240" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-oidc" value="oidc_sub: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="240" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="runner-ephemeral" value="ephemeral: BOOLEAN" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
-                    <mxGeometry y="270" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-team" value="🔗 team_id: VARCHAR (FK → Team, nullable)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="270" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="runner-timestamps" value="created_at, updated_at, deleted_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="runner-table" vertex="1">
-                    <mxGeometry y="300" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-team-name" value="team_name: VARCHAR (denormalized)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="300" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="policy-table" value="&lt;b&gt;LabelPolicy&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
-                    <mxGeometry x="850" y="100" width="280" height="210" as="geometry"/>
+                <mxCell id="runner-status" value="📊 status: VARCHAR (pending/active/offline/deleted)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="runner-table" vertex="1">
+                    <mxGeometry y="330" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="policy-id" value="🔑 user_identity: VARCHAR (PK)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="policy-table" vertex="1">
-                    <mxGeometry y="30" width="280" height="30" as="geometry"/>
+                <mxCell id="runner-timestamps" value="created_at, updated_at, registered_at, deleted_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="runner-table" vertex="1">
+                    <mxGeometry y="360" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="policy-allowed" value="🏷️ allowed_labels: TEXT (JSON)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="policy-table" vertex="1">
-                    <mxGeometry y="60" width="280" height="30" as="geometry"/>
-                </mxCell>
-                <mxCell id="policy-patterns" value="🔖 label_patterns: TEXT (JSON regex)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="policy-table" vertex="1">
-                    <mxGeometry y="90" width="280" height="30" as="geometry"/>
-                </mxCell>
-                <mxCell id="policy-max" value="📊 max_runners: INTEGER" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="policy-table" vertex="1">
-                    <mxGeometry y="120" width="280" height="30" as="geometry"/>
-                </mxCell>
-                <mxCell id="policy-desc" value="description: TEXT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="policy-table" vertex="1">
-                    <mxGeometry y="150" width="280" height="30" as="geometry"/>
-                </mxCell>
-                <mxCell id="policy-timestamps" value="created_at, updated_at, created_by" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="policy-table" vertex="1">
-                    <mxGeometry y="180" width="280" height="30" as="geometry"/>
-                </mxCell>
+
+                <!-- AuditLog table -->
                 <mxCell id="audit-table" value="&lt;b&gt;AuditLog&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
-                    <mxGeometry x="850" y="360" width="280" height="180" as="geometry"/>
+                    <mxGeometry x="870" y="550" width="290" height="210" as="geometry"/>
                 </mxCell>
                 <mxCell id="audit-id" value="🔑 id: INTEGER (PK, AUTO)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="audit-table" vertex="1">
-                    <mxGeometry y="30" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="30" width="290" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="audit-event" value="📝 event_type: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="audit-table" vertex="1">
-                    <mxGeometry y="60" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="60" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="audit-user" value="👤 user_identity: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="audit-table" vertex="1">
-                    <mxGeometry y="90" width="280" height="30" as="geometry"/>
+                <mxCell id="audit-runner" value="runner_id, runner_name: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="audit-table" vertex="1">
+                    <mxGeometry y="90" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="audit-data" value="event_data: TEXT (JSON)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="audit-table" vertex="1">
-                    <mxGeometry y="120" width="280" height="30" as="geometry"/>
+                <mxCell id="audit-user" value="👤 user_identity, oidc_sub: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="audit-table" vertex="1">
+                    <mxGeometry y="120" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="audit-timestamp" value="⏰ timestamp, success" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="audit-table" vertex="1">
-                    <mxGeometry y="150" width="280" height="30" as="geometry"/>
+                <mxCell id="audit-data" value="event_data: TEXT (JSON), success: BOOLEAN" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="audit-table" vertex="1">
+                    <mxGeometry y="150" width="290" height="30" as="geometry"/>
                 </mxCell>
+                <mxCell id="audit-timestamp" value="⏰ timestamp: DATETIME" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="audit-table" vertex="1">
+                    <mxGeometry y="180" width="290" height="30" as="geometry"/>
+                </mxCell>
+
+                <!-- SecurityEvents table -->
                 <mxCell id="security-table" value="&lt;b&gt;SecurityEvent&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
-                    <mxGeometry x="850" y="590" width="280" height="180" as="geometry"/>
+                    <mxGeometry x="870" y="840" width="290" height="210" as="geometry"/>
                 </mxCell>
                 <mxCell id="security-id" value="🔑 id: INTEGER (PK, AUTO)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
-                    <mxGeometry y="30" width="280" height="30" as="geometry"/>
+                    <mxGeometry y="30" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="security-type" value="⚠️ event_type, severity: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
-                    <mxGeometry y="60" width="280" height="30" as="geometry"/>
+                <mxCell id="security-type" value="⚠️ event_type: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
+                    <mxGeometry y="60" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="security-user" value="👤 user_identity: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
-                    <mxGeometry y="90" width="280" height="30" as="geometry"/>
+                <mxCell id="security-severity" value="severity: VARCHAR (low/medium/high/critical)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
+                    <mxGeometry y="90" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="security-violation" value="violation_data: TEXT (JSON)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
-                    <mxGeometry y="120" width="280" height="30" as="geometry"/>
+                <mxCell id="security-runner" value="runner_id, runner_name, github_runner_id" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
+                    <mxGeometry y="120" width="290" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="security-timestamp" value="⏰ timestamp, action_taken" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="security-table" vertex="1">
-                    <mxGeometry y="150" width="280" height="30" as="geometry"/>
+                <mxCell id="security-user" value="👤 user_identity, oidc_sub: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="security-table" vertex="1">
+                    <mxGeometry y="150" width="290" height="30" as="geometry"/>
                 </mxCell>
+                <mxCell id="security-violation" value="violation_data: TEXT (JSON), action_taken" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="security-table" vertex="1">
+                    <mxGeometry y="180" width="290" height="30" as="geometry"/>
+                </mxCell>
+
+                <!-- GitHubRunnersCache table -->
+                <mxCell id="cache-table" value="&lt;b&gt;GitHubRunnersCache&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="720" width="290" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-id" value="🔑 github_runner_id: INTEGER (PK)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="cache-table" vertex="1">
+                    <mxGeometry y="30" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-name" value="runner_name: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="cache-table" vertex="1">
+                    <mxGeometry y="60" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-status" value="📊 status: VARCHAR (online/offline)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="cache-table" vertex="1">
+                    <mxGeometry y="90" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-busy" value="busy: BOOLEAN, os: VARCHAR" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="cache-table" vertex="1">
+                    <mxGeometry y="120" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-labels" value="🏷️ labels: TEXT (JSON)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="cache-table" vertex="1">
+                    <mxGeometry y="150" width="290" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-timestamps" value="cached_at, last_seen_at: DATETIME" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" parent="cache-table" vertex="1">
+                    <mxGeometry y="180" width="290" height="30" as="geometry"/>
+                </mxCell>
+
+                <!-- Relationships -->
                 <mxCell id="rel-user-membership" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;strokeWidth=2;" parent="1" source="user-table" target="membership-table" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
@@ -180,12 +237,20 @@
                 <mxCell id="rel-team-membership" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;strokeWidth=2;" parent="1" source="team-table" target="membership-table" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="400" y="250"/>
-                            <mxPoint x="400" y="560"/>
+                            <mxPoint x="380" y="260"/>
+                            <mxPoint x="380" y="545"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="rel-team-membership-label" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=12;fontStyle=1" parent="rel-team-membership" vertex="1" connectable="0">
+                    <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="rel-team-oauth" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;strokeWidth=2;" parent="1" source="team-table" target="oauth-table" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="rel-team-oauth-label" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=12;fontStyle=1" parent="rel-team-oauth" vertex="1" connectable="0">
                     <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
                         <mxPoint as="offset"/>
                     </mxGeometry>
@@ -198,8 +263,10 @@
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
+
+                <!-- Legend -->
                 <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" parent="1" vertex="1">
-                    <mxGeometry x="80" y="650" width="240" height="120" as="geometry"/>
+                    <mxGeometry x="80" y="960" width="240" height="120" as="geometry"/>
                 </mxCell>
                 <mxCell id="legend-pk" value="🔑 = Primary Key" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="legend" vertex="1">
                     <mxGeometry y="30" width="240" height="30" as="geometry"/>
@@ -210,8 +277,10 @@
                 <mxCell id="legend-index" value="📊 = Indexed Field" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" parent="legend" vertex="1">
                     <mxGeometry y="90" width="240" height="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="notes" value="&lt;b&gt;Key Features&lt;/b&gt;&lt;br&gt;• Team-based authorization with label policies&lt;br&gt;• User-team many-to-many relationships&lt;br&gt;• Runner provisioning with JIT or tokens&lt;br&gt;• Comprehensive audit and security logging&lt;br&gt;• Backward compatible (team_id nullable)" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
-                    <mxGeometry x="20" y="10" width="360" height="120" as="geometry"/>
+
+                <!-- Notes -->
+                <mxCell id="notes" value="&lt;b&gt;Key Design Points&lt;/b&gt;&lt;br&gt;• Label policy embedded in Team (no separate table)&lt;br&gt;• All runners provisioned via JIT (ephemeral)&lt;br&gt;• OAuthClient enables M2M team access (Auth0)&lt;br&gt;• AuditLog / SecurityEvent: no FK — append-only&lt;br&gt;• GitHubRunnersCache: no FK — sync cache" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;spacingLeft=10;spacingTop=10;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="960" width="380" height="120" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>
