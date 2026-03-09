@@ -114,7 +114,6 @@ class TestJitProvisionEndpoint:
             test_db.query(Runner).filter(Runner.runner_name == "test-runner").first()
         )
         assert runner is not None
-        assert runner.provisioning_method == "jit"
         assert runner.ephemeral is True
         assert runner.github_runner_id == 12345
 
@@ -216,8 +215,6 @@ class TestJitLabelDriftDetection:
             provisioned_by="test@example.com",
             status="online",
             github_runner_id=12345,
-            provisioning_method="jit",
-            provisioned_labels=json.dumps(["self-hosted", "linux", "x64", "gpu"]),
             github_url="https://github.com/test-org",
         )
         test_db.add(runner)
@@ -244,17 +241,11 @@ class TestJitLabelDriftDetection:
 
             sync_service = SyncService(mock_settings, test_db)
 
-            # Mock label policy service to not raise violation for allowed labels
-            with patch.object(
-                sync_service.label_policy_service,
-                "validate_labels",
-                return_value=None,
-            ):
-                import asyncio
+            import asyncio
 
-                result = asyncio.get_event_loop().run_until_complete(
-                    sync_service.sync_all_runners()
-                )
+            result = asyncio.get_event_loop().run_until_complete(
+                sync_service.sync_all_runners()
+            )
 
         assert result.label_drifts == 1
         assert result.deleted == 1
@@ -262,56 +253,6 @@ class TestJitLabelDriftDetection:
         # Verify runner was marked as deleted
         test_db.refresh(runner)
         assert runner.status == "deleted"
-
-    def test_no_drift_for_registration_token_runners(
-        self, test_db: Session, mock_settings
-    ):
-        """Test that label drift is NOT checked for registration token runners."""
-        from app.services.sync_service import SyncService
-
-        # Create registration token runner (not JIT)
-        runner = Runner(
-            runner_name="reg-token-runner",
-            runner_group_id=1,
-            labels=json.dumps(["original-label"]),
-            provisioned_by="test@example.com",
-            status="online",
-            github_runner_id=12345,
-            provisioning_method="registration_token",  # Not JIT
-            github_url="https://github.com/test-org",
-        )
-        test_db.add(runner)
-        test_db.commit()
-
-        # Create mock GitHub runner with different labels
-        mock_github_runner = MagicMock()
-        mock_github_runner.id = 12345
-        mock_github_runner.name = "reg-token-runner"
-        mock_github_runner.status = "online"
-        mock_github_runner.busy = False
-        mock_github_runner.labels = ["different-label"]
-
-        with patch("app.services.sync_service.GitHubClient") as MockGitHubClient:
-            mock_github = AsyncMock()
-            mock_github.list_runners = AsyncMock(return_value=[mock_github_runner])
-            MockGitHubClient.return_value = mock_github
-
-            sync_service = SyncService(mock_settings, test_db)
-
-            with patch.object(
-                sync_service.label_policy_service,
-                "validate_labels",
-                return_value=None,
-            ):
-                import asyncio
-
-                result = asyncio.get_event_loop().run_until_complete(
-                    sync_service.sync_all_runners()
-                )
-
-        # No drift should be detected for registration token runners
-        assert result.label_drifts == 0
-        assert result.deleted == 0
 
     def test_busy_runner_drift_not_deleted_by_default(
         self, test_db: Session, mock_settings
@@ -330,8 +271,6 @@ class TestJitLabelDriftDetection:
             provisioned_by="test@example.com",
             status="online",
             github_runner_id=12345,
-            provisioning_method="jit",
-            provisioned_labels=json.dumps(["original-label"]),
             github_url="https://github.com/test-org",
         )
         test_db.add(runner)
@@ -353,16 +292,11 @@ class TestJitLabelDriftDetection:
 
             sync_service = SyncService(mock_settings, test_db)
 
-            with patch.object(
-                sync_service.label_policy_service,
-                "validate_labels",
-                return_value=None,
-            ):
-                import asyncio
+            import asyncio
 
-                result = asyncio.get_event_loop().run_until_complete(
-                    sync_service.sync_all_runners()
-                )
+            result = asyncio.get_event_loop().run_until_complete(
+                sync_service.sync_all_runners()
+            )
 
         # Drift detected but not deleted (busy runner)
         assert result.label_drifts == 0  # Returns False because not handled
@@ -389,8 +323,6 @@ class TestJitLabelDriftDetection:
             provisioned_by="test@example.com",
             status="online",
             github_runner_id=12346,
-            provisioning_method="jit",
-            provisioned_labels=json.dumps(["original-label"]),
             github_url="https://github.com/test-org",
         )
         test_db.add(runner)
@@ -412,16 +344,11 @@ class TestJitLabelDriftDetection:
 
             sync_service = SyncService(mock_settings, test_db)
 
-            with patch.object(
-                sync_service.label_policy_service,
-                "validate_labels",
-                return_value=None,
-            ):
-                import asyncio
+            import asyncio
 
-                result = asyncio.get_event_loop().run_until_complete(
-                    sync_service.sync_all_runners()
-                )
+            result = asyncio.get_event_loop().run_until_complete(
+                sync_service.sync_all_runners()
+            )
 
         # Drift detected AND deleted (busy but config allows)
         assert result.label_drifts == 1

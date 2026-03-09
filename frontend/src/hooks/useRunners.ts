@@ -3,17 +3,8 @@ import {
   apiClient,
   Runner,
   RunnerListResponse,
-  ProvisionRunnerResponse,
   JitProvisionResponse
 } from '@api/client'
-
-export interface UserLabelPolicy {
-  user_identity: string
-  allowed_labels: string[]
-  label_patterns: string[] | null
-  max_runners: number
-  description: string | null
-}
 
 export interface RunnerFilters {
   status?: string
@@ -52,31 +43,10 @@ export function useRunner(runnerId: string | undefined) {
   })
 }
 
-export interface ProvisionRunnerRequest {
-  runner_name_prefix?: string
-  labels?: string[]
-  ephemeral?: boolean
-}
-
 export interface ProvisionRunnerJitRequest {
   runner_name_prefix?: string
   labels?: string[]
   team_id?: string
-}
-
-export function useProvisionRunner() {
-  const queryClient = useQueryClient()
-  
-  return useMutation<ProvisionRunnerResponse, Error, ProvisionRunnerRequest>({
-    mutationFn: async (data: ProvisionRunnerRequest) => {
-      const response = await apiClient.post('/api/v1/runners/provision', data)
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['runners'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
-    },
-  })
 }
 
 export function useProvisionRunnerJit() {
@@ -124,12 +94,3 @@ export function useRefreshRunnerStatus() {
   })
 }
 
-export function useMyLabelPolicy() {
-  return useQuery<UserLabelPolicy | null>({
-    queryKey: ['my-label-policy'],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/v1/auth/my-label-policy')
-      return response.data
-    },
-  })
-}

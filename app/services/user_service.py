@@ -21,7 +21,6 @@ class UserService:
         oidc_sub: Optional[str] = None,
         display_name: Optional[str] = None,
         is_admin: bool = False,
-        can_use_registration_token: bool = True,
         can_use_jit: bool = True,
         created_by: Optional[str] = None,
     ) -> User:
@@ -33,7 +32,6 @@ class UserService:
             oidc_sub: OIDC subject claim (alternative identifier)
             display_name: Display name for dashboard
             is_admin: Whether user has admin privileges
-            can_use_registration_token: Allow access to registration token API
             can_use_jit: Allow access to JIT API
             created_by: Admin who created this user
 
@@ -52,7 +50,6 @@ class UserService:
             display_name=display_name or email or oidc_sub,
             is_admin=is_admin,
             is_active=True,
-            can_use_registration_token=can_use_registration_token,
             can_use_jit=can_use_jit,
             created_by=created_by,
         )
@@ -187,7 +184,6 @@ class UserService:
             "display_name",
             "is_admin",
             "is_active",
-            "can_use_registration_token",
             "can_use_jit",
         }
 

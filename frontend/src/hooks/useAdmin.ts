@@ -5,69 +5,6 @@ import {
   SecurityEvent 
 } from '@api/client'
 
-// --- Label Policies ---
-
-export interface LabelPolicy {
-  user_identity: string
-  allowed_labels: string[]
-  label_patterns: string[] | null
-  max_runners: number
-  require_approval: boolean
-  description: string | null
-  created_by: string
-  created_at: string
-  updated_at: string
-}
-
-export interface LabelPolicyListResponse {
-  policies: LabelPolicy[]
-  total: number
-}
-
-export interface LabelPolicyCreate {
-  user_identity: string
-  allowed_labels: string[]
-  label_patterns?: string[]
-  max_runners?: number
-  require_approval?: boolean
-  description?: string
-}
-
-export function useLabelPolicies() {
-  return useQuery<LabelPolicyListResponse>({
-    queryKey: ['admin', 'label-policies'],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/v1/admin/label-policies')
-      return response.data
-    },
-  })
-}
-
-export function useCreateLabelPolicy() {
-  const queryClient = useQueryClient()
-  return useMutation<LabelPolicy, Error, LabelPolicyCreate>({
-    mutationFn: async (data: LabelPolicyCreate) => {
-      const response = await apiClient.post('/api/v1/admin/label-policies', data)
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'label-policies'] })
-    },
-  })
-}
-
-export function useDeleteLabelPolicy() {
-  const queryClient = useQueryClient()
-  return useMutation<void, Error, string>({
-    mutationFn: async (userIdentity: string) => {
-      await apiClient.delete(`/api/v1/admin/label-policies/${userIdentity}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'label-policies'] })
-    },
-  })
-}
-
 // --- User Management ---
 
 export interface UserListResponse {
@@ -80,14 +17,12 @@ export interface UserCreate {
   oidc_sub?: string
   display_name?: string
   is_admin?: boolean
-  can_use_registration_token?: boolean
   can_use_jit?: boolean
 }
 
 export interface UserUpdate {
   display_name?: string
   is_admin?: boolean
-  can_use_registration_token?: boolean
   can_use_jit?: boolean
   is_active?: boolean
 }

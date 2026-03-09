@@ -10,7 +10,6 @@ from app.auth.dependencies import (
     AuthenticatedUser,
     get_current_user,
     require_jit_access,
-    require_registration_token_access,
 )
 from app.config import Settings, get_settings
 from app.database import get_db
@@ -19,8 +18,6 @@ from app.schemas import (
     DeprovisionResponse,
     JitProvisionRequest,
     JitProvisionResponse,
-    ProvisionRunnerRequest,
-    ProvisionRunnerResponse,
     RunnerDetailResponse,
     RunnerListResponse,
     RunnerStatus,
@@ -29,50 +26,6 @@ from app.services.label_policy_service import LabelPolicyViolation
 from app.services.runner_service import RunnerService
 
 router = APIRouter(prefix="/runners", tags=["Runners"])
-
-
-@router.post(
-    "/provision",
-    response_model=ProvisionRunnerResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def provision_runner(
-    request: ProvisionRunnerRequest,
-    user: AuthenticatedUser = Depends(require_registration_token_access),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-):
-    """
-    Provision a new self-hosted runner.
-
-    This endpoint generates a time-limited GitHub registration token that the third party
-    can use to configure and register a self-hosted runner.
-
-    **Required Authentication:** OIDC Bearer token
-
-    **Workflow:**
-    1. Third party authenticates with OIDC token
-    2. Service generates GitHub registration token (expires in 1 hour)
-    3. Third party uses token to configure runner with `./config.sh`
-    4. Runner appears in GitHub and starts accepting jobs
-
-    **Returns:**
-    - Registration token (valid for 1 hour)
-    - Configuration command for the runner
-    - Runner metadata
-    """
-    service = RunnerService(settings, db)
-
-    try:
-        response = await service.provision_runner(request, user)
-        return response
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to provision runner: {str(e)}",
-        )
 
 
 @router.post(

@@ -58,15 +58,6 @@ class TestDocumentation:
 class TestAuthenticationRequired:
     """Tests verifying authentication is required for protected endpoints."""
 
-    def test_provision_runner_no_auth(self):
-        """Test provisioning without authentication fails."""
-        response = client.post(
-            "/api/v1/runners/provision",
-            json={"runner_name": "test-runner", "labels": ["test"]},
-        )
-        # Should require authentication
-        assert response.status_code in [401, 403]
-
     def test_list_runners_no_auth(self):
         """Test listing runners without authentication fails."""
         response = client.get("/api/v1/runners")
@@ -75,8 +66,5 @@ class TestAuthenticationRequired:
 
     def test_admin_endpoints_no_auth(self):
         """Test admin endpoints without authentication fail."""
-        response = client.get("/api/v1/admin/label-policies")
-        assert response.status_code in [401, 403]
-
         response = client.get("/api/v1/admin/security-events")
         assert response.status_code in [401, 403]

@@ -71,18 +71,6 @@ apiClient.interceptors.response.use(
   }
 )
 
-export interface ProvisionRunnerResponse {
-  runner_id: string
-  runner_name: string
-  registration_token: string
-  expires_at: string
-  github_url: string
-  runner_group_id: number
-  ephemeral: boolean
-  labels: string[]
-  configuration_command: string
-}
-
 export interface JitProvisionResponse {
   runner_id: string
   runner_name: string
@@ -141,7 +129,6 @@ export interface User {
   display_name: string | null
   is_admin: boolean
   is_active: boolean
-  can_use_registration_token: boolean
   can_use_jit: boolean
   created_at: string
   last_login_at: string | null
@@ -158,7 +145,6 @@ export interface AuthInfo {
   display_name: string | null
   oidc_sub: string
   is_admin: boolean
-  can_use_registration_token: boolean
   can_use_jit: boolean
   roles: string[]
   /** Teams the user belongs to (populated from DB memberships). */
