@@ -17,7 +17,7 @@ passlib[bcrypt]==1.7.4
 # Database
 sqlalchemy==2.0.36
 alembic==1.14.0
-asyncpg==0.29.0  # For PostgreSQL advisory locks in sync worker
+asyncpg==0.30.0  # For PostgreSQL advisory locks in sync worker (Python 3.11+)
 tenacity==8.2.3  # For retry logic with exponential backoff
 psycopg2-binary==2.9.9
 

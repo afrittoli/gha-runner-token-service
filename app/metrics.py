@@ -4,13 +4,9 @@ from prometheus_client import (
     Counter,
     Gauge,
     Histogram,
-    Info,
     generate_latest,
     CONTENT_TYPE_LATEST,
 )
-
-# Application info
-app_info = Info("gharts_app", "Application information")
 
 # Sync worker metrics
 sync_leadership_status = Gauge(
@@ -129,6 +125,3 @@ def get_metrics() -> tuple[bytes, str]:
         Tuple of (metrics_bytes, content_type)
     """
     return generate_latest(), CONTENT_TYPE_LATEST
-
-
-# Made with Bob

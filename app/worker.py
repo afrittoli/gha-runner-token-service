@@ -19,6 +19,7 @@ from typing import Optional
 import asyncpg
 import structlog
 from tenacity import (
+    RetryError,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
@@ -75,6 +76,15 @@ class SyncWorker:
         """Start the sync worker with leader election."""
         logger.info("sync_worker_starting", hostname=self.hostname)
 
+        # Check if we're using PostgreSQL (required for leader election)
+        if not self.settings.database_url.startswith(("postgresql://", "postgres://")):
+            logger.warning(
+                "sync_worker_skipped",
+                reason="Leader election requires PostgreSQL, not SQLite",
+                hostname=self.hostname,
+            )
+            return
+
         # Establish persistent PostgreSQL connection for advisory lock
         try:
             self.pg_conn = await asyncpg.connect(self.settings.database_url)
@@ -87,6 +97,9 @@ class SyncWorker:
             )
             raise
 
+        # Initialize sync_state record on startup
+        self._initialize_sync_state()
+
         try:
             await self._run_with_leader_election()
         finally:
@@ -96,6 +109,9 @@ class SyncWorker:
 
     async def _run_with_leader_election(self):
         """Main loop with leader election."""
+        backoff_seconds = 10  # Initial backoff for outer loop errors
+        max_backoff = 300  # Max 5 minutes
+
         while not self.shutdown_requested:
             try:
                 # Try to acquire leadership
@@ -125,6 +141,8 @@ class SyncWorker:
 
                     # Run sync as leader
                     await self._run_sync_cycle()
+                    # Reset backoff on successful cycle
+                    backoff_seconds = 10
                 else:
                     if self.is_leader:
                         logger.warning("leadership_lost", hostname=self.hostname)
@@ -142,16 +160,33 @@ class SyncWorker:
 
                     logger.debug("sync_standby", hostname=self.hostname)
                     await asyncio.sleep(self.settings.sync_interval_seconds)
+                    # Reset backoff on successful standby cycle
+                    backoff_seconds = 10
 
             except asyncpg.PostgresError as e:
                 logger.error("postgres_error", error=str(e), hostname=self.hostname)
                 sync_errors_total.labels(error_type="postgres_error").inc()
                 # Connection lost - reconnect
                 await self._reconnect()
+                # Reset backoff after successful reconnect
+                backoff_seconds = 10
+            except RetryError as e:
+                # Reconnection exhausted all retries
+                logger.error(
+                    "reconnect_exhausted",
+                    error=str(e),
+                    hostname=self.hostname,
+                    backoff_seconds=backoff_seconds,
+                )
+                sync_errors_total.labels(error_type="reconnect_exhausted").inc()
+                # Use exponential backoff for outer loop
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff)
             except Exception as e:
                 logger.error("sync_worker_error", error=str(e), hostname=self.hostname)
                 sync_errors_total.labels(error_type="worker_error").inc()
-                await asyncio.sleep(10)  # Back off on errors
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -160,14 +195,26 @@ class SyncWorker:
     )
     async def _reconnect(self):
         """Reconnect to PostgreSQL with retry logic."""
-        if self.pg_conn:
+        # Clear connection reference first
+        old_conn = self.pg_conn
+        self.pg_conn = None
+
+        # Reset leadership state and metrics immediately
+        self.is_leader = False
+        sync_leadership_status.labels(hostname=self.hostname).set(0)
+        db_advisory_lock_held.labels(
+            hostname=self.hostname, lock_id=str(SYNC_LEADER_LOCK_ID)
+        ).set(0)
+
+        # Close old connection
+        if old_conn:
             try:
-                await self.pg_conn.close()
+                await old_conn.close()
             except Exception:
                 pass
 
+        # Reconnect with retry logic (will raise RetryError if exhausted)
         self.pg_conn = await asyncpg.connect(self.settings.database_url)
-        self.is_leader = False
         logger.info("postgres_reconnected", hostname=self.hostname)
 
     async def _run_sync_cycle(self):
@@ -215,6 +262,29 @@ class SyncWorker:
         finally:
             db.close()
 
+    def _initialize_sync_state(self):
+        """Initialize sync_state record on worker startup."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            now = datetime.now(timezone.utc)
+            sync_state = db.query(SyncState).filter_by(id=1).first()
+            if not sync_state:
+                sync_state = SyncState(
+                    id=1,
+                    worker_hostname=self.hostname,
+                    worker_heartbeat=now,
+                )
+                db.add(sync_state)
+                db.commit()
+                logger.info(
+                    "sync_state_initialized",
+                    hostname=self.hostname,
+                )
+        finally:
+            db.close()
+
     def _update_heartbeat(self, db):
         """Update worker heartbeat in sync_state table."""
         now = datetime.now(timezone.utc)
@@ -259,6 +329,21 @@ class SyncWorker:
             sync_state.last_sync_error = error
             sync_state.updated_at = now
             db.commit()
+        else:
+            # Create sync_state if it doesn't exist
+            # This shouldn't happen but handle it gracefully
+            logger.warning(
+                "sync_state_missing_during_error_store",
+                hostname=self.hostname,
+            )
+            sync_state = SyncState(
+                id=1,
+                worker_hostname=self.hostname,
+                worker_heartbeat=now,
+                last_sync_error=error,
+            )
+            db.add(sync_state)
+            db.commit()
 
     def request_shutdown(self):
         """Request graceful shutdown (finish current cycle)."""
@@ -269,20 +354,23 @@ class SyncWorker:
 async def main():
     """Entry point for sync worker."""
     from app.logging_config import setup_logging
+    import signal
 
     setup_logging()
 
     worker = SyncWorker()
 
+    # Get the event loop
+    loop = asyncio.get_running_loop()
+
     # Handle shutdown signals
     def signal_handler():
         worker.request_shutdown()
 
-    # Register signal handlers
-    import signal
-
+    # Register signal handlers using loop.add_signal_handler()
+    # This is the correct way for async code
     for sig in (signal.SIGTERM, signal.SIGINT):
-        signal.signal(sig, lambda s, f: signal_handler())
+        loop.add_signal_handler(sig, signal_handler)
 
     try:
         await worker.start()
@@ -295,5 +383,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-# Made with Bob

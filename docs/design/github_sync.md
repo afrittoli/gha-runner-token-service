@@ -96,28 +96,37 @@ The implementation uses a hybrid approach:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     FastAPI App                          │
-│  ┌─────────────────┐  ┌─────────────────┐              │
-│  │  API Endpoints  │  │  Background     │              │
-│  │  (runners.py)   │  │  Sync Task      │              │
-│  └────────┬────────┘  └────────┬────────┘              │
-│           │                    │                        │
-│           ▼                    ▼                        │
-│  ┌─────────────────────────────────────┐               │
-│  │         SyncService                  │               │
-│  │  - sync_all_runners()               │               │
-│  │  - sync_runner(runner_id)           │               │
-│  │  - cleanup_orphaned_runners()       │               │
-│  └────────────────┬────────────────────┘               │
-│                   │                                     │
-│           ┌───────┴───────┐                            │
-│           ▼               ▼                            │
-│  ┌─────────────┐  ┌─────────────┐                     │
-│  │  Database   │  │  GitHub     │                     │
-│  │  (SQLite)   │  │  API        │                     │
-│  └─────────────┘  └─────────────┘                     │
-└─────────────────────────────────────────────────────────┘
+│              Kubernetes Deployment (N replicas)          │
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │   Pod 1      │  │   Pod 2      │  │   Pod 3      │ │
+│  │              │  │              │  │              │ │
+│  │ API Server ✓ │  │ API Server ✓ │  │ API Server ✓ │ │
+│  │ Sync Worker  │  │ Sync Worker  │  │ Sync Worker  │ │
+│  │  (LEADER) ✓  │  │  (standby)   │  │  (standby)   │ │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │
+│         │                 │                 │          │
+└─────────┼─────────────────┼─────────────────┼──────────┘
+          │                 │                 │
+          └─────────────────┴─────────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │   PostgreSQL    │
+                   │  Advisory Lock  │
+                   │  + sync_state   │
+                   └─────────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │   GitHub API    │
+                   └─────────────────┘
 ```
+
+**Architecture Notes:**
+- Each pod runs BOTH API server AND sync worker
+- Only ONE pod becomes sync leader (via PostgreSQL advisory lock)
+- All pods serve API traffic (horizontally scaled)
+- Leader performs periodic sync; standbys monitor for failover
+- See [Sync Worker Leader Election](sync_worker_leader_election.md) for details
 
 ### Configuration
 
@@ -418,12 +427,12 @@ When multiple API replicas run sync independently, several issues occur:
 - Race conditions when deleting runners
 - Inconsistent sync status across replicas
 
-### Solution: Dedicated Sync Worker with Leader Election
+### Solution: Leader Election in Same Deployment
 
-A separate deployment runs the sync worker with leader election:
+Each pod runs both API server and sync worker, with leader election:
 - Only one worker (the leader) performs sync operations
 - Hot standby workers watch for leader failure
-- Sub-second failover when leader pod is evicted
+- Automatic failover when leader pod is evicted (~30 seconds)
 - Sync status stored in database (consistent across all API replicas)
 
 ### Database Schema: sync_state Table

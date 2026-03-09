@@ -5,13 +5,14 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
-    Index,
 )
 
 from app.database import Base
@@ -235,9 +236,10 @@ class SyncState(Base):
     updated_at = Column(DateTime, nullable=False, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
-        # Ensure only one row can exist
-        # Note: This is enforced at application level for SQLite compatibility
-        # PostgreSQL can use: CheckConstraint('id = 1', name='single_row_check')
+        # Ensure only one row can exist (id must be 1)
+        # SQLite: Enforced at application level
+        # PostgreSQL: Enforced by database constraint
+        CheckConstraint("id = 1", name="sync_state_single_row"),
         Index("ix_sync_state_heartbeat", "worker_heartbeat"),
     )
 
