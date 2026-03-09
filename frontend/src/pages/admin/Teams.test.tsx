@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Teams from './Teams'
 
+// Mock the useOAuthClients hook (Teams page imports TeamM2MClient which uses it)
+vi.mock('@hooks/useOAuthClients', () => ({
+  useTeamOAuthClient: vi.fn(() => ({ data: null, isLoading: false })),
+  useRegisterOAuthClient: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false, isError: false })),
+  useUpdateOAuthClient: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false, isError: false })),
+  useDeleteOAuthClient: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false, isError: false })),
+}))
+
 // Mock the useTeams hook
 vi.mock('@hooks/useTeams', () => ({
   useTeams: vi.fn(() => ({
@@ -198,6 +206,27 @@ describe('Teams', () => {
 
     await user.click(screen.getByRole('button', { name: /cancel/i }))
     expect(screen.queryByText(/Edit Team:/)).not.toBeInTheDocument()
+  })
+
+  it('shows M2M Client button for each team', async () => {
+    renderTeams()
+
+    await waitFor(() => {
+      const m2mButtons = screen.getAllByText('M2M Client')
+      expect(m2mButtons.length).toBeGreaterThan(0)
+    })
+  })
+
+  it('opens M2M Client panel when M2M Client button is clicked', async () => {
+    const user = userEvent.setup()
+    renderTeams()
+
+    await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
+    const m2mButtons = screen.getAllByText('M2M Client')
+    await user.click(m2mButtons[0])
+
+    // The heading "M2M Client" exists alongside the button labels — verify the panel opened
+    expect(screen.getByText('About M2M clients')).toBeInTheDocument()
   })
 })
 

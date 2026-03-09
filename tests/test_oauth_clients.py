@@ -99,6 +99,38 @@ class TestOAuthClientCreate:
         )
         assert response.status_code == 409
 
+    def test_create_second_active_client_for_same_team_rejected(
+        self,
+        client: TestClient,
+        test_db: Session,
+        admin_auth_override,
+    ):
+        """A team may have only one active machine member at a time."""
+        team = _make_team(test_db)
+        _make_client(test_db, team, client_id="first@clients")
+        response = client.post(
+            "/api/v1/admin/oauth-clients",
+            json={"client_id": "second@clients", "team_id": team.id},
+        )
+        assert response.status_code == 409
+        assert "already has an active M2M client" in response.json()["detail"]
+
+    def test_create_client_allowed_when_existing_is_inactive(
+        self,
+        client: TestClient,
+        test_db: Session,
+        admin_auth_override,
+    ):
+        """After disabling the old client a new one can be registered."""
+        team = _make_team(test_db)
+        _make_client(test_db, team, client_id="old@clients", is_active=False)
+        response = client.post(
+            "/api/v1/admin/oauth-clients",
+            json={"client_id": "new@clients", "team_id": team.id},
+        )
+        assert response.status_code == 201
+        assert response.json()["client_id"] == "new@clients"
+
     def test_create_client_requires_admin(
         self,
         client: TestClient,
@@ -257,8 +289,10 @@ class TestRecordM2mUsage:
         assert c.last_used_at is not None
 
     def test_unknown_client_id_is_noop(self, test_db: Session):
-        """Calling with an unregistered client_id should not raise."""
-        record_m2m_usage(test_db, "ghost@clients")
+        """record_m2m_usage is called after the client has been validated, so an
+        unknown sub arriving here is a programming error. The function is still
+        defensive and does not raise."""
+        record_m2m_usage(test_db, "ghost@clients")  # must not raise
 
     def test_empty_client_id_is_noop(self, test_db: Session):
-        record_m2m_usage(test_db, "")
+        record_m2m_usage(test_db, "")  # must not raise

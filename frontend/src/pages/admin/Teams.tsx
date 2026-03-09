@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTeams, useCreateTeam, useUpdateTeam, useDeactivateTeam, useReactivateTeam, TeamCreate, TeamUpdate, Team } from '@hooks/useTeams'
 import TeamMembers from './TeamMembers'
+import TeamM2MClient from './TeamM2MClient'
 
 export default function Teams() {
   const [showInactive, setShowInactive] = useState(true)
@@ -14,6 +15,8 @@ export default function Teams() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [selectedTeamName, setSelectedTeamName] = useState<string>('')
+  const [m2mTeamId, setM2mTeamId] = useState<string | null>(null)
+  const [m2mTeamName, setM2mTeamName] = useState<string>('')
   const [deactivateDialog, setDeactivateDialog] = useState<{
     teamId: string
     teamName: string
@@ -341,12 +344,21 @@ export default function Teams() {
           <div className="flex items-center justify-end gap-3">
             <button
               onClick={() => {
+                setM2mTeamId(team.id)
+                setM2mTeamName(team.name)
+              }}
+              className="text-purple-600 hover:text-purple-900"
+            >
+              M2M Client
+            </button>
+            <button
+              onClick={() => {
                 setSelectedTeamId(team.id)
                 setSelectedTeamName(team.name)
               }}
               className="text-gh-blue hover:text-gh-blue-dark"
             >
-              Manage Members
+              Members
             </button>
             {team.is_active && (
               <button
@@ -961,6 +973,18 @@ export default function Teams() {
           onClose={() => {
             setSelectedTeamId(null)
             setSelectedTeamName('')
+          }}
+        />
+      )}
+
+      {/* M2M Client Modal */}
+      {m2mTeamId && (
+        <TeamM2MClient
+          teamId={m2mTeamId}
+          teamName={m2mTeamName}
+          onClose={() => {
+            setM2mTeamId(null)
+            setM2mTeamName('')
           }}
         />
       )}
