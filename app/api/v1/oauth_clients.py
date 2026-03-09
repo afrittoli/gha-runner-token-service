@@ -54,7 +54,7 @@ async def create_oauth_client(
             detail=f"Team '{data.team_id}' not found.",
         )
 
-    # Check for duplicate client_id
+    # Check for duplicate client_id (globally unique)
     existing = (
         db.query(OAuthClient).filter(OAuthClient.client_id == data.client_id).first()
     )
@@ -62,6 +62,27 @@ async def create_oauth_client(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"OAuth client '{data.client_id}' already registered.",
+        )
+
+    # Enforce one active machine member per team.  A team corresponds to exactly
+    # one Auth0 M2M application (provisioned by terraform), so registering a
+    # second active client for the same team indicates a misconfiguration.
+    existing_for_team = (
+        db.query(OAuthClient)
+        .filter(
+            OAuthClient.team_id == data.team_id,
+            OAuthClient.is_active.is_(True),
+        )
+        .first()
+    )
+    if existing_for_team:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Team '{data.team_id}' already has an active M2M client "
+                f"(client_id='{existing_for_team.client_id}'). "
+                "Disable or delete the existing registration before adding a new one."
+            ),
         )
 
     client = OAuthClient(
@@ -171,19 +192,15 @@ async def delete_oauth_client(
 def record_m2m_usage(db: Session, client_sub: str) -> None:
     """Update ``last_used_at`` for the OAuth client matching ``client_sub``.
 
-    Called from the auth middleware after a successful M2M token validation.
-    Best-effort — failures are silently ignored to avoid blocking requests.
+    Called from the auth middleware after the client has already been validated
+    as registered and active.  The client row is guaranteed to exist at this
+    point, so errors are propagated rather than silently swallowed.
 
     Args:
         db: Database session
         client_sub: The ``sub`` claim from the M2M JWT (== Auth0 client_id)
     """
-    try:
-        client = (
-            db.query(OAuthClient).filter(OAuthClient.client_id == client_sub).first()
-        )
-        if client:
-            client.last_used_at = datetime.now(timezone.utc)
-            db.commit()
-    except Exception:  # noqa: BLE001
-        pass
+    client = db.query(OAuthClient).filter(OAuthClient.client_id == client_sub).first()
+    if client:
+        client.last_used_at = datetime.now(timezone.utc)
+        db.commit()

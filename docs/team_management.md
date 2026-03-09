@@ -41,14 +41,26 @@ Teams can have maximum runner limits to prevent resource exhaustion. When a team
 
 With M2M authentication, CI/CD pipelines and automation tools obtain runner tokens directly using OAuth `client_credentials` grant — no human login required.
 
+### The Machine Member Model
+
+Each gharts team has exactly **one machine member** — the Auth0 M2M application provisioned by terraform for that team. This machine member is logically part of the team, just like a human member, but authenticates via `client_credentials` instead of via the dashboard.
+
+The `OAuthClient` table in gharts records the machine member's Auth0 `client_id`, linking it to its team. This record:
+
+- **Is required** before any M2M token for the team will be accepted (enforced at authentication time)
+- **Provides the audit trail** for all M2M provisioning — `last_used_at` is updated on every successful auth
+- **Acts as a revocation point** — disabling or deleting the record blocks the machine member immediately
+
+> **Important:** Without a registered `OAuthClient`, all M2M tokens for that team are rejected with `403 Forbidden` at authentication time. A team cannot use M2M provisioning until its machine member is registered.
+
 ### How M2M Works
 
-1. An Auth0 M2M application is created per team (managed outside gharts)
-2. The M2M app is registered in gharts with `POST /admin/oauth-clients`
+1. An Auth0 M2M application is created per team (provisioned by terraform)
+2. The M2M app's `client_id` is registered in gharts with `POST /admin/oauth-clients`
 3. An Auth0 Action injects the `team` claim into the JWT for that client
 4. The pipeline exchanges its `client_id`/`client_secret` for a JWT from Auth0
-5. The JWT (containing `team: "<team-name>"`) is used as a Bearer token against gharts API
-6. gharts validates the token, resolves the team, and provisions runners under that team
+5. The JWT (containing `team: "<team-name>"` and `sub: "<client-id>"`) is used as a Bearer token against gharts API
+6. gharts validates the token: verifies signature, resolves the team, checks the OAuthClient registration and active status, records the usage, then provisions runners under that team
 
 ### M2M vs Individual Tokens
 
@@ -60,11 +72,14 @@ With M2M authentication, CI/CD pipelines and automation tools obtain runner toke
 | Requires team membership | No | Yes |
 | Blocked by team deactivation | Yes | Yes |
 
-### Registering an M2M Client
+### Registering an M2M Client (Required)
 
+Before a team can use M2M provisioning, its machine member must be registered. Only one active client is allowed per team.
+
+**Via API:**
 ```bash
 # Register a new Auth0 M2M client for a team
-curl -X POST https://your-domain.com/admin/oauth-clients \
+curl -X POST https://your-domain.com/api/v1/admin/oauth-clients \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -73,6 +88,16 @@ curl -X POST https://your-domain.com/admin/oauth-clients \
     "description": "CI/CD pipeline for backend team"
   }'
 ```
+
+**Via Dashboard:**
+1. Navigate to Admin Console → Teams
+2. Click "M2M Client" for the target team
+3. Click "Register M2M client"
+4. Enter the Auth0 `client_id` (found in the Auth0 dashboard under the M2M application)
+5. Optionally add a description
+6. Click "Register"
+
+> The `client_id` must match the **Client ID** of the Auth0 M2M application whose `client_metadata.team` equals the team name.
 
 ### Listing M2M Clients for a Team
 
@@ -529,6 +554,63 @@ During migration:
 3. **Role assignment**: Use "admin" role sparingly (future feature)
 
 ## Troubleshooting
+
+### M2M Auth: "M2M client '...' is not registered for team '...'" (403)
+
+**Cause:** The JWT `sub` claim (the Auth0 `client_id`) has no matching `OAuthClient` row
+for the team named in the `team` claim, or the client is registered for a different team.
+
+**Solution:**
+1. Confirm the team name in `client_metadata.team` on the Auth0 M2M application exactly matches the team name in gharts (case-sensitive).
+2. Register the client via the admin dashboard (Teams → M2M Client → Register) or API:
+   ```bash
+   curl -X POST https://your-domain.com/api/v1/admin/oauth-clients \
+     -H "Authorization: Bearer $ADMIN_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"client_id": "<Auth0-client-id>", "team_id": "<TEAM_UUID>"}'
+   ```
+
+### M2M Auth: "M2M client for team '...' is disabled" (403)
+
+**Cause:** An `OAuthClient` row exists for the team but its `is_active` flag is `false`.
+
+**Solution:** Re-enable the client via the admin dashboard (Teams → M2M Client → Enable client) or API:
+```bash
+curl -X PATCH https://your-domain.com/api/v1/admin/oauth-clients/CLIENT_RECORD_UUID \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": true}'
+```
+
+### M2M Auth: "Team '...' not found or inactive" (403)
+
+**Cause:** The `team` claim in the JWT does not match any active team in gharts.
+Either the team name in Auth0 `client_metadata.team` is wrong, or the team has been deactivated.
+
+**Solution:**
+- Verify the team name in Auth0 matches exactly (Admin Console → Teams → name column).
+- If the team was deactivated, reactivate it or update the Auth0 metadata to point to the correct active team.
+
+### M2M Auth: "409 Conflict — Team already has an active M2M client" when registering
+
+**Cause:** A team can have at most one active `OAuthClient` at a time.
+
+**Solution:** Disable or delete the existing client before registering a new one:
+```bash
+# 1. Find the existing client record
+curl "https://your-domain.com/api/v1/admin/oauth-clients?team_id=TEAM_UUID&active_only=true" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# 2a. Disable it (keeps audit history)
+curl -X PATCH "https://your-domain.com/api/v1/admin/oauth-clients/CLIENT_RECORD_UUID" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": false}'
+
+# 2b. Or delete it permanently
+curl -X DELETE "https://your-domain.com/api/v1/admin/oauth-clients/CLIENT_RECORD_UUID" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
 
 ### "Team quota exceeded" Error
 

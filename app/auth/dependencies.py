@@ -200,26 +200,76 @@ async def get_current_user(
     # --- M2M team path ---
     if token_type == TokenType.M2M_TEAM:
         team_name = payload["team"]
+        client_sub = payload.get("sub", "")
+
         team = _find_team_by_name(db, team_name)
         if not team:
             logger.warning(
                 "m2m_team_not_found",
                 team_name=team_name,
-                sub=payload.get("sub"),
+                sub=client_sub,
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(f"Team '{team_name}' not found or inactive."),
+                detail=(
+                    f"Team '{team_name}' not found or inactive. "
+                    "Ensure the team name in the Auth0 M2M application metadata "
+                    "matches a registered active team in this service."
+                ),
             )
+
+        # Each team must have exactly one registered and active machine member
+        # (OAuthClient). Tokens from unregistered or disabled clients are rejected
+        # to guarantee complete audit coverage.
+        from app.models import OAuthClient
+
+        oauth_client = (
+            db.query(OAuthClient)
+            .filter(
+                OAuthClient.client_id == client_sub,
+                OAuthClient.team_id == team.id,
+            )
+            .first()
+        )
+        if oauth_client is None:
+            logger.warning(
+                "m2m_client_not_registered",
+                team_name=team_name,
+                sub=client_sub,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"M2M client '{client_sub}' is not registered for team "
+                    f"'{team_name}'. Register the Auth0 client ID via the admin "
+                    "API (POST /api/v1/admin/oauth-clients) before use."
+                ),
+            )
+        if not oauth_client.is_active:
+            logger.warning(
+                "m2m_client_disabled",
+                team_name=team_name,
+                sub=client_sub,
+                client_record_id=oauth_client.id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"M2M client for team '{team_name}' is disabled. "
+                    "Contact an administrator to re-enable it."
+                ),
+            )
+
+        # Record usage timestamp for the audit trail (blocking — failure raises).
+        from app.api.v1.oauth_clients import record_m2m_usage
+
+        record_m2m_usage(db, client_sub)
+
         logger.info(
             "m2m_token_authenticated",
             team=team_name,
-            sub=payload.get("sub"),
+            sub=client_sub,
         )
-        # Record usage for audit trail (best-effort, non-blocking)
-        from app.api.v1.oauth_clients import record_m2m_usage
-
-        record_m2m_usage(db, payload.get("sub", ""))
         return AuthenticatedUser(
             identity=f"m2m:{team_name}",
             claims=payload,

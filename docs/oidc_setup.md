@@ -373,11 +373,15 @@ Repeat for each team that needs automated runner provisioning:
 8. Click **Save Changes**
 9. Note the **Client ID** and **Client Secret** (store in a secret manager)
 
-#### 6c: Register the M2M client in gharts
+#### 6c: Register the M2M client in gharts (Required)
 
-After the M2M app is created, register its `client_id` in gharts so that
-authentication events are tracked and you can revoke credentials without
-rotating the secret:
+After the M2M app is created, you **must** register its `client_id` in gharts
+before the team can use M2M provisioning. This step is mandatory: until the
+registration exists and is active, all M2M tokens for this team are rejected
+with `403 Forbidden` at authentication time.
+
+The registration links the Auth0 `client_id` to its gharts team and enables
+the `last_used_at` audit trail for every M2M authentication event.
 
 ```bash
 # Get an admin token first (device flow or dashboard)
@@ -395,7 +399,7 @@ curl -X POST http://localhost:8000/api/v1/admin/oauth-clients \
   }'
 ```
 
-You can list and manage OAuth clients via the admin API:
+You can list and manage OAuth clients via the admin API or dashboard:
 
 ```bash
 # List all registered M2M clients
@@ -409,6 +413,10 @@ curl -X PATCH \
   -H "Content-Type: application/json" \
   -d '{"is_active": false}'
 ```
+
+**Via the dashboard:** Navigate to Admin Console → Teams, click "M2M Client" for any team to view, register, enable/disable, or delete the machine member registration.
+
+**One active client per team:** The backend enforces that each team has at most one active `OAuthClient`. To rotate credentials (e.g. new terraform-provisioned app), disable or delete the existing registration before registering the new one.
 
 #### 6d: Use M2M credentials to provision runners
 

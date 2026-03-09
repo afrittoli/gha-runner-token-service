@@ -14,7 +14,7 @@ export interface Team {
   created_at: string
   updated_at: string
   member_count?: number
-  runner_count?: number
+  active_runner_count?: number
 }
 
 export interface TeamListResponse {
