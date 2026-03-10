@@ -10,6 +10,7 @@ Usage:
 
 import asyncio
 import json
+import signal
 import socket
 import sys
 import time
@@ -111,9 +112,16 @@ class SyncWorker:
         """Main loop with leader election."""
         backoff_seconds = 10  # Initial backoff for outer loop errors
         max_backoff = 300  # Max 5 minutes
+        first_cycle = True
 
         while not self.shutdown_requested:
             try:
+                # Guard against missing connection after failed reconnect
+                if self.pg_conn is None:
+                    await asyncio.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2, max_backoff)
+                    continue
+
                 # Try to acquire leadership
                 acquired = await self.pg_conn.fetchval(
                     "SELECT pg_try_advisory_lock($1)", SYNC_LEADER_LOCK_ID
@@ -139,6 +147,14 @@ class SyncWorker:
                         hostname=self.hostname, lock_id=str(SYNC_LEADER_LOCK_ID)
                     ).set(1)
 
+                    # Skip sleep on first cycle if sync_on_startup is enabled
+                    if first_cycle and not self.settings.sync_on_startup:
+                        first_cycle = False
+                        await asyncio.sleep(self.settings.sync_interval_seconds)
+                        continue
+
+                    first_cycle = False
+
                     # Run sync as leader
                     await self._run_sync_cycle()
                     # Reset backoff on successful cycle
@@ -158,6 +174,7 @@ class SyncWorker:
                         hostname=self.hostname, lock_id=str(SYNC_LEADER_LOCK_ID)
                     ).set(0)
 
+                    first_cycle = False
                     logger.debug("sync_standby", hostname=self.hostname)
                     await asyncio.sleep(self.settings.sync_interval_seconds)
                     # Reset backoff on successful standby cycle
@@ -264,8 +281,6 @@ class SyncWorker:
 
     def _initialize_sync_state(self):
         """Initialize sync_state record on worker startup."""
-        from app.database import SessionLocal
-
         db = SessionLocal()
         try:
             now = datetime.now(timezone.utc)
@@ -354,7 +369,6 @@ class SyncWorker:
 async def main():
     """Entry point for sync worker."""
     from app.logging_config import setup_logging
-    import signal
 
     setup_logging()
 

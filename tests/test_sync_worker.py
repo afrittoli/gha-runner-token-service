@@ -213,6 +213,3 @@ async def test_lock_id_is_stable():
     assert isinstance(SYNC_LEADER_LOCK_ID, int)
     assert SYNC_LEADER_LOCK_ID > 0
     assert SYNC_LEADER_LOCK_ID == 1847293847
-
-
-# Made with Bob

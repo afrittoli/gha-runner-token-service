@@ -1,6 +1,7 @@
 """Main FastAPI application."""
 
 import asyncio
+import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,9 +71,6 @@ def get_sync_status(db=None) -> dict:
         sync_state = db.query(SyncState).filter_by(id=1).first()
 
         if sync_state:
-            # Parse last_sync_result from JSON
-            import json
-
             last_sync_result = None
             if sync_state.last_sync_result:
                 try:
