@@ -149,6 +149,3 @@ def test_sync_state_query_by_heartbeat(test_db):
 
     assert stale is not None
     assert stale.worker_hostname == "test-worker"
-
-
-# Made with Bob

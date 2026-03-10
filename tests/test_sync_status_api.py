@@ -109,6 +109,3 @@ def test_get_sync_status_api_endpoint(client, admin_auth_override, test_db):
     data = response.json()
     assert data["worker_hostname"] == "worker-pod-1"
     assert data["last_sync_result"] == sync_result
-
-
-# Made with Bob

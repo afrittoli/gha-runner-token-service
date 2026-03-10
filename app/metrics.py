@@ -73,50 +73,6 @@ db_advisory_lock_held = Gauge(
     ["hostname", "lock_id"],
 )
 
-# API metrics
-api_requests_total = Counter(
-    "gharts_api_requests_total",
-    "Total number of API requests",
-    ["method", "endpoint", "status"],
-)
-
-api_request_duration_seconds = Histogram(
-    "gharts_api_request_duration_seconds",
-    "API request duration in seconds",
-    ["method", "endpoint"],
-    buckets=[0.01, 0.05, 0.1, 0.5, 1, 2, 5],
-)
-
-# Runner metrics
-runners_total = Gauge(
-    "gharts_runners_total",
-    "Total number of runners by status",
-    ["status"],  # online, offline, deleted
-)
-
-runners_provisioned_total = Counter(
-    "gharts_runners_provisioned_total",
-    "Total number of runners provisioned",
-    ["team"],
-)
-
-# GitHub API metrics
-github_api_requests_total = Counter(
-    "gharts_github_api_requests_total",
-    "Total number of GitHub API requests",
-    ["endpoint", "status"],
-)
-
-github_api_rate_limit_remaining = Gauge(
-    "gharts_github_api_rate_limit_remaining",
-    "Remaining GitHub API rate limit",
-)
-
-github_api_rate_limit_reset_timestamp = Gauge(
-    "gharts_github_api_rate_limit_reset_timestamp",
-    "GitHub API rate limit reset time (Unix timestamp)",
-)
-
 
 def get_metrics() -> tuple[bytes, str]:
     """Generate Prometheus metrics in text format.

@@ -76,6 +76,8 @@ GITHUB_APP_ID=123456                    # From app settings page
 GITHUB_APP_INSTALLATION_ID=12345678     # From installation URL
 GITHUB_APP_PRIVATE_KEY_PATH=./github-app-private-key.pem
 GITHUB_ORG=your-organization
+```
+
 ### Configure Webhooks (Optional)
 
 GitHub webhooks provide real-time notifications for workflow job events, enabling immediate label policy enforcement. For local development, use [smee.io](https://smee.io) to proxy webhooks to your local machine.
@@ -179,8 +181,6 @@ For production deployments (not using smee.io):
 3. Enable SSL verification
 4. Configure `LABEL_POLICY_ENFORCEMENT=enforce` for strict enforcement
 5. Monitor security events via `/api/v1/admin/security-events` endpoint
-
-```
 
 ## 2. Auth0 OIDC Setup
 

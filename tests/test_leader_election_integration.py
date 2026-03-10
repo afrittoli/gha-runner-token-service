@@ -371,6 +371,3 @@ async def test_sync_result_json_format(test_db):
     assert result_dict["deleted"] == 4
     assert result_dict["unchanged"] == 30
     assert "errors" in result_dict
-
-
-# Made with Bob
