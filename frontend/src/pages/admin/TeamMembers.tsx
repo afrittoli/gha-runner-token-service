@@ -5,6 +5,7 @@ import {
   useRemoveTeamMember,
 } from '@hooks/useTeams'
 import { useUsers } from '@hooks/useAdmin'
+import ActionMenu from '@components/ActionMenu'
 
 interface TeamMembersProps {
   teamId: string
@@ -117,13 +118,16 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                       {new Date(member.joined_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleRemoveMember(member.user_id, member.email)}
-                        disabled={removeMember.isPending}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
+                      <ActionMenu
+                        menuItems={[
+                          {
+                            label: 'Remove',
+                            onClick: () => handleRemoveMember(member.user_id, member.email),
+                            disabled: removeMember.isPending,
+                            variant: 'danger',
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

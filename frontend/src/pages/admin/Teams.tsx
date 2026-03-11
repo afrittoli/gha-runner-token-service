@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTeams, useCreateTeam, useUpdateTeam, useDeactivateTeam, useReactivateTeam, TeamCreate, TeamUpdate, Team } from '@hooks/useTeams'
 import TeamMembers from './TeamMembers'
 import TeamM2MClient from './TeamM2MClient'
+import ActionMenu, { IconAction, ActionItem } from '@components/ActionMenu'
 
 export default function Teams() {
   const [showInactive, setShowInactive] = useState(true)
@@ -274,15 +275,23 @@ export default function Teams() {
             {team.member_count ?? 0}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <button
-              onClick={() => {
-                setSelectedTeamId(team.id)
-                setSelectedTeamName(team.name)
-              }}
-              className="text-gh-blue hover:text-gh-blue-dark"
-            >
-              Manage Members
-            </button>
+            <ActionMenu
+              iconActions={[
+                {
+                  label: 'Members',
+                  title: 'Manage members',
+                  onClick: () => {
+                    setSelectedTeamId(team.id)
+                    setSelectedTeamName(team.name)
+                  },
+                  icon: (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  ),
+                } as IconAction,
+              ]}
+            />
           </td>
         </tr>
       )
@@ -341,50 +350,56 @@ export default function Teams() {
           </span>
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              onClick={() => {
-                setM2mTeamId(team.id)
-                setM2mTeamName(team.name)
-              }}
-              className="text-purple-600 hover:text-purple-900"
-            >
-              M2M Client
-            </button>
-            <button
-              onClick={() => {
-                setSelectedTeamId(team.id)
-                setSelectedTeamName(team.name)
-              }}
-              className="text-gh-blue hover:text-gh-blue-dark"
-            >
-              Members
-            </button>
-            {team.is_active && (
-              <button
-                onClick={() => openEditModal(team)}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Edit
-              </button>
-            )}
-            {team.is_active && (
-              <button
-                onClick={() => handleDeactivateTeam(team.id, team.name)}
-                className="text-red-600 hover:text-red-900"
-              >
-                Deactivate
-              </button>
-            )}
-            {!team.is_active && (
-              <button
-                onClick={() => handleActivateTeam(team.id)}
-                className="text-green-600 hover:text-green-900"
-              >
-                Activate
-              </button>
-            )}
-          </div>
+          <ActionMenu
+            iconActions={[
+              {
+                label: 'M2M Client',
+                title: 'Manage M2M client',
+                onClick: () => {
+                  setM2mTeamId(team.id)
+                  setM2mTeamName(team.name)
+                },
+                icon: (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                ),
+              } as IconAction,
+              {
+                label: 'Members',
+                title: 'Manage members',
+                onClick: () => {
+                  setSelectedTeamId(team.id)
+                  setSelectedTeamName(team.name)
+                },
+                icon: (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                ),
+              } as IconAction,
+              ...(team.is_active ? [{
+                label: 'Edit',
+                title: 'Edit team',
+                onClick: () => openEditModal(team),
+                icon: (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                ),
+              } as IconAction] : []),
+            ]}
+            menuItems={[
+              ...(team.is_active ? [{
+                label: 'Deactivate',
+                onClick: () => handleDeactivateTeam(team.id, team.name),
+                variant: 'danger' as const,
+              } as ActionItem] : [{
+                label: 'Activate',
+                onClick: () => handleActivateTeam(team.id),
+              } as ActionItem]),
+            ]}
+          />
         </td>
       </tr>
     )
