@@ -668,6 +668,51 @@ The implementation is broken into the following logically-contained commits:
 
 ---
 
+## Architecture Decisions
+
+### ADR-1: Explicit OAuthClient DB Registration Required
+
+**Decision**: Every M2M token must be backed by an `OAuthClient` row in the database, even though the `team` claim in the JWT already identifies which team is authorised. M2M access is rejected if the `OAuthClient` record does not exist or is inactive.
+
+**Context**: Upon receiving an M2M token the backend can resolve the target team purely from the `team` JWT claim — no database row is strictly necessary for authorization. The question is whether the explicit registration step adds sufficient value to justify the friction.
+
+**Rationale**:
+
+1. **Audit trail** — `OAuthClient` records `created_by` (who registered the client), `created_at`, and `last_used_at` (stamped on every request). Team name matching alone produces no audit record of when the credential was provisioned or how actively it is used.
+
+2. **Independent revocation** — An operator can disable a specific M2M client (`is_active = False`) without touching the team configuration, the Auth0 application, or the team's runner policy. This is essential when a `client_secret` is suspected to be compromised: the registration is revoked immediately and a new client ID can be registered later.
+
+3. **Client ID verification** — The `sub` claim in the token (the Auth0 `client_id`) is matched against the registered `client_id`. This prevents a rogue Auth0 M2M application that carries a valid `team` claim (e.g. via a misconfigured Auth0 Action) from gaining access — the `client_id` must have been explicitly allowlisted by an admin.
+
+4. **One-client-per-team enforcement** — The API enforces that at most one active `OAuthClient` exists per team (HTTP 409 Conflict on duplicate registration). This mirrors the terraform model where exactly one Auth0 M2M app is provisioned per team and prevents silent misconfiguration where two competing credentials both claim the same team.
+
+**Consequences**:
+- Initial setup requires an extra admin step (register the Auth0 client ID via the dashboard or API).
+- Terraform automation should include a `POST /api/v1/admin/oauth-clients` call as part of team provisioning.
+- Historical `OAuthClient` records (inactive) are preserved for audit purposes and must be explicitly deleted if no longer needed.
+
+---
+
+### ADR-2: Admin Team Cannot Have an M2M Client
+
+**Decision**: The admin team is excluded from M2M client management in the dashboard UI. Only the "Manage Members" action is available for the admin team row; the "M2M Client" action is intentionally absent.
+
+**Context**: The `admin` team is a system team that grants administrative privileges (user management, team configuration, audit log access). It is populated exclusively by human administrators. The question is whether automated M2M clients should be allowed to hold admin-team membership.
+
+**Rationale**:
+
+1. **Privilege boundary** — M2M clients are designed for automated runner provisioning in CI/CD pipelines. Admin-level operations (adding/removing users, modifying team policies, viewing security events) are human-governed. Allowing an M2M credential to perform admin operations would cross a significant privilege boundary without the human-oversight safeguard that individual OIDC tokens provide.
+
+2. **Blast-radius containment** — If an M2M `client_secret` is leaked, the damage is scoped to that team's runner provisioning. An admin-capable M2M credential would have system-wide impact.
+
+3. **Backend flexibility** — The restriction is enforced in the frontend UI only. The backend API itself does not block registering an OAuthClient for the admin team. This allows the restriction to be lifted in future if a legitimate automation use-case for admin-level M2M access is identified, without a backend schema change.
+
+**Consequences**:
+- Administrators who need to automate admin operations must use individual OIDC tokens (device flow or SPA) or the backend API directly.
+- If a genuine requirement for admin-level M2M access emerges, the frontend restriction can be removed and a backend guard (`require_admin` dependency in the `OAuthClient` router) added to enforce it server-side instead.
+
+---
+
 ## Open Questions
 
 1. **One M2M app per team vs one with metadata**: Auth0 supports setting different metadata per M2M app. A single "gharts-m2m" app with per-client metadata is an alternative but reduces isolation.
