@@ -193,9 +193,7 @@ main() {
         log_warning "Creating placeholder Secret — backend GitHub calls will fail"
         kubectl create secret generic "${RELEASE_NAME}-github" \
             --namespace "$NAMESPACE" \
-            --from-literal=private-key.pem="-----BEGIN RSA PRIVATE KEY-----
-placeholder-key-for-testing
------END RSA PRIVATE KEY-----" \
+            --from-literal=private-key.pem="placeholder-key-for-testing" \
             --dry-run=client -o yaml | kubectl apply -f -
     fi
 
@@ -274,6 +272,13 @@ github:
   installationId: "${GITHUB_APP_INSTALLATION_ID}"
   privateKeySecret: "${RELEASE_NAME}-github"
   privateKeySecretKey: "private-key.pem"
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: false
 
 # ─── Database ─────────────────────────────────────────────────────────────────
 # PostgreSQL is installed separately — use its URL from a pre-created Secret

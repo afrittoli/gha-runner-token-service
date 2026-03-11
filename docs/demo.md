@@ -14,15 +14,32 @@ Before starting the demo, ensure:
 
 ### Environment Variables
 
+Copy `docs/.cli.env.example` to `docs/.cli.env` and fill in your Auth0 credentials.
+
 ```bash
 # Service URL
 export SERVICE_URL="http://localhost:8000"  # or your deployed URL
-export DASHBOARD_URL="http://localhost:5173/app/"
+export DASHBOARD_URL="http://localhost:8080/app/"
 
-# OIDC tokens (obtain from your identity provider)
+# Source the CLI environment (Auth0 credentials for token acquisition)
+source docs/.cli.env
+
+# Individual OIDC tokens (device flow — opens browser for login)
+source docs/scripts/oidc.sh
 export ALICE_TOKEN=$(get_oidc_token)
 export BOB_TOKEN=$(get_oidc_token)
 export ADMIN_TOKEN=$(get_oidc_token)
+
+# M2M token for CI/CD pipeline demo (client credentials flow — no browser needed)
+export M2M_TOKEN=$(curl -s --request POST \
+  --url "https://${AUTH0_DOMAIN}/oauth/token" \
+  --header "content-type: application/json" \
+  --data "{
+    \"client_id\": \"${AUTH0_M2M_CLIENT_ID}\",
+    \"client_secret\": \"${AUTH0_M2M_CLIENT_SECRET}\",
+    \"audience\": \"${AUTH0_AUDIENCE}\",
+    \"grant_type\": \"client_credentials\"
+  }" | jq -r '.access_token')
 ```
 
 ---
@@ -504,6 +521,109 @@ Dashboard also shows security events in the "Security Events" section with filte
 
 ---
 
+## Demo M2M (Machine-to-Machine) Authentication
+
+Demonstrate how CI/CD pipelines provision runners without human login using OAuth `client_credentials` grant.
+
+### Register M2M Client (Admin)
+
+Before a pipeline can use M2M authentication, an admin registers its Auth0 client_id for a team:
+
+```bash
+# First create a team (if not already existing)
+curl -X POST "$SERVICE_URL/api/v1/admin/teams" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "platform-team",
+    "description": "Platform engineering team"
+  }' | jq
+
+export TEAM_ID=$(curl -s "$SERVICE_URL/api/v1/admin/teams" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.teams[] | select(.name=="platform-team") | .id')
+
+# Register the M2M client for the team
+curl -X POST "$SERVICE_URL/api/v1/admin/oauth-clients" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"client_id\": \"${AUTH0_M2M_CLIENT_ID}\",
+    \"team_id\": \"${TEAM_ID}\",
+    \"description\": \"Platform team CI/CD pipeline\"
+  }" | jq
+```
+
+### Obtain M2M Token (Pipeline simulation)
+
+```bash
+# The pipeline obtains a token using client_credentials — no human interaction
+export M2M_TOKEN=$(curl -s --request POST \
+  --url "https://${AUTH0_DOMAIN}/oauth/token" \
+  --header "content-type: application/json" \
+  --data "{
+    \"client_id\": \"${AUTH0_M2M_CLIENT_ID}\",
+    \"client_secret\": \"${AUTH0_M2M_CLIENT_SECRET}\",
+    \"audience\": \"${AUTH0_AUDIENCE}\",
+    \"grant_type\": \"client_credentials\"
+  }" | jq -r '.access_token')
+
+# Show the token claims (note the "team" claim injected by Auth0 Action)
+echo $M2M_TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq '{sub, team, iss, exp}'
+```
+
+### Provision Runner via M2M Token
+
+```bash
+# Pipeline provisions a runner using the M2M token
+curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
+  -H "Authorization: Bearer $M2M_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name_prefix": "pipeline-runner",
+    "labels": ["linux", "arm64"]
+  }' | tee /tmp/m2m-runner.json | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
+```
+
+### Show Team Isolation
+
+```bash
+# M2M token can only see runners provisioned by its team
+curl -s "$SERVICE_URL/api/v1/runners" \
+  -H "Authorization: Bearer $M2M_TOKEN" | jq '.runners[] | {runner_name, provisioned_by}'
+
+# Admin sees all runners including M2M-provisioned ones
+curl -s "$SERVICE_URL/api/v1/runners" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.runners[] | {runner_name, provisioned_by}'
+```
+
+### List Registered M2M Clients (Admin)
+
+```bash
+curl -s "$SERVICE_URL/api/v1/admin/oauth-clients" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.clients[] | {client_id, team_id, description, last_used_at}'
+```
+
+### Revoke M2M Client (Admin)
+
+```bash
+export CLIENT_UUID=$(curl -s "$SERVICE_URL/api/v1/admin/oauth-clients" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r ".clients[] | select(.client_id==\"${AUTH0_M2M_CLIENT_ID}\") | .id")
+
+# Disable the client (pipeline can no longer authenticate)
+curl -X PATCH "$SERVICE_URL/api/v1/admin/oauth-clients/$CLIENT_UUID" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": false}' | jq
+
+# Attempt to use the disabled token — should now fail with 403
+curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
+  -H "Authorization: Bearer $M2M_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"runner_name_prefix": "blocked-runner", "labels": ["linux"]}' | jq
+```
+
+---
+
 ## Summary
 
 Key security benefits demonstrated:
@@ -514,3 +634,4 @@ Key security benefits demonstrated:
 4. **Central Management**: Admins can manage all runners from one place
 5. **Emergency Controls**: Batch disable/delete for incident response
 6. **Ephemeral by Default**: Runners auto-delete after one job
+7. **M2M Authentication**: CI/CD pipelines authenticate without human login using `client_credentials` grant; admins can revoke access instantly
