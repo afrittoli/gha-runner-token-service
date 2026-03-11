@@ -129,13 +129,15 @@ describe('Teams', () => {
     })
   })
 
-  it('shows deactivate button for active teams', async () => {
+  it('shows deactivate option in actions menu for active teams', async () => {
+    const user = userEvent.setup()
     renderTeams()
 
-    await waitFor(() => {
-      const deactivateButtons = screen.getAllByText('Deactivate')
-      expect(deactivateButtons.length).toBeGreaterThan(0)
-    })
+    await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
+    // Open the ⋮ menu for the first (active) team row
+    const moreButtons = screen.getAllByRole('button', { name: /more actions/i })
+    await user.click(moreButtons[0])
+    expect(screen.getByRole('menuitem', { name: /deactivate/i })).toBeInTheDocument()
   })
 
   it('opens create team modal when Create Team button is clicked', async () => {
@@ -161,12 +163,12 @@ describe('Teams', () => {
     expect(screen.queryByText('Create New Team')).not.toBeInTheDocument()
   })
 
-  it('opens edit modal when Edit button is clicked for an active team', async () => {
+  it('opens edit modal when Edit icon button is clicked for an active team', async () => {
     const user = userEvent.setup()
     renderTeams()
 
     await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
-    const editButtons = screen.getAllByText('Edit')
+    const editButtons = screen.getAllByRole('button', { name: /edit team/i })
     await user.click(editButtons[0])
 
     expect(screen.getByText(/Edit Team:/)).toBeInTheDocument()
@@ -182,7 +184,7 @@ describe('Teams', () => {
     renderTeams()
 
     await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
-    const editButtons = screen.getAllByText('Edit')
+    const editButtons = screen.getAllByRole('button', { name: /edit team/i })
     await user.click(editButtons[0])
 
     // Change description
@@ -200,7 +202,7 @@ describe('Teams', () => {
     renderTeams()
 
     await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
-    const editButtons = screen.getAllByText('Edit')
+    const editButtons = screen.getAllByRole('button', { name: /edit team/i })
     await user.click(editButtons[0])
     expect(screen.getByText(/Edit Team:/)).toBeInTheDocument()
 
@@ -208,24 +210,24 @@ describe('Teams', () => {
     expect(screen.queryByText(/Edit Team:/)).not.toBeInTheDocument()
   })
 
-  it('shows M2M Client button for each team', async () => {
+  it('shows M2M Client icon button for each team', async () => {
     renderTeams()
 
     await waitFor(() => {
-      const m2mButtons = screen.getAllByText('M2M Client')
+      const m2mButtons = screen.getAllByRole('button', { name: /manage m2m client/i })
       expect(m2mButtons.length).toBeGreaterThan(0)
     })
   })
 
-  it('opens M2M Client panel when M2M Client button is clicked', async () => {
+  it('opens M2M Client panel when M2M Client icon button is clicked', async () => {
     const user = userEvent.setup()
     renderTeams()
 
     await waitFor(() => expect(screen.getByText('Engineering')).toBeInTheDocument())
-    const m2mButtons = screen.getAllByText('M2M Client')
+    const m2mButtons = screen.getAllByRole('button', { name: /manage m2m client/i })
     await user.click(m2mButtons[0])
 
-    // The heading "M2M Client" exists alongside the button labels — verify the panel opened
+    // Verify the M2M Client panel opened
     expect(screen.getByText('About M2M clients')).toBeInTheDocument()
   })
 })

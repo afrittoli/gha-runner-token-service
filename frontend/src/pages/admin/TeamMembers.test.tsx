@@ -266,8 +266,11 @@ describe('TeamMembers', () => {
         { wrapper: createWrapper() }
       )
 
-      const removeButtons = screen.getAllByRole('button', { name: /remove/i })
-      await user.click(removeButtons[0])
+      // Open the ⋮ menu for the first row, then click Remove
+      const moreButtons = screen.getAllByRole('button', { name: /more actions/i })
+      await user.click(moreButtons[0])
+      const removeItem = screen.getByRole('menuitem', { name: /remove/i })
+      await user.click(removeItem)
 
       await waitFor(() => {
         expect(mockRemoveMember).toHaveBeenCalledWith('user-1')
@@ -305,8 +308,11 @@ describe('TeamMembers', () => {
         { wrapper: createWrapper() }
       )
 
-      const removeButtons = screen.getAllByRole('button', { name: /remove/i })
-      await user.click(removeButtons[0])
+      // Open the ⋮ menu for the first row, then click Remove
+      const moreButtons = screen.getAllByRole('button', { name: /more actions/i })
+      await user.click(moreButtons[0])
+      const removeItem = screen.getByRole('menuitem', { name: /remove/i })
+      await user.click(removeItem)
 
       expect(mockRemoveMember).not.toHaveBeenCalled()
 

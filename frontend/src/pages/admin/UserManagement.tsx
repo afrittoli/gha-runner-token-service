@@ -3,6 +3,7 @@ import { useUsers, useUpdateUser, useActivateUser, useDeleteUser, useCreateUser,
 import { useTeams } from '@hooks/useTeams'
 import StatusBadge from '@components/StatusBadge'
 import { formatDate } from '@utils/formatters'
+import ActionMenu from '@components/ActionMenu'
 
 export default function UserManagement() {
   const [showAddForm, setShowAddForm] = useState(false)
@@ -508,18 +509,17 @@ export default function UserManagement() {
                     {user.last_login_at ? formatDate(user.last_login_at) : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {canDeactivateUser(user) || !user.is_active ? (
-                      <button
-                        onClick={() => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active)}
-                        className={`${user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
-                      >
-                        {user.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                    ) : (
-                      <span className="text-gray-400 cursor-not-allowed" title="Cannot deactivate the last active admin">
-                        Deactivate
-                      </span>
-                    )}
+                    <ActionMenu
+                      menuItems={[
+                        {
+                          label: user.is_active ? 'Deactivate' : 'Activate',
+                          onClick: () => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active),
+                          disabled: user.is_active && !canDeactivateUser(user),
+                          disabledTitle: 'Cannot deactivate the last active admin',
+                          variant: user.is_active ? 'danger' : 'default',
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -590,12 +590,15 @@ export default function UserManagement() {
                   {user.last_login_at ? formatDate(user.last_login_at) : 'Never'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active)}
-                    className={`${user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
-                  >
-                    {user.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
+                  <ActionMenu
+                    menuItems={[
+                      {
+                        label: user.is_active ? 'Deactivate' : 'Activate',
+                        onClick: () => handleToggleStatus(user.id, user.display_name || user.email || user.oidc_sub || 'Unknown', user.is_active),
+                        variant: user.is_active ? 'danger' : 'default',
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}
