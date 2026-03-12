@@ -8,7 +8,7 @@ Before starting the demo, ensure:
 - The service is running (see development.md or quickstart.md)
 - You have the [`docs/scripts/oidc.sh`](./scripts/oidc.sh) function installed and configured
 - Source the CLI credentials `source docs/.cli.env`
-- Label policies are configured for the users
+- Teams are configured with users and runner policies
 - The GitHub organization has self-hosted runners enabled
 - Alias `alias curl="curl -sw '%{stderr}Response: %{http_code}\n'"`
 
@@ -68,7 +68,7 @@ curl -s "$SERVICE_URL/api/v1/runners" \
 
 1. Open the dashboard at `$DASHBOARD_URL/dashboard`
 2. Click on the **Users** tab to show pre-provisioned users
-3. Click on the **Label Policies** tab to show configured policies
+3. Click on the **Teams** tab to show configured teams and their runner policies
 4. Point out the empty Runners table
 
 ### List Users (API)
@@ -79,12 +79,12 @@ curl -s "$SERVICE_URL/api/v1/admin/users" \
   -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.users[] | {email, is_admin, can_use_jit}'
 ```
 
-### List Label Policies (API)
+### List Teams (API)
 
 ```bash
-# List all label policies
-curl -s "$SERVICE_URL/api/v1/admin/label-policies" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.policies[] | {user_identity, allowed_labels, max_runners}'
+# List all teams (each team defines runner policies: required_labels, max_runners)
+curl -s "$SERVICE_URL/api/v1/admin/teams" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.teams[] | {name, required_labels, max_runners, member_count}'
 ```
 
 ---
@@ -218,8 +218,11 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
 ```
 
 # Save the JIT config for later
+
+```bash
 export ALICE_JIT_CONFIG=$(jq -r '.encoded_jit_config' /tmp/alice-runner.json)
 export ALICE_RUNNER_NAME=$(jq -r '.runner_name' /tmp/alice-runner.json)
+```
 
 ### Provision Runner for Bob
 
@@ -254,11 +257,7 @@ curl -s "$SERVICE_URL/api/v1/runners" \
   -H "Authorization: Bearer $BOB_TOKEN" | jq '.runners[] | {runner_name, provisioned_by}'
 
 # Admin sees all runners
-curl -s "$SERVICE_URL/api/v1/admin/batch/delete-runners" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"comment": "Listing only"}' 2>/dev/null || \
-  curl -s "$SERVICE_URL/api/v1/runners" \
+curl -s "$SERVICE_URL/api/v1/runners" \
   -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.runners[] | {runner_name, provisioned_by}'
 ```
 
@@ -315,6 +314,17 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
     "runner_name_prefix": "bob-new",
     "labels": ["linux", "arm64", "bob"]
   }' | tee /tmp/bob-runner.json | jq '.encoded_jit_config = (.encoded_jit_config[:20] + "...") | .run_command = (.run_command[:20] + "...")'
+
+export BOB_JIT_CONFIG=$(jq -r '.encoded_jit_config' /tmp/bob-runner.json)
+```
+
+### Bob Starts the Runner
+
+```bash
+# On the runner machine (or container):
+podman run -it --rm \
+  ghcr.io/actions/actions-runner:latest \
+  ./run.sh --jitconfig "$BOB_JIT_CONFIG"
 ```
 
 ---
@@ -380,22 +390,23 @@ for i in 1 2; do
 done
 ```
 
-### Admin Concole
+### Admin Console
 
 Show GitHub App config
 
-### Alter Label Policy
+### Update Team Runner Policy
 
 ```bash
-# Update Alice's label policy to add more allowed labels
-curl -X POST "$SERVICE_URL/api/v1/admin/label-policies" \
+# Update a team's runner policy (allowed labels and runner limit)
+export ALICE_TEAM_ID=$(curl -s "$SERVICE_URL/api/v1/admin/teams" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.teams[] | select(.name=="alice") | .id')
+
+curl -X PUT "$SERVICE_URL/api/v1/admin/teams/$ALICE_TEAM_ID" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "user_identity": "alice@example.com",
-    "allowed_labels": ["linux", "arm64", "alice", "gpu"],
-    "max_runners": 10,
-    "description": "Alice runners with GPU support"
+    "required_labels": ["linux", "arm64", "alice", "gpu"],
+    "max_runners": 10
   }' | jq
 ```
 
@@ -410,7 +421,6 @@ curl -X POST "$SERVICE_URL/api/v1/admin/users" \
     "email": "charlie@example.com",
     "display_name": "Charlie",
     "is_admin": false,
-    "can_use_registration_token": false,
     "can_use_jit": true
   }' | jq
 ```
@@ -628,7 +638,7 @@ curl -X POST "$SERVICE_URL/api/v1/runners/jit" \
 
 Key security benefits demonstrated:
 
-1. **Label Enforcement**: JIT provisioning enforces labels server-side
+1. **Team-based Policy Enforcement**: JIT provisioning enforces labels and runner limits per team
 2. **User Isolation**: Users can only see/manage their own runners
 3. **Audit Trail**: All actions logged for compliance
 4. **Central Management**: Admins can manage all runners from one place
