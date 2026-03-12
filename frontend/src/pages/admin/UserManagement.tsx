@@ -137,6 +137,7 @@ export default function UserManagement() {
       })
     } catch (err) {
       console.error('Failed to create user:', err)
+      // Error is surfaced via createUser.isError in the form
     }
   }
 
@@ -292,7 +293,7 @@ export default function UserManagement() {
                 type="checkbox"
                 id="is_admin"
                 checked={newUser.is_admin}
-                onChange={(e) => setNewUser({ ...newUser, is_admin: e.target.checked, team_ids: e.target.checked ? [] : newUser.team_ids })}
+                onChange={(e) => setNewUser({ ...newUser, is_admin: e.target.checked })}
                 className="h-4 w-4 text-gh-blue focus:ring-gh-blue border-gray-300 rounded"
               />
               <label htmlFor="is_admin" className="ml-2 block text-sm text-gray-900">
@@ -300,12 +301,15 @@ export default function UserManagement() {
               </label>
             </div>
             
-            {!newUser.is_admin && (
-              <div>
+            <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Team Membership <span className="text-red-600">*</span>
+                  Team Membership {!newUser.is_admin && <span className="text-red-600">*</span>}
                 </label>
-                <p className="text-xs text-gray-500 mb-2">Select at least one team for this user</p>
+                <p className="text-xs text-gray-500 mb-2">
+                  {newUser.is_admin
+                    ? 'Optionally assign to regular teams in addition to admin access'
+                    : 'Select at least one team for this user'}
+                </p>
                 <div className="border border-gray-300 rounded-md p-3 max-h-64 overflow-y-auto">
                   {activeTeams.length === 0 && inactiveTeams.length === 0 ? (
                     <p className="text-sm text-gray-500">No teams available. Create a team first.</p>
@@ -367,23 +371,28 @@ export default function UserManagement() {
                   )}
                 </div>
               </div>
-            )}
 
             {newUser.is_admin && (
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>Admin users</strong> are automatically added to the admin team and have full system access.
+                  <strong>Admin users</strong> have full system access.
                 </p>
+              </div>
+            )}
+
+            {createUser.isError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+                Failed to create user. Please check the details and try again.
               </div>
             )}
 
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={!newUser.is_admin && newUser.team_ids.length === 0}
+                disabled={createUser.isPending || (!newUser.is_admin && newUser.team_ids.length === 0)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gh-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create User
+                {createUser.isPending ? 'Creating...' : 'Create User'}
               </button>
             </div>
           </form>
@@ -467,7 +476,7 @@ export default function UserManagement() {
 
       {/* Admin Users Section */}
       {showAdmins && adminUsers.length > 0 && (
-        <div className="bg-white shadow overflow-hidden border border-gray-300 sm:rounded-lg">
+        <div className="bg-white shadow border border-gray-300 sm:rounded-lg">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wider">Admin Users</h3>
           </div>
@@ -529,7 +538,7 @@ export default function UserManagement() {
       )}
 
       {/* Regular Users Table */}
-      <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg">
+      <div className="bg-white shadow border border-gray-200 sm:rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
