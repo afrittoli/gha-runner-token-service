@@ -97,8 +97,8 @@ async def validate_runner_labels(
     # Validate labels against policy
     label_policy_service = LabelPolicyService(db)
     try:
-        label_policy_service.validate_labels(
-            runner.provisioned_by, github_runner.labels
+        label_policy_service.validate_labels_for_team(
+            runner.team_id, github_runner.labels
         )
         return runner, None
     except LabelPolicyViolation as e:
@@ -171,11 +171,13 @@ async def handle_workflow_job(
     """
     Handle workflow_job webhook event.
 
-    On 'in_progress' action:
-    - Look up runner by name
-    - Fetch runner's actual labels from GitHub
-    - Validate against user's label policy
-    - If violation: log security event and optionally cancel workflow
+    Tracks all status transitions so no state is missed between sync cycles:
+    - queued: job waiting for a runner (no runner assigned yet, ignored)
+    - in_progress: runner picked up the job → mark runner 'active',
+      validate labels
+    - completed: job finished → mark runner 'offline' so ephemeral runners
+      that disappear from GitHub before the next sync cycle are still seen
+      in state 'offline' before being marked 'deleted' by the sync worker.
 
     Args:
         payload: Webhook payload
@@ -189,8 +191,8 @@ async def handle_workflow_job(
     workflow_job = payload.get("workflow_job", {})
     repository = payload.get("repository", {})
 
-    # Only process in_progress events (when job actually starts)
-    if action != "in_progress":
+    # queued has no runner_name yet — nothing to update
+    if action not in ("in_progress", "completed"):
         return {"status": "ignored", "reason": f"action={action}"}
 
     runner_name = workflow_job.get("runner_name")
@@ -208,20 +210,49 @@ async def handle_workflow_job(
         return {"status": "ignored", "reason": "missing runner info"}
 
     logger.info(
-        "workflow_job_in_progress",
+        "workflow_job_event",
+        action=action,
         runner_name=runner_name,
         runner_id=runner_id,
         run_id=run_id,
         repo=repo_full_name,
     )
 
-    # Validate runner labels
-    runner, violation = await validate_runner_labels(
-        runner_name, runner_id, db, settings
-    )
-
+    # Look up runner in our database
+    runner = db.query(Runner).filter(Runner.runner_name == runner_name).first()
     if not runner:
         return {"status": "ignored", "reason": "runner not managed by this service"}
+
+    if action == "completed":
+        # Job finished: mark runner offline so status history is complete.
+        # An immediate sync is triggered so ephemeral runners that have already
+        # unregistered from GitHub are marked deleted without waiting for the
+        # next scheduled sync cycle.
+        if runner.status not in ("deleted", "offline"):
+            runner.status = "offline"
+            db.commit()
+            logger.info(
+                "runner_status_changed",
+                runner_name=runner_name,
+                new_status="offline",
+                reason="workflow_job_completed",
+            )
+
+        return {"status": "ok", "action": "completed"}
+
+    # action == "in_progress": mark runner active and validate labels
+    if runner.status not in ("deleted", "active"):
+        runner.status = "active"
+        db.commit()
+        logger.info(
+            "runner_status_changed",
+            runner_name=runner_name,
+            new_status="active",
+            reason="workflow_job_in_progress",
+        )
+
+    # Validate runner labels
+    _, violation = await validate_runner_labels(runner_name, runner_id, db, settings)
 
     if not violation:
         return {"status": "ok", "labels_valid": True}
@@ -237,13 +268,10 @@ async def handle_workflow_job(
         invalid_labels=list(violation.invalid_labels),
     )
 
-    # Log security event
     label_policy_service = LabelPolicyService(db)
     action_taken = None
 
-    # Determine enforcement action
     if settings.label_policy_enforcement == "enforce":
-        # Cancel the workflow run
         github_client = GitHubClient(settings)
         try:
             cancelled = await github_client.cancel_workflow_run(repo_name, run_id)
@@ -272,7 +300,6 @@ async def handle_workflow_job(
     else:
         action_taken = "audit_only"
 
-    # Log security event
     label_policy_service.log_security_event(
         event_type="label_policy_violation_workflow",
         severity="high",

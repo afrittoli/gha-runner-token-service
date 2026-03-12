@@ -148,9 +148,23 @@ def setup_logging(
         )
     )
 
+    # ===== Console Handler: stdout (Application Logs) =====
+    import sys
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(numeric_level)
+    console_handler.addFilter(AppLogFilter())
+    console_handler.setFormatter(
+        ProcessorFormatter(
+            processor=structlog.dev.ConsoleRenderer(),
+            foreign_pre_chain=shared_processors,
+        )
+    )
+
     # ===== Configure Root Logger =====
     root_logger = logging.getLogger()
     root_logger.handlers = [
+        console_handler,  # App logs to stdout (visible via kubectl logs)
         access_file_handler,  # Access logs to file
         app_file_handler,  # App logs to file
     ]
