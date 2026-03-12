@@ -138,6 +138,10 @@ async def log_requests(request: Request, call_next):
     try:
         response = await call_next(request)
 
+        # Skip access logging for health checks to reduce noise
+        if request.url.path == "/health":
+            return response
+
         # Calculate duration
         duration_ms = (time.time() - start_time) * 1000
 
