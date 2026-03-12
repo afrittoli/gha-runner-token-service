@@ -4,8 +4,11 @@ import {
   useAddTeamMember,
   useRemoveTeamMember,
 } from '@hooks/useTeams'
-import { useUsers } from '@hooks/useAdmin'
+import { useUsers, useUpdateUser } from '@hooks/useAdmin'
 import ActionMenu from '@components/ActionMenu'
+
+// Must match VIRTUAL_ADMIN_TEAM_ID in app/api/v1/teams.py
+const VIRTUAL_ADMIN_TEAM_ID = '00000000-0000-0000-0000-000000000001'
 
 interface TeamMembersProps {
   teamId: string
@@ -14,9 +17,11 @@ interface TeamMembersProps {
 }
 
 export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersProps) {
+  const isAdminTeam = teamId === VIRTUAL_ADMIN_TEAM_ID
   const { data: membersData, isLoading } = useTeamMembers(teamId)
   const addMember = useAddTeamMember(teamId)
   const removeMember = useRemoveTeamMember(teamId)
+  const updateUser = useUpdateUser()
   const { data: usersData } = useUsers()
 
   const [showAddModal, setShowAddModal] = useState(false)
@@ -25,7 +30,11 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await addMember.mutateAsync({ user_id: selectedUserId })
+      if (isAdminTeam) {
+        await updateUser.mutateAsync({ userId: selectedUserId, data: { is_admin: true } })
+      } else {
+        await addMember.mutateAsync({ user_id: selectedUserId })
+      }
       setShowAddModal(false)
       setSelectedUserId('')
     } catch (error) {
@@ -34,11 +43,18 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
   }
 
   const handleRemoveMember = async (userId: string, email: string) => {
-    if (!confirm(`Remove ${email} from ${teamName}?`)) {
+    const confirmMsg = isAdminTeam
+      ? `Remove admin privileges from ${email}?`
+      : `Remove ${email} from ${teamName}?`
+    if (!confirm(confirmMsg)) {
       return
     }
     try {
-      await removeMember.mutateAsync(userId)
+      if (isAdminTeam) {
+        await updateUser.mutateAsync({ userId, data: { is_admin: false } })
+      } else {
+        await removeMember.mutateAsync(userId)
+      }
     } catch (error) {
       console.error('Failed to remove member:', error)
     }
@@ -83,6 +99,13 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
             </button>
           </div>
         </div>
+
+        {/* Admin team info banner */}
+        {isAdminTeam && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+            This team lists all users with admin privileges. Adding or removing members here grants or revokes admin access.
+          </div>
+        )}
 
         {/* Members List */}
         {membersData && membersData.members.length > 0 ? (
@@ -169,7 +192,14 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <h3 className="text-lg font-bold mb-4">Add Team Member</h3>
+              <h3 className="text-lg font-bold mb-4">
+                {isAdminTeam ? 'Grant Admin Access' : 'Add Team Member'}
+              </h3>
+              {isAdminTeam && (
+                <p className="text-sm text-gray-600 mb-3">
+                  Selecting a user will grant them admin privileges.
+                </p>
+              )}
               <form onSubmit={handleAddMember} className="space-y-4">
                 <div>
                   <label htmlFor="user-select" className="block text-sm font-medium text-gray-700">
@@ -194,9 +224,9 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                   </select>
                 </div>
 
-                {addMember.isError && (
+                {(isAdminTeam ? updateUser.isError : addMember.isError) && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-                    Failed to add member. Please check the user ID and try again.
+                    {isAdminTeam ? 'Failed to grant admin access.' : 'Failed to add member. Please check the user ID and try again.'}
                   </div>
                 )}
 
@@ -213,10 +243,10 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                   </button>
                   <button
                     type="submit"
-                    disabled={addMember.isPending}
+                    disabled={isAdminTeam ? updateUser.isPending : addMember.isPending}
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gh-blue hover:bg-gh-blue-dark disabled:opacity-50"
                   >
-                    {addMember.isPending ? 'Adding...' : 'Add Member'}
+                    {(isAdminTeam ? updateUser.isPending : addMember.isPending) ? 'Adding...' : (isAdminTeam ? 'Grant Access' : 'Add Member')}
                   </button>
                 </div>
               </form>

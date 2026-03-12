@@ -46,11 +46,9 @@ TEAM_CREDENTIALS_ENABLED="${TEAM_CREDENTIALS_ENABLED:-true}"
 TEAM_CREDENTIALS_CLAIM="${TEAM_CREDENTIALS_CLAIM:-team}"
 TEAM_CREDENTIALS_REQUIRE_IN_DB="${TEAM_CREDENTIALS_REQUIRE_IN_DB:-true}"
 
-# Frontend OIDC configuration (for runtime injection via Helm)
-# Use VITE_* variables from .env if available, otherwise use backend OIDC settings
-FRONTEND_OIDC_AUTHORITY="${VITE_OIDC_AUTHORITY:-$OIDC_ISSUER}"
+# Frontend OIDC configuration — audience and authority come from OIDC_AUDIENCE / OIDC_ISSUER above
+# VITE_OIDC_CLIENT_ID overrides the Auth0 SPA client ID stored in the k8s Secret
 FRONTEND_OIDC_CLIENT_ID="${VITE_OIDC_CLIENT_ID:-kind-test-client-id}"
-FRONTEND_OIDC_AUDIENCE="${VITE_OIDC_AUDIENCE:-$OIDC_AUDIENCE}"
 # For kind, we use localhost:8080 (port-forward to frontend service)
 FRONTEND_OIDC_REDIRECT_URI="${VITE_OIDC_REDIRECT_URI:-http://localhost:8080/app/callback}"
 FRONTEND_OIDC_POST_LOGOUT_REDIRECT_URI="${VITE_OIDC_POST_LOGOUT_REDIRECT_URI:-http://localhost:8080/app}"
@@ -147,7 +145,8 @@ main() {
     log_info "Container tool: $CONTAINER_TOOL"
     log_info "Backend image: $BACKEND_IMAGE"
     log_info "Frontend image: $FRONTEND_IMAGE"
-    log_info "Frontend OIDC Authority: $FRONTEND_OIDC_AUTHORITY"
+    log_info "OIDC Authority: $OIDC_ISSUER"
+    log_info "OIDC Audience: $OIDC_AUDIENCE"
     log_info "Frontend OIDC Redirect URI: $FRONTEND_OIDC_REDIRECT_URI"
     echo
 
@@ -181,6 +180,41 @@ main() {
     log_info "Ensuring namespace exists..."
     kubectl create namespace "$NAMESPACE" 2>/dev/null || log_info "Namespace already exists"
 
+    # Create/update k8s Secret for GitHub App private key
+    log_info "Creating GitHub App private key Secret..."
+    if [ -f "$GITHUB_PRIVATE_KEY_FILE" ]; then
+        kubectl create secret generic "${RELEASE_NAME}-github" \
+            --namespace "$NAMESPACE" \
+            --from-file=private-key.pem="$GITHUB_PRIVATE_KEY_FILE" \
+            --dry-run=client -o yaml | kubectl apply -f -
+        log_success "GitHub App private key Secret created/updated"
+    else
+        log_warning "GitHub App private key file not found: $GITHUB_PRIVATE_KEY_FILE"
+        log_warning "Creating placeholder Secret — backend GitHub calls will fail"
+        kubectl create secret generic "${RELEASE_NAME}-github" \
+            --namespace "$NAMESPACE" \
+            --from-literal=private-key.pem="-----BEGIN RSA PRIVATE KEY-----
+placeholder-key-for-testing
+-----END RSA PRIVATE KEY-----" \
+            --dry-run=client -o yaml | kubectl apply -f -
+    fi
+
+    # Create/update k8s Secret for OIDC client ID
+    log_info "Creating OIDC client ID Secret..."
+    kubectl create secret generic "${RELEASE_NAME}-oidc" \
+        --namespace "$NAMESPACE" \
+        --from-literal=oidc-client-id="${FRONTEND_OIDC_CLIENT_ID}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+    log_success "OIDC client ID Secret created/updated"
+
+    # Create/update k8s Secret for database URL
+    log_info "Creating database URL Secret..."
+    kubectl create secret generic "${RELEASE_NAME}-db" \
+        --namespace "$NAMESPACE" \
+        --from-literal=DATABASE_URL="postgresql://gharts:gharts@${RELEASE_NAME}-postgresql:5432/gharts?sslmode=disable" \
+        --dry-run=client -o yaml | kubectl apply -f -
+    log_success "Database URL Secret created/updated"
+
     # Create values file for kind deployment
     log_info "Creating Helm values for kind..."
     cat > /tmp/kind-values.yaml <<EOF
@@ -205,20 +239,6 @@ backend:
       cpu: 100m
       memory: 256Mi
 
-  podDisruptionBudget:
-    enabled: false
-
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
-
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
-
 frontend:
   image:
     repository: ${REGISTRY}/${ORG}/${PROJECT}-frontend
@@ -236,61 +256,37 @@ frontend:
       cpu: 50m
       memory: 64Mi
 
-  podDisruptionBudget:
-    enabled: false
+# ─── OIDC (shared by backend and frontend) ────────────────────────────────────
+oidc:
+  enabled: ${ENABLE_OIDC}
+  issuer: "${OIDC_ISSUER}"
+  audience: "${OIDC_AUDIENCE}"
+  jwksUrl: "${OIDC_JWKS_URL}"
+  redirectUri: "${FRONTEND_OIDC_REDIRECT_URI}"
+  postLogoutRedirectUri: "${FRONTEND_OIDC_POST_LOGOUT_REDIRECT_URI}"
+  clientIdSecret: "${RELEASE_NAME}-oidc"
+  clientIdSecretKey: "oidc-client-id"
 
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
+# ─── GitHub App ───────────────────────────────────────────────────────────────
+github:
+  organization: "${GITHUB_ORG}"
+  appId: "${GITHUB_APP_ID}"
+  installationId: "${GITHUB_APP_INSTALLATION_ID}"
+  privateKeySecret: "${RELEASE_NAME}-github"
+  privateKeySecretKey: "private-key.pem"
 
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: false
-    allowPrivilegeEscalation: false
-
-  # Frontend runtime configuration
-  config:
-    oidc:
-      authority: "${FRONTEND_OIDC_AUTHORITY}"
-      clientId: "${FRONTEND_OIDC_CLIENT_ID}"
-      audience: "${FRONTEND_OIDC_AUDIENCE}"
-      redirectUri: "${FRONTEND_OIDC_REDIRECT_URI}"
-      postLogoutRedirectUri: "${FRONTEND_OIDC_POST_LOGOUT_REDIRECT_URI}"
-    api:
-      baseUrl: ""
-
-# PostgreSQL is installed separately - configure external database connection
+# ─── Database ─────────────────────────────────────────────────────────────────
+# PostgreSQL is installed separately — use its URL from a pre-created Secret
 postgresql:
   enabled: false
 
-externalDatabase:
-  host: "${RELEASE_NAME}-postgresql"
-  port: 5432
-  username: gharts
-  password: gharts
-  database: gharts
+database:
   sslMode: disable
+  databaseUrlSecret: "${RELEASE_NAME}-db"
+  databaseUrlSecretKey: "DATABASE_URL"
 
-# Application configuration (values from .env or defaults)
+# ─── Application behavior ─────────────────────────────────────────────────────
 config:
-  github:
-    appId: "${GITHUB_APP_ID}"
-    installationId: "${GITHUB_APP_INSTALLATION_ID}"
-    organization: "${GITHUB_ORG}"
-    privateKey: |-
-$(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null | sed 's/^/      /' || echo "      -----BEGIN RSA PRIVATE KEY-----
-      placeholder-key-for-testing
-      -----END RSA PRIVATE KEY-----")
-
-  oidc:
-    enabled: ${ENABLE_OIDC}
-    issuer: "${OIDC_ISSUER}"
-    audience: "${OIDC_AUDIENCE}"
-    jwksUrl: "${OIDC_JWKS_URL}"
-
   teamCredentials:
     enabled: ${TEAM_CREDENTIALS_ENABLED}
     teamClaim: "${TEAM_CREDENTIALS_CLAIM}"
@@ -303,7 +299,7 @@ $(cat "$GITHUB_PRIVATE_KEY_FILE" 2>/dev/null | sed 's/^/      /' || echo "      
 
   logLevel: "DEBUG"
 
-# Enable ingress for kind
+# ─── Ingress ──────────────────────────────────────────────────────────────────
 ingress:
   enabled: true
   className: "nginx"
@@ -315,8 +311,8 @@ ingress:
           pathType: Prefix
   tls: []
 
-# Disable monitoring for kind
-serviceMonitor:
+# ─── Monitoring ───────────────────────────────────────────────────────────────
+monitoring:
   enabled: false
 EOF
 

@@ -16,6 +16,11 @@ vi.mock('@hooks/useAdmin', () => ({
     },
     isLoading: false,
   })),
+  useUpdateUser: vi.fn(() => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+  })),
 }))
 
 const createWrapper = () => {
