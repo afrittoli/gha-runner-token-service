@@ -27,7 +27,8 @@ The metrics endpoint exposes operational information:
 
 **Low Risk Metrics:**
 - Request counts and durations
-- Runner counts by status
+- Runner counts by status (`gharts_runners_by_status{status, team}`)
+- Runner state transitions (`gharts_runner_state_transitions_total{from_status, to_status, source}`)
 - Sync operation statistics
 - Database connection pool stats
 

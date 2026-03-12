@@ -74,6 +74,7 @@ _temp_key_path = _setup_test_environment()
 
 # Now we can safely import app modules
 from app.auth.dependencies import AuthenticatedUser  # noqa: E402
+from app.config import get_settings  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Team, User, UserTeamMembership  # noqa: E402
@@ -125,6 +126,57 @@ def client(test_db: Session) -> Generator:
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
         yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def webhook_client(test_db: Session) -> Generator:
+    """Test client with no webhook secret and overridden DB."""
+    from fastapi.testclient import TestClient
+
+    settings = MagicMock()
+    settings.github_webhook_secret = ""
+    settings.label_policy_enforcement = "audit"
+
+    def override_get_db():
+        try:
+            yield test_db
+        finally:
+            pass
+
+    def override_get_settings():
+        return settings
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_settings] = override_get_settings
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def webhook_client_with_secret(test_db: Session) -> Generator:
+    """Test client with webhook secret configured."""
+    from fastapi.testclient import TestClient
+
+    secret = "test-webhook-secret"
+    settings = MagicMock()
+    settings.github_webhook_secret = secret
+    settings.label_policy_enforcement = "audit"
+
+    def override_get_db():
+        try:
+            yield test_db
+        finally:
+            pass
+
+    def override_get_settings():
+        return settings
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_settings] = override_get_settings
+    with TestClient(app) as test_client:
+        yield test_client, secret
     app.dependency_overrides.clear()
 
 

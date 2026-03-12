@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.github.client import GitHubClient
+from app.metrics import runner_state_transitions_total
 from app.models import Runner
 from app.services.label_policy_service import LabelPolicyService, LabelPolicyViolation
 
@@ -132,7 +133,7 @@ async def handle_github_webhook(
         logger.warning(
             "webhook_signature_invalid",
             delivery_id=x_github_delivery,
-            event=x_github_event,
+            github_event=x_github_event,
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -229,8 +230,12 @@ async def handle_workflow_job(
         # unregistered from GitHub are marked deleted without waiting for the
         # next scheduled sync cycle.
         if runner.status not in ("deleted", "offline"):
+            old_status = runner.status
             runner.status = "offline"
             db.commit()
+            runner_state_transitions_total.labels(
+                from_status=old_status, to_status="offline", source="webhook"
+            ).inc()
             logger.info(
                 "runner_status_changed",
                 runner_name=runner_name,
@@ -242,8 +247,12 @@ async def handle_workflow_job(
 
     # action == "in_progress": mark runner active and validate labels
     if runner.status not in ("deleted", "active"):
+        old_status = runner.status
         runner.status = "active"
         db.commit()
+        runner_state_transitions_total.labels(
+            from_status=old_status, to_status="active", source="webhook"
+        ).inc()
         logger.info(
             "runner_status_changed",
             runner_name=runner_name,
