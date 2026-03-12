@@ -177,6 +177,25 @@ def setup_logging(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
+    # ===== Redirect Uvicorn Loggers Through Our Setup =====
+    # When uvicorn is launched directly (e.g. from Dockerfile CMD), it creates
+    # its own handlers on "uvicorn", "uvicorn.error", and "uvicorn.access".
+    # We replace them with our handlers so all output is consistently formatted.
+    for name in ("uvicorn", "uvicorn.error"):
+        uv_logger = logging.getLogger(name)
+        uv_logger.handlers = [console_handler, app_file_handler]
+        uv_logger.propagate = False
+
+    # Suppress uvicorn.access entirely — our middleware handles access logging
+    uv_access = logging.getLogger("uvicorn.access")
+    uv_access.handlers = []
+    uv_access.propagate = False
+
+    # ===== Silence SQLAlchemy on Console =====
+    # SQLAlchemy engine logs (COMMIT, SELECT, etc.) are useful in files for
+    # debugging but are too noisy for console output.
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
     # Store tracing setting for use in middleware
     setattr(root_logger, "access_log_tracing", access_log_tracing)
 
