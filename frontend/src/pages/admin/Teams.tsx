@@ -235,15 +235,11 @@ export default function Teams() {
   }
 
   const renderTeamRow = (team: Team, isAdmin: boolean) => {
-    const displayLabels = isAdmin
-      ? team.required_labels.filter(l => l !== 'self-hosted')
-      : team.required_labels
-
     if (isAdmin) {
-      // Admin team row - no checkbox, no status column
+      // Admin team row - no checkbox, no status, no runner provisioning columns
       return (
         <tr key={team.id} className="bg-gray-50">
-          <td className="px-6 py-4 whitespace-nowrap" colSpan={2}>
+          <td className="px-6 py-4 whitespace-nowrap">
             <div>
               <div className="text-sm font-medium text-gray-900">
                 {team.name}
@@ -255,21 +251,6 @@ export default function Teams() {
                 <div className="text-sm text-gray-500">{team.description}</div>
               )}
             </div>
-          </td>
-          <td className="px-6 py-4">
-            <div className="flex flex-wrap gap-1">
-              {displayLabels.map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            {team.max_runners ?? 'Unlimited'}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
             {team.member_count ?? 0}
@@ -298,6 +279,7 @@ export default function Teams() {
     }
 
     // Regular team row - with checkbox and status column
+    const displayLabels = team.required_labels
     return (
       <tr
         key={team.id}
@@ -510,16 +492,14 @@ export default function Teams() {
 
       {/* Admin Team Section */}
       {showAdminTeam && adminTeam && (
-        <div className="bg-white shadow overflow-hidden border border-gray-300 sm:rounded-lg">
+        <div className="bg-white shadow border border-gray-300 sm:rounded-lg">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wider">System Team</h3>
           </div>
           <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" colSpan={2}>Team</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Required Labels</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Runners</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -532,7 +512,7 @@ export default function Teams() {
       )}
 
       {/* Regular Teams List */}
-      <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg">
+      <div className="bg-white shadow border border-gray-200 sm:rounded-lg">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

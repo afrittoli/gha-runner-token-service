@@ -1,6 +1,7 @@
 """Team management API endpoints."""
 
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -22,6 +23,33 @@ from app.schemas import (
 from app.services.team_service import TeamService
 
 router = APIRouter(prefix="/teams", tags=["Teams"])
+
+# Stable virtual ID for the synthetic admins team (not stored in DB)
+VIRTUAL_ADMIN_TEAM_ID = "00000000-0000-0000-0000-000000000001"
+_VIRTUAL_ADMIN_TEAM_EPOCH = datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+
+def _build_virtual_admin_team(db: Session) -> TeamResponse:
+    """Build a synthetic TeamResponse for admins from is_admin users."""
+    admin_users = (
+        db.query(User)
+        .filter(User.is_admin == True, User.is_active == True)  # noqa: E712
+        .all()
+    )
+    return TeamResponse(
+        id=VIRTUAL_ADMIN_TEAM_ID,
+        name="admins",
+        description="System team — all admin users",
+        required_labels=[],
+        optional_label_patterns=None,
+        max_runners=None,
+        is_active=True,
+        created_at=_VIRTUAL_ADMIN_TEAM_EPOCH,
+        updated_at=_VIRTUAL_ADMIN_TEAM_EPOCH,
+        created_by="system",
+        member_count=len(admin_users),
+        active_runner_count=0,
+    )
 
 
 def require_admin(
@@ -199,6 +227,10 @@ async def list_teams(
                 active_runner_count=active_runners,
             )
         )
+
+    # Prepend virtual admin team for admins (only on first page)
+    if user.is_admin and offset == 0:
+        team_responses.insert(0, _build_virtual_admin_team(db))
 
     return TeamListResponse(
         teams=team_responses,
@@ -490,6 +522,35 @@ async def get_team_members(
     Raises:
         HTTPException: If team not found or access denied
     """
+    # Handle virtual admin team
+    if team_id == VIRTUAL_ADMIN_TEAM_ID:
+        if not user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin privileges required",
+            )
+        admin_users = (
+            db.query(User)
+            .filter(User.is_admin == True, User.is_active == True)  # noqa: E712
+            .all()
+        )
+        member_responses = [
+            TeamMemberResponse(
+                user_id=u.id,
+                email=u.email,
+                display_name=u.display_name,
+                joined_at=u.created_at,
+                added_by="system",
+            )
+            for u in admin_users
+        ]
+        return TeamMembersListResponse(
+            team_id=VIRTUAL_ADMIN_TEAM_ID,
+            team_name="admins",
+            members=member_responses,
+            total=len(member_responses),
+        )
+
     service = TeamService(db)
     team = service.get_team(team_id)
 
@@ -568,6 +629,12 @@ async def add_team_member(
     Raises:
         HTTPException: If team/user not found or user already in team
     """
+    if team_id == VIRTUAL_ADMIN_TEAM_ID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin team membership is managed via user is_admin flag",
+        )
+
     service = TeamService(db)
 
     try:
@@ -618,6 +685,12 @@ async def remove_team_member(
     Raises:
         HTTPException: If membership not found
     """
+    if team_id == VIRTUAL_ADMIN_TEAM_ID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin team membership is managed via user is_admin flag",
+        )
+
     service = TeamService(db)
 
     try:

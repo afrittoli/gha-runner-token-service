@@ -211,40 +211,6 @@ async def startup_event():
         logger.exception("database_initialization_failed", error=str(e))
         raise
 
-    # Ensure admins team exists
-    try:
-        db = SessionLocal()
-        from app.models import Team
-        import json
-
-        # Check if admins team exists
-        admins_team = db.query(Team).filter(Team.name == "admins").first()
-
-        if not admins_team:
-            admins_team = Team(
-                name="admins",
-                description="System administrators team",
-                required_labels=json.dumps([]),
-                optional_label_patterns=json.dumps([".*"]),
-                max_runners=None,
-                is_active=True,
-                created_by="system",
-            )
-            db.add(admins_team)
-            db.commit()
-            logger.info("admins_team_created", team_id=admins_team.id)
-        else:
-            logger.info("admins_team_exists", team_id=admins_team.id)
-
-        db.close()
-    except Exception as e:
-        logger.error(
-            "admins_team_error",
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        # Don't raise - allow application to start
-
     # Start background sync task if enabled
     if settings.sync_enabled:
         _sync_task = asyncio.create_task(run_sync_loop())

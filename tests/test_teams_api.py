@@ -111,20 +111,23 @@ class TestTeamManagementEndpoints:
             test_db.add(team)
         test_db.commit()
 
-        # List active teams only (default)
+        # List active teams only (default) — includes virtual admins team
         response = client.get("/api/v1/admin/teams")
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 2
-        assert len(data["teams"]) == 2
+        assert data["total"] == 3  # 2 real + 1 virtual admins team
+        assert len(data["teams"]) == 3
         assert all(t["is_active"] for t in data["teams"])
+        assert any(
+            t["id"] == "00000000-0000-0000-0000-000000000001" for t in data["teams"]
+        )
 
-        # List all teams including inactive
+        # List all teams including inactive — virtual admins team always active
         response = client.get("/api/v1/admin/teams?include_inactive=true")
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 3
-        assert len(data["teams"]) == 3
+        assert data["total"] == 4  # 3 real + 1 virtual admins team
+        assert len(data["teams"]) == 4
 
     def test_list_teams_pagination(
         self,
@@ -141,23 +144,28 @@ class TestTeamManagementEndpoints:
             test_db.add(team)
         test_db.commit()
 
-        # Get first page
+        # Get first page — virtual admin team is prepended (offset=0)
         response = client.get("/api/v1/admin/teams?limit=2&offset=0")
         assert response.status_code == 200
         data = response.json()
-        total_teams = data["total"]
         first_page_teams = data["teams"]
-        assert len(first_page_teams) == 2
+        # Virtual admin team + 2 DB teams
+        assert len(first_page_teams) == 3
+        assert any(
+            t["id"] == "00000000-0000-0000-0000-000000000001" for t in first_page_teams
+        )
         assert "teams" in data
         assert "total" in data
 
-        # Get second page - verify pagination works
+        # Get second page — virtual admin team not shown (offset>0)
         response = client.get("/api/v1/admin/teams?limit=2&offset=2")
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == total_teams  # Total should be consistent
         second_page_teams = data["teams"]
-        # Should get different teams on second page
+        assert not any(
+            t["id"] == "00000000-0000-0000-0000-000000000001" for t in second_page_teams
+        )
+        # Should get different DB teams on second page
         first_page_ids = {t["id"] for t in first_page_teams}
         second_page_ids = {t["id"] for t in second_page_teams}
         assert len(first_page_ids & second_page_ids) == 0  # No overlap

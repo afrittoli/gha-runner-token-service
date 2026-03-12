@@ -61,6 +61,8 @@ export function useUpdateUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+      // Virtual admin team members are derived from is_admin flag
+      queryClient.invalidateQueries({ queryKey: ['admin', 'teams'] })
     },
   })
 }
