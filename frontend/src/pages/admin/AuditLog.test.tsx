@@ -12,7 +12,7 @@ vi.mock('@hooks/useAdmin')
 const mockAuditLogs = [
   {
     id: 1,
-    event_type: 'provision_runner',
+    event_type: 'provision_jit',
     runner_id: 'runner-123',
     runner_name: 'test-runner-1',
     user_identity: 'alice@example.com',
@@ -29,7 +29,7 @@ const mockAuditLogs = [
   },
   {
     id: 2,
-    event_type: 'deprovision_runner',
+    event_type: 'deprovision',
     runner_id: 'runner-456',
     runner_name: 'test-runner-2',
     user_identity: 'bob@example.com',
@@ -45,7 +45,7 @@ const mockAuditLogs = [
   },
   {
     id: 3,
-    event_type: 'create_label_policy',
+    event_type: 'label_policy_violation',
     runner_id: null,
     runner_name: null,
     user_identity: 'admin@example.com',
@@ -135,9 +135,9 @@ describe('AuditLog', () => {
 
     renderWithProviders(<AuditLogPage />)
     
-    expect(screen.getByText('provision_runner')).toBeInTheDocument()
-    expect(screen.getByText('deprovision_runner')).toBeInTheDocument()
-    expect(screen.getByText('create_label_policy')).toBeInTheDocument()
+    expect(screen.getByText('provision_jit')).toBeInTheDocument()
+    expect(screen.getByText('deprovision')).toBeInTheDocument()
+    expect(screen.getByText('label_policy_violation')).toBeInTheDocument()
     expect(screen.getByText('alice@example.com')).toBeInTheDocument()
     expect(screen.getByText('bob@example.com')).toBeInTheDocument()
     expect(screen.getByText('admin@example.com')).toBeInTheDocument()
@@ -180,10 +180,10 @@ describe('AuditLog', () => {
     
     const selects = screen.getAllByRole('combobox')
     const eventTypeSelect = selects[0]
-    await user.selectOptions(eventTypeSelect, 'provision_runner')
+    await user.selectOptions(eventTypeSelect, 'provision_jit')
     
     await waitFor(() => {
-      expect(capturedFilters.event_type).toBe('provision_runner')
+      expect(capturedFilters.event_type).toBe('provision_jit')
       expect(capturedFilters.offset).toBe(0)
     })
   })
@@ -257,7 +257,7 @@ describe('AuditLog', () => {
     // Set some filters
     const selects = screen.getAllByRole('combobox')
     const eventTypeSelect = selects[0]
-    await user.selectOptions(eventTypeSelect, 'provision_runner')
+    await user.selectOptions(eventTypeSelect, 'provision_jit')
     
     const searchInput = screen.getByPlaceholderText(/search by user/i)
     await user.type(searchInput, 'alice@example.com')
@@ -291,7 +291,7 @@ describe('AuditLog', () => {
     await user.click(detailsButtons[0])
     
     await waitFor(() => {
-      expect(screen.getByText(/event details: provision_runner/i)).toBeInTheDocument()
+      expect(screen.getByText(/event details: provision_jit/i)).toBeInTheDocument()
       expect(screen.getByText('192.168.1.1')).toBeInTheDocument()
     })
   })

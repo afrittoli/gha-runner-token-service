@@ -83,19 +83,31 @@ export default function AuditLogPage() {
               className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
             >
               <option value="">All Events</option>
-              <option value="provision_runner">Provision Runner</option>
-              <option value="deprovision_runner">Deprovision Runner</option>
-              <option value="register_runner">Register Runner</option>
-              <option value="update_runner">Update Runner</option>
-              <option value="create_label_policy">Create Label Policy</option>
-              <option value="update_label_policy">Update Label Policy</option>
-              <option value="delete_label_policy">Delete Label Policy</option>
-              <option value="create_user">Create User</option>
-              <option value="update_user">Update User</option>
-              <option value="deactivate_user">Deactivate User</option>
-              <option value="activate_user">Activate User</option>
-              <option value="batch_disable_users">Batch Disable Users</option>
-              <option value="batch_delete_runners">Batch Delete Runners</option>
+              <optgroup label="Provisioning">
+                <option value="provision_jit">Provision JIT</option>
+                <option value="provision_jit_failed">Provision JIT Failed</option>
+                <option value="deprovision">Deprovision</option>
+                <option value="deprovision_failed">Deprovision Failed</option>
+                <option value="quota_exceeded">Quota Exceeded</option>
+                <option value="update_status_failed">Update Status Failed</option>
+              </optgroup>
+              <optgroup label="Security">
+                <option value="label_policy_violation">Label Policy Violation</option>
+                <option value="label_policy_violation_workflow">Label Policy Violation (Workflow)</option>
+                <option value="label_drift_detected">Label Drift Detected</option>
+              </optgroup>
+              <optgroup label="Users">
+                <option value="user_deactivated">User Deactivated</option>
+                <option value="batch_disable_users">Batch Disable Users</option>
+                <option value="batch_restore_users">Batch Restore Users</option>
+              </optgroup>
+              <optgroup label="Runners">
+                <option value="batch_delete_runners">Batch Delete Runners</option>
+              </optgroup>
+              <optgroup label="Teams">
+                <option value="batch_deactivate_teams">Batch Deactivate Teams</option>
+                <option value="batch_reactivate_teams">Batch Reactivate Teams</option>
+              </optgroup>
             </select>
           </div>
 
