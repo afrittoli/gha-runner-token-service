@@ -74,6 +74,20 @@ db_advisory_lock_held = Gauge(
 )
 
 
+# Runner lifecycle metrics
+runner_state_transitions_total = Counter(
+    "gharts_runner_state_transitions_total",
+    "Total number of runner state transitions",
+    ["from_status", "to_status", "source"],  # source: webhook, sync
+)
+
+runners_by_status = Gauge(
+    "gharts_runners_by_status",
+    "Current number of runners per status",
+    ["status", "team"],
+)
+
+
 def get_metrics() -> tuple[bytes, str]:
     """Generate Prometheus metrics in text format.
 

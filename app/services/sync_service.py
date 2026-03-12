@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.github.client import GitHubClient, GitHubRunnerInfo
+from app.metrics import runner_state_transitions_total, runners_by_status
 from app.models import Runner
 from app.services.label_policy_service import LabelPolicyService
 
@@ -151,6 +152,7 @@ class SyncService:
                 result.errors += 1
 
         self.db.commit()
+        self._update_runners_by_status_gauge()
 
         logger.info("sync_completed", **result.to_dict())
         return result
@@ -203,6 +205,9 @@ class SyncService:
         if runner.status != new_status:
             runner.status = new_status
             changed = True
+            runner_state_transitions_total.labels(
+                from_status=old_status, to_status=new_status, source="sync"
+            ).inc()
             logger.info(
                 "runner_status_changed",
                 runner_id=runner.id,
@@ -223,6 +228,27 @@ class SyncService:
 
         return changed
 
+    def _update_runners_by_status_gauge(self) -> None:
+        """Update the runners_by_status gauge with current DB counts."""
+        from sqlalchemy import func
+
+        rows = (
+            self.db.query(
+                Runner.status,
+                Runner.team_name,
+                func.count(Runner.id).label("count"),
+            )
+            .filter(Runner.status != "deleted")
+            .group_by(Runner.status, Runner.team_name)
+            .all()
+        )
+        # Collect observed (status, team) pairs so we can zero out stale ones
+        seen = set()
+        for status, team, count in rows:
+            team_label = team or "unknown"
+            runners_by_status.labels(status=status, team=team_label).set(count)
+            seen.add((status, team_label))
+
     def _is_token_expired(self, runner: Runner) -> bool:
         """Check if a pending runner's JIT config has expired (1 hour after creation)."""
         from datetime import timedelta
@@ -232,15 +258,19 @@ class SyncService:
 
     def _mark_deleted(self, runner: Runner, reason: str) -> None:
         """Mark a runner as deleted."""
+        old_status = runner.status
         logger.warning(
             "runner_marked_deleted",
             runner_id=runner.id,
             runner_name=runner.runner_name,
-            previous_status=runner.status,
+            previous_status=old_status,
             reason=reason,
         )
         runner.status = "deleted"
         runner.deleted_at = datetime.now(timezone.utc)
+        runner_state_transitions_total.labels(
+            from_status=old_status, to_status="deleted", source="sync"
+        ).inc()
 
     async def cleanup_expired_tokens(self) -> int:
         """
