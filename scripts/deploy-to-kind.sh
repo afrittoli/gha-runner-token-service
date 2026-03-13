@@ -154,7 +154,7 @@ deploy_monitoring() {
     # Uses prometheus-community chart — images from quay.io/prometheus and grafana/grafana
     local prom_release="gharts-monitoring"
     local prom_values
-    prom_values="$(mktemp /tmp/prom-values.XXXXXX.yaml)"
+    prom_values="$(mktemp /tmp/prom-values.XXXXXX)"
     trap 'rm -f "$prom_values"' RETURN
 
     # Ensure the prometheus-community repo is available
