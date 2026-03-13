@@ -151,16 +151,21 @@ deploy_monitoring() {
     kubectl create namespace "$monitoring_ns" 2>/dev/null || true
 
     # Install / upgrade kube-prometheus-stack (includes Prometheus + Grafana)
+    # Uses prometheus-community chart — images from quay.io/prometheus and grafana/grafana
     local prom_release="gharts-monitoring"
     local prom_values
     prom_values="$(mktemp /tmp/prom-values.XXXXXX.yaml)"
     trap 'rm -f "$prom_values"' RETURN
 
+    # Ensure the prometheus-community repo is available
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+    helm repo update prometheus-community
+
     cat > "$prom_values" <<'PROM_VALUES'
 # Lightweight settings for kind (no persistence, minimal resources)
 prometheus:
   prometheusSpec:
-    # Scrape all ServiceMonitors in any namespace
+    # Scrape ServiceMonitors from all namespaces
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
     resources:
@@ -182,7 +187,7 @@ grafana:
     requests:
       cpu: 50m
       memory: 128Mi
-  # Mount the GHARTS dashboard ConfigMap
+  # Auto-load dashboards from ConfigMaps labelled grafana_dashboard=1
   sidecar:
     dashboards:
       enabled: true
@@ -193,7 +198,7 @@ grafana:
 alertmanager:
   enabled: false
 
-# Disable components that are heavy / not needed locally
+# Disable heavy / kind-incompatible scrapers
 kubeEtcd:
   enabled: false
 kubeControllerManager:
@@ -205,17 +210,17 @@ PROM_VALUES
     if helm list -n "$monitoring_ns" | grep -q "^${prom_release}[[:space:]]"; then
         log_info "Upgrading kube-prometheus-stack..."
         helm upgrade "$prom_release" \
-            oci://registry-1.docker.io/bitnamicharts/kube-prometheus \
+            prometheus-community/kube-prometheus-stack \
             --namespace "$monitoring_ns" \
             --values "$prom_values" \
-            --wait --timeout 5m
+            --wait --timeout 10m
     else
         log_info "Installing kube-prometheus-stack..."
         helm install "$prom_release" \
-            oci://registry-1.docker.io/bitnamicharts/kube-prometheus \
+            prometheus-community/kube-prometheus-stack \
             --namespace "$monitoring_ns" \
             --values "$prom_values" \
-            --wait --timeout 5m
+            --wait --timeout 10m
     fi
     log_success "Prometheus + Grafana installed"
 
@@ -378,7 +383,7 @@ EOF
     echo "   open http://localhost:3000"
     echo
     echo "   Prometheus:"
-    echo "   kubectl port-forward -n $monitoring_ns svc/${prom_release}-prometheus 9090:9090"
+    echo "   kubectl port-forward -n $monitoring_ns svc/${prom_release}-kube-prometheus-stack-prometheus 9090:9090"
     echo "   open http://localhost:9090"
     echo
     if [ -n "$grafana_pod" ]; then
