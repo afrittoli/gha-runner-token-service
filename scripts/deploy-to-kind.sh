@@ -46,6 +46,9 @@ OIDC_ISSUER="${OIDC_ISSUER:-https://placeholder.invalid}"
 OIDC_AUDIENCE="${OIDC_AUDIENCE:-gharts}"
 OIDC_JWKS_URL="${OIDC_JWKS_URL:-https://placeholder.invalid/.well-known/jwks.json}"
 
+# Monitoring stack (opt-in)
+ENABLE_MONITORING="${ENABLE_MONITORING:-false}"
+
 # M2M team credentials configuration
 TEAM_CREDENTIALS_ENABLED="${TEAM_CREDENTIALS_ENABLED:-true}"
 TEAM_CREDENTIALS_CLAIM="${TEAM_CREDENTIALS_CLAIM:-team}"
@@ -137,6 +140,250 @@ load_images_to_kind() {
         rm -f "$backend_tar" "$frontend_tar"
     fi
     log_success "Images loaded to kind"
+}
+
+deploy_monitoring() {
+    local monitoring_ns="monitoring"
+
+    log_info "Deploying monitoring stack (Prometheus + Grafana)..."
+
+    # Create monitoring namespace
+    kubectl create namespace "$monitoring_ns" 2>/dev/null || true
+
+    # Install / upgrade kube-prometheus-stack (includes Prometheus + Grafana)
+    local prom_release="gharts-monitoring"
+    local prom_values
+    prom_values="$(mktemp /tmp/prom-values.XXXXXX.yaml)"
+    trap 'rm -f "$prom_values"' RETURN
+
+    cat > "$prom_values" <<'PROM_VALUES'
+# Lightweight settings for kind (no persistence, minimal resources)
+prometheus:
+  prometheusSpec:
+    # Scrape all ServiceMonitors in any namespace
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    retention: 6h
+    storageSpec: {}
+
+grafana:
+  adminPassword: "gharts-admin"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  # Mount the GHARTS dashboard ConfigMap
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+
+alertmanager:
+  enabled: false
+
+# Disable components that are heavy / not needed locally
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+PROM_VALUES
+
+    if helm list -n "$monitoring_ns" | grep -q "^${prom_release}[[:space:]]"; then
+        log_info "Upgrading kube-prometheus-stack..."
+        helm upgrade "$prom_release" \
+            oci://registry-1.docker.io/bitnamicharts/kube-prometheus \
+            --namespace "$monitoring_ns" \
+            --values "$prom_values" \
+            --wait --timeout 5m
+    else
+        log_info "Installing kube-prometheus-stack..."
+        helm install "$prom_release" \
+            oci://registry-1.docker.io/bitnamicharts/kube-prometheus \
+            --namespace "$monitoring_ns" \
+            --values "$prom_values" \
+            --wait --timeout 5m
+    fi
+    log_success "Prometheus + Grafana installed"
+
+    # Create a ServiceMonitor so Prometheus scrapes gharts /metrics
+    kubectl apply -f - <<EOF
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gharts
+  namespace: ${monitoring_ns}
+  labels:
+    release: ${prom_release}
+spec:
+  namespaceSelector:
+    matchNames:
+      - ${NAMESPACE}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gharts
+      app.kubernetes.io/component: backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+EOF
+    log_success "ServiceMonitor created"
+
+    # Create the GHARTS Grafana dashboard as a ConfigMap
+    kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gharts-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  gharts.json: |
+    {
+      "title": "GHARTS - GitHub Actions Runner Token Service",
+      "uid": "gharts-main",
+      "schemaVersion": 38,
+      "refresh": "15s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Runners by Status",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [{
+            "expr": "gharts_runners_by_status",
+            "legendFormat": "{{status}} / {{team}}"
+          }]
+        },
+        {
+          "id": 2,
+          "title": "Runner State Transitions / min",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [{
+            "expr": "rate(gharts_runner_state_transitions_total[1m])",
+            "legendFormat": "{{from_status}} → {{to_status}} ({{source}})"
+          }]
+        },
+        {
+          "id": 3,
+          "title": "Sync Leadership",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+          "targets": [{
+            "expr": "gharts_sync_leadership_status",
+            "legendFormat": "{{hostname}}"
+          }],
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 4,
+          "title": "Seconds Since Last Sync",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+          "targets": [{
+            "expr": "time() - gharts_sync_last_success_timestamp",
+            "legendFormat": "age (s)"
+          }],
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 5,
+          "title": "Sync Duration (p50 / p95)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.5, rate(gharts_sync_duration_seconds_bucket[5m]))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, rate(gharts_sync_duration_seconds_bucket[5m]))",
+              "legendFormat": "p95"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "Sync Errors / min",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "targets": [{
+            "expr": "rate(gharts_sync_errors_total[1m])",
+            "legendFormat": "{{error_type}}"
+          }]
+        },
+        {
+          "id": 7,
+          "title": "Leader Election Attempts / min",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "targets": [{
+            "expr": "rate(gharts_leader_election_attempts_total[1m])",
+            "legendFormat": "{{result}}"
+          }]
+        },
+        {
+          "id": 8,
+          "title": "Runners Updated / Deleted / Unchanged per Sync",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+          "targets": [
+            {
+              "expr": "rate(gharts_sync_runners_updated_total[5m])",
+              "legendFormat": "updated"
+            },
+            {
+              "expr": "rate(gharts_sync_runners_deleted_total[5m])",
+              "legendFormat": "deleted"
+            },
+            {
+              "expr": "rate(gharts_sync_runners_unchanged_total[5m])",
+              "legendFormat": "unchanged"
+            }
+          ]
+        }
+      ]
+    }
+EOF
+    log_success "GHARTS Grafana dashboard created"
+
+    # Print access instructions
+    local grafana_pod
+    grafana_pod=$(kubectl get pods -n "$monitoring_ns" \
+        -l app.kubernetes.io/name=grafana \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+
+    echo
+    log_info "Monitoring access:"
+    echo
+    echo "   Grafana (admin / gharts-admin):"
+    echo "   kubectl port-forward -n $monitoring_ns svc/${prom_release}-grafana 3000:80"
+    echo "   open http://localhost:3000"
+    echo
+    echo "   Prometheus:"
+    echo "   kubectl port-forward -n $monitoring_ns svc/${prom_release}-prometheus 9090:9090"
+    echo "   open http://localhost:9090"
+    echo
+    if [ -n "$grafana_pod" ]; then
+        log_info "Grafana pod: $grafana_pod"
+    fi
 }
 
 # Main script
@@ -424,6 +671,15 @@ EOF
     echo
     log_info "Delete cluster:"
     echo "   kind delete cluster --name $CLUSTER_NAME"
+
+    # Deploy optional monitoring stack
+    if [ "${ENABLE_MONITORING}" = "true" ]; then
+        echo
+        deploy_monitoring
+    else
+        echo
+        log_info "Monitoring stack not enabled (set ENABLE_MONITORING=true in .env to enable)"
+    fi
 }
 
 # Run main function
