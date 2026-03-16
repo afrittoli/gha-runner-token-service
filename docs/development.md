@@ -200,7 +200,7 @@ Auth0 provides a free tier that's perfect for development and testing.
    | Field | Value |
    |-------|-------|
    | **Name** | Runner Token Service |
-   | **Identifier** | `runner-token-service` |
+   | **Identifier** | `gharts` |
    | **Signing Algorithm** | RS256 |
 
 4. Click "Create"
