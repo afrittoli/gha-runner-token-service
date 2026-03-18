@@ -188,8 +188,9 @@ async def get_current_user(
         else:
             # Regular OIDC token - validate normally
             payload = await validator.validate_token(token)
-    except Exception:
+    except Exception as e:
         # If impersonation check fails, try OIDC validation
+        logger.debug("impersonation_check_failed", error=str(e))
         payload = await validator.validate_token(token)
 
     token_type = detect_token_type(payload)
