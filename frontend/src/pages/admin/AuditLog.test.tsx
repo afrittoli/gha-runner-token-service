@@ -9,6 +9,14 @@ import * as useAdminHooks from '@hooks/useAdmin'
 // Mock the hooks
 vi.mock('@hooks/useAdmin')
 
+// Mock the auth store — default to an admin user so the full admin UI
+// (including user identity search input) is rendered in tests.
+vi.mock('@store/authStore', () => ({
+  useAuthStore: vi.fn(() => ({
+    user: { is_admin: true, teams: [] },
+  })),
+}))
+
 const mockAuditLogs = [
   {
     id: 1,

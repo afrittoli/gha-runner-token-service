@@ -92,6 +92,9 @@ class AuditLog(Base):
     user_identity = Column(String, nullable=False, index=True)
     oidc_sub = Column(String, nullable=True)
 
+    # Team association (nullable for backward compatibility)
+    team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
+
     # Request information
     request_ip = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
@@ -193,6 +196,9 @@ class SecurityEvent(Base):
     # User information
     user_identity = Column(String, nullable=False, index=True)
     oidc_sub = Column(String, nullable=True)
+
+    # Team association (nullable for backward compatibility)
+    team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
 
     # Violation details
     violation_data = Column(Text, nullable=False)  # JSON with violation specifics

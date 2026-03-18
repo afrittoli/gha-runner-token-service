@@ -55,6 +55,7 @@ class LabelPolicyService:
         action_taken: Optional[str] = None,
         oidc_sub: Optional[str] = None,
         github_runner_id: Optional[int] = None,
+        team_id: Optional[str] = None,
     ) -> SecurityEvent:
         """
         Log a security event for monitoring and alerting.
@@ -69,6 +70,7 @@ class LabelPolicyService:
             action_taken: Action taken in response
             oidc_sub: OIDC subject claim
             github_runner_id: GitHub runner ID
+            team_id: Team ID for team-scoped visibility
 
         Returns:
             Created SecurityEvent
@@ -81,6 +83,7 @@ class LabelPolicyService:
             runner_id=runner_id,
             runner_name=runner_name,
             github_runner_id=github_runner_id,
+            team_id=team_id,
             violation_data=json.dumps(violation_data),
             action_taken=action_taken,
         )

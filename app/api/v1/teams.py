@@ -2,15 +2,19 @@
 
 import json
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import AuthenticatedUser, get_current_user
+from app.auth.token_types import TokenType
 from app.database import get_db
-from app.models import Runner, User, UserTeamMembership
+from app.models import Runner, SecurityEvent, User, UserTeamMembership
 from app.schemas import (
     AddTeamMemberRequest,
+    SecurityEventListResponse,
+    SecurityEventResponse,
     TeamCreate,
     TeamDeactivate,
     TeamListResponse,
@@ -779,3 +783,108 @@ async def get_user_teams(
         teams=team_responses,
         total=len(team_responses),
     )
+
+
+# Security Events endpoint (team-scoped)
+
+
+@router.get(
+    "/{team_id}/security-events",
+    response_model=SecurityEventListResponse,
+)
+async def get_team_security_events(
+    team_id: str,
+    severity: Optional[str] = Query(
+        default=None,
+        description="Filter by severity (low, medium, high, critical)",
+    ),
+    event_type: Optional[str] = Query(default=None, description="Filter by event type"),
+    since: Optional[datetime] = Query(
+        default=None, description="Return events after this timestamp"
+    ),
+    until: Optional[datetime] = Query(
+        default=None, description="Return events before this timestamp"
+    ),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    List security events for a specific team.
+
+    Regular users can only view events for teams they belong to.
+    Admins can view events for any team.
+
+    **Query Parameters:**
+    - **severity**: Filter by severity level
+    - **event_type**: Filter by event type
+    - **since**: Return events after this timestamp (ISO 8601)
+    - **until**: Return events before this timestamp (ISO 8601)
+    - **limit**: Maximum number of events to return (1-200)
+    - **offset**: Offset for pagination
+    """
+    # Access check: admin or team member
+    if not user.is_admin:
+        # Determine caller's team IDs
+        if user.token_type == TokenType.M2M_TEAM and user.team:
+            caller_team_ids = [user.team.id]
+        elif user.user_id:
+            rows = (
+                db.query(UserTeamMembership.team_id)
+                .filter(UserTeamMembership.user_id == user.user_id)
+                .all()
+            )
+            caller_team_ids = [row.team_id for row in rows]
+        else:
+            caller_team_ids = []
+
+        if team_id not in caller_team_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: not a member of that team",
+            )
+
+    # Verify the team exists
+    service = TeamService(db)
+    team = service.get_team(team_id)
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found",
+        )
+
+    query = db.query(SecurityEvent).filter(SecurityEvent.team_id == team_id)
+
+    if severity:
+        query = query.filter(SecurityEvent.severity == severity)
+    if event_type:
+        query = query.filter(SecurityEvent.event_type == event_type)
+    if since:
+        query = query.filter(SecurityEvent.timestamp >= since)
+    if until:
+        query = query.filter(SecurityEvent.timestamp <= until)
+
+    total = query.count()
+
+    events = (
+        query.order_by(SecurityEvent.timestamp.desc()).limit(limit).offset(offset).all()
+    )
+
+    event_responses = [
+        SecurityEventResponse(
+            id=ev.id,
+            event_type=ev.event_type,
+            severity=ev.severity,
+            runner_id=ev.runner_id,
+            runner_name=ev.runner_name,
+            github_runner_id=ev.github_runner_id,
+            user_identity=ev.user_identity,
+            violation_data=json.loads(ev.violation_data),
+            action_taken=ev.action_taken,
+            timestamp=ev.timestamp,
+        )
+        for ev in events
+    ]
+
+    return SecurityEventListResponse(events=event_responses, total=total)

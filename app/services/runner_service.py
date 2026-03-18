@@ -142,6 +142,7 @@ class RunnerService:
                 oidc_sub=user.sub,
                 runner_id=None,
                 runner_name=runner_name,
+                team_id=team_id,
                 violation_data={
                     "requested_labels": request.labels,
                     "invalid_labels": list(e.invalid_labels),
@@ -154,6 +155,7 @@ class RunnerService:
             self._log_audit(
                 event_type="provision_jit_failed",
                 runner_name=runner_name,
+                team_id=team_id,
                 user=user,
                 success=False,
                 error_message=str(e),
@@ -180,6 +182,7 @@ class RunnerService:
                 oidc_sub=user.sub,
                 runner_id=None,
                 runner_name=runner_name,
+                team_id=team_id,
                 violation_data={
                     "current_count": active_runner_count,
                     "provisioning_method": "jit",
@@ -191,6 +194,7 @@ class RunnerService:
             self._log_audit(
                 event_type="provision_jit_failed",
                 runner_name=runner_name,
+                team_id=team_id,
                 user=user,
                 success=False,
                 error_message=str(e),
@@ -228,6 +232,7 @@ class RunnerService:
             self._log_audit(
                 event_type="provision_jit_failed",
                 runner_name=runner_name,
+                team_id=team_id,
                 user=user,
                 success=False,
                 error_message=f"GitHub API error: {error_detail}",
@@ -238,6 +243,7 @@ class RunnerService:
             self._log_audit(
                 event_type="provision_jit_failed",
                 runner_name=runner_name,
+                team_id=team_id,
                 user=user,
                 success=False,
                 error_message=f"Failed to generate JIT config: {str(e)}",
@@ -271,6 +277,7 @@ class RunnerService:
             event_type="provision_jit",
             runner_id=runner.id,
             runner_name=runner.runner_name,
+            team_id=team_id,
             user=user,
             success=True,
             event_data={
@@ -473,6 +480,7 @@ class RunnerService:
                 event_type="update_status_failed",
                 runner_id=runner.id,
                 runner_name=runner.runner_name,
+                team_id=runner.team_id,
                 user=user,
                 success=False,
                 error_message=str(e),
@@ -515,6 +523,7 @@ class RunnerService:
                     event_type="deprovision_failed",
                     runner_id=runner.id,
                     runner_name=runner.runner_name,
+                    team_id=runner.team_id,
                     user=user,
                     success=False,
                     error_message=f"Failed to delete from GitHub: {str(e)}",
@@ -532,6 +541,7 @@ class RunnerService:
             event_type="deprovision",
             runner_id=runner.id,
             runner_name=runner.runner_name,
+            team_id=runner.team_id,
             user=user,
             success=True,
         )
@@ -545,6 +555,7 @@ class RunnerService:
         success: bool,
         runner_id: Optional[str] = None,
         runner_name: Optional[str] = None,
+        team_id: Optional[str] = None,
         error_message: Optional[str] = None,
         event_data: Optional[dict] = None,
     ):
@@ -553,6 +564,7 @@ class RunnerService:
             event_type=event_type,
             runner_id=runner_id,
             runner_name=runner_name,
+            team_id=team_id,
             user_identity=user.identity,
             oidc_sub=user.sub,
             success=success,

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useAuditLogs, AuditLog, AuditLogFilters } from '@hooks/useAdmin'
 import { formatDate } from '@utils/formatters'
+import { useAuthStore } from '@store/authStore'
 
 // Format event data for display, hiding empty arrays
 function formatEventData(data: Record<string, unknown> | null): Record<string, unknown> {
   if (!data) return {}
-  
+
   const formatted: Record<string, unknown> = {}
-  
+
   for (const [key, value] of Object.entries(data)) {
     // Skip empty arrays
     if (Array.isArray(value) && value.length === 0) {
@@ -15,18 +16,25 @@ function formatEventData(data: Record<string, unknown> | null): Record<string, u
     }
     formatted[key] = value
   }
-  
+
   return formatted
 }
 
 export default function AuditLogPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
-  const [filters, setFilters] = useState<AuditLogFilters>({
-    limit: 50,
-    offset: 0,
+  const { user } = useAuthStore()
+  const isAdmin = user?.is_admin ?? false
+
+  const [filters, setFilters] = useState<AuditLogFilters>(() => {
+    const initial: AuditLogFilters = { limit: 50, offset: 0 }
+    // Pre-select the first team for non-admins who belong to exactly one team
+    if (!isAdmin && user?.teams && user.teams.length === 1) {
+      initial.team = user.teams[0].name
+    }
+    return initial
   })
   const [searchTerm, setSearchTerm] = useState('')
-  
+
   const { data, isLoading, error } = useAuditLogs(filters)
 
   if (isLoading) {
@@ -66,6 +74,8 @@ export default function AuditLogPage() {
     setSearchTerm('')
   }
 
+  const teams = user?.teams ?? []
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -74,7 +84,7 @@ export default function AuditLogPage() {
 
       {/* Filters */}
       <div className="bg-white shadow border border-gray-200 sm:rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${isAdmin ? 'md:grid-cols-3' : teams.length > 1 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
             <select
@@ -111,25 +121,54 @@ export default function AuditLogPage() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">User Identity</label>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Search by user..."
-                className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
-              />
-              <button
-                onClick={handleSearch}
-                className="px-3 py-2 bg-gh-blue text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
-              >
-                Search
-              </button>
+          {/* Team filter: shown for all users. Non-admins limited to their own teams. */}
+          {(isAdmin || teams.length > 1) && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+              {isAdmin ? (
+                <input
+                  type="text"
+                  value={filters.team || ''}
+                  onChange={(e) => handleFilterChange('team', e.target.value)}
+                  placeholder="Filter by team name…"
+                  className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                />
+              ) : (
+                <select
+                  value={filters.team || ''}
+                  onChange={(e) => handleFilterChange('team', e.target.value)}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                >
+                  <option value="">All My Teams</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
-          </div>
+          )}
+
+          {isAdmin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">User Identity</label>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="Search by user..."
+                  className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                />
+                <button
+                  onClick={handleSearch}
+                  className="px-3 py-2 bg-gh-blue text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-end">
             <button

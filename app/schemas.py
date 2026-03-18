@@ -324,6 +324,8 @@ class AuditLogResponse(BaseModel):
     success: bool
     error_message: Optional[str]
     timestamp: datetime
+    team_id: Optional[str] = None
+    team_name: Optional[str] = None
 
 
 class AuditLogListResponse(BaseModel):
