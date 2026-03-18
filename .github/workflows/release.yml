@@ -23,7 +23,11 @@ jobs:
 
       - name: Get version from tag
         id: get_version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "minor=$(echo "${VERSION}" | cut -d. -f1,2)" >> $GITHUB_OUTPUT
+          echo "major=$(echo "${VERSION}" | cut -d. -f1)" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create_release
@@ -63,8 +67,8 @@ jobs:
 
             ### Available Chart Tags
             - `${{ steps.get_version.outputs.version }}` - This specific version
-            - `$(echo "${{ steps.get_version.outputs.version }}" | cut -d. -f1,2)` - Latest patch in this minor version
-            - `$(echo "${{ steps.get_version.outputs.version }}" | cut -d. -f1)` - Latest minor in this major version
+            - `${{ steps.get_version.outputs.minor }}` - Latest patch in this minor version
+            - `${{ steps.get_version.outputs.major }}` - Latest minor in this major version
             - `latest` - Latest stable release
 
             ### Documentation
