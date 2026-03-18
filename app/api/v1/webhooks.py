@@ -97,8 +97,8 @@ async def validate_runner_labels(
     # Validate labels against policy
     label_policy_service = LabelPolicyService(db)
     try:
-        label_policy_service.validate_labels(
-            runner.provisioned_by, github_runner.labels
+        label_policy_service.validate_labels_for_team(
+            runner.team_id, github_runner.labels
         )
         return runner, None
     except LabelPolicyViolation as e:

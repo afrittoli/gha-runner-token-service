@@ -122,12 +122,28 @@ class OIDCValidator:
             return payload
 
         except JWTError as e:
+            import structlog
+
+            structlog.get_logger().warning(
+                "token_validation_failed",
+                error=str(e),
+                audience=self.audience,
+                issuer=self.issuer,
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Token validation failed: {str(e)}",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         except Exception as e:
+            import structlog
+
+            structlog.get_logger().warning(
+                "token_validation_error",
+                error=str(e),
+                audience=self.audience,
+                issuer=self.issuer,
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Authentication failed: {str(e)}",

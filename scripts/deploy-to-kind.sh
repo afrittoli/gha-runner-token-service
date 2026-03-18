@@ -3,6 +3,10 @@
 
 set -e
 
+# Temp file for Helm values — cleaned up on exit
+KIND_VALUES_FILE="$(mktemp /tmp/kind-values.XXXXXX.yaml)"
+trap 'rm -f "$KIND_VALUES_FILE"' EXIT
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -16,17 +20,18 @@ NAMESPACE="${NAMESPACE:-gharts}"
 RELEASE_NAME="${RELEASE_NAME:-gharts}"
 VERSION="${VERSION:-latest}"
 CONTAINER_TOOL="${CONTAINER_TOOL:-podman}"
-REGISTRY="${REGISTRY:-ghcr.io}"
-ORG="${ORG:-afrittoli}"
 PROJECT="${PROJECT:-gha-runner-token-service}"
 
-BACKEND_IMAGE="${REGISTRY}/${ORG}/${PROJECT}-backend:${VERSION}"
-FRONTEND_IMAGE="${REGISTRY}/${ORG}/${PROJECT}-frontend:${VERSION}"
+# Use localhost/ prefix to make clear these are local-only images (never pushed to a registry)
+BACKEND_IMAGE="localhost/${PROJECT}-backend:${VERSION}"
+FRONTEND_IMAGE="localhost/${PROJECT}-frontend:${VERSION}"
 
-# Load .env file if present
+# Load .env file if present — values here take precedence over the parent environment
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 if [ -f "$PROJECT_ROOT/.env" ]; then
+    # Unset known variables so parent-shell exports cannot override .env values
+    unset OIDC_AUDIENCE OIDC_ISSUER OIDC_JWKS_URL ENABLE_OIDC_AUTH
     # shellcheck source=/dev/null
     source "$PROJECT_ROOT/.env"
 fi
@@ -164,14 +169,8 @@ main() {
     kubectl config use-context "kind-${CLUSTER_NAME}"
     log_success "Context switched"
 
-    # Build images if they don't exist
-    log_info "Checking if images exist locally..."
-    if check_images_exist; then
-        log_success "Images already exist locally"
-    else
-        log_warning "Images not found locally, building..."
-        build_images
-    fi
+    # Always rebuild images to pick up latest code changes
+    build_images
 
     # Load images to kind
     load_images_to_kind
@@ -217,7 +216,7 @@ placeholder-key-for-testing
 
     # Create values file for kind deployment
     log_info "Creating Helm values for kind..."
-    cat > /tmp/kind-values.yaml <<EOF
+    cat > "$KIND_VALUES_FILE" <<EOF
 # Kind-specific values
 replicaCount:
   backend: 1
@@ -225,7 +224,7 @@ replicaCount:
 
 backend:
   image:
-    repository: ${REGISTRY}/${ORG}/${PROJECT}-backend
+    repository: localhost/${PROJECT}-backend
     tag: ${VERSION}
     pullPolicy: IfNotPresent
   autoscaling:
@@ -241,7 +240,7 @@ backend:
 
 frontend:
   image:
-    repository: ${REGISTRY}/${ORG}/${PROJECT}-frontend
+    repository: localhost/${PROJECT}-frontend
     tag: ${VERSION}
     pullPolicy: IfNotPresent
 
@@ -349,14 +348,15 @@ EOF
         log_info "Upgrading existing release..."
         helm upgrade "$RELEASE_NAME" ./helm/gharts \
             --namespace "$NAMESPACE" \
-            --values /tmp/kind-values.yaml \
+            --values "$KIND_VALUES_FILE" \
+            --reset-values \
             --wait \
             --timeout 5m
     else
         log_info "Installing new release..."
         helm install "$RELEASE_NAME" ./helm/gharts \
             --namespace "$NAMESPACE" \
-            --values /tmp/kind-values.yaml \
+            --values "$KIND_VALUES_FILE" \
             --wait \
             --timeout 5m
     fi
