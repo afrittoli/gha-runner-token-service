@@ -25,5 +25,8 @@ python-dotenv==1.0.0
 # Date/Time handling
 python-dateutil==2.8.2
 
+# AWS (IAM RDS authentication)
+boto3==1.35.0
+
 # Logging
 structlog==24.1.0
