@@ -213,11 +213,20 @@ database:
   username: gharts
   sslMode: require  # disable|allow|prefer|require|verify-ca|verify-full
 
-  # Full DATABASE_URL (SENSITIVE).
+  # ── Auth option A — static password ──────────────────────────────────────
   # Reference a pre-existing k8s Secret containing the complete connection string,
   # e.g.: postgresql://user:pass@host:5432/dbname?sslmode=require
-  databaseUrlSecret: ""                 # k8s Secret name  (required when postgresql.enabled=false)
+  # Required when postgresql.enabled=false AND iamAuth.enabled=false.
+  databaseUrlSecret: ""                 # k8s Secret name
   databaseUrlSecretKey: "DATABASE_URL"  # key within the Secret
+
+  # ── Auth option B — AWS IAM RDS authentication (passwordless) ─────────────
+  # Requires the pod's service account to be annotated with an IAM role that has
+  # rds-db:connect permission (IRSA). No password secret is needed.
+  # Recommended: set poolRecycle to 900 (< RDS token TTL of 15 min).
+  iamAuth:
+    enabled: false
+    region: ""   # AWS region, e.g. us-east-1
 
   # Connection pool tuning (applies regardless of postgresql.enabled)
   poolSize: 10

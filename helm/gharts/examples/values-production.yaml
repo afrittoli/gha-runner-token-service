@@ -149,12 +149,24 @@ postgresql:
 
 database:
   host: "prod-db.xxxx.us-east-1.rds.amazonaws.com"
-  sslMode: require
-  databaseUrlSecret: "gharts-db"      # pre-existing k8s Secret
-  databaseUrlSecretKey: "DATABASE_URL"
+  port: 5432
+  name: gharts
+  username: gharts
+  sslMode: verify-full
+  sslRootCertPath: "/secrets/rds-ca/rds-ca-bundle.pem"  # mount via extraVolumes
+
+  # Auth option B — IAM RDS authentication (recommended; no password secret needed)
+  iamAuth:
+    enabled: true
+    region: "us-east-1"
+
+  # Auth option A — static password (leave iamAuth.enabled=false and set these instead)
+  # databaseUrlSecret: "gharts-db"
+  # databaseUrlSecretKey: "DATABASE_URL"
+
   poolSize: 20
   maxOverflow: 10
-  poolRecycle: 1800
+  poolRecycle: 900   # must be below RDS IAM token TTL (15 min = 900 s)
 
 # ─── Application ──────────────────────────────────────────────────────────────
 config:

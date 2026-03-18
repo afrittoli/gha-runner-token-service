@@ -60,14 +60,16 @@ spec:
             name: {{ include "gharts.fullname" . }}-config
         env:
         # DATABASE_URL — from chart-created secret (built-in postgres), from a pre-existing
-        # k8s Secret (external database), or omitted when provided via extraEnv (e.g. SQLite for CI).
+        # k8s Secret (external database), or omitted entirely when IAM auth is enabled
+        # (the app constructs the URL from individual env vars and fetches a token at runtime)
+        # or when provided via extraEnv (e.g. SQLite for CI).
         {{- if .Values.postgresql.enabled }}
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
               name: {{ include "gharts.fullname" . }}-postgres-url
               key: DATABASE_URL
-        {{- else if .Values.database.databaseUrlSecret }}
+        {{- else if and (not .Values.database.iamAuth.enabled) .Values.database.databaseUrlSecret }}
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:

@@ -54,6 +54,25 @@ class Settings(BaseSettings):
         description="Seconds before recycling connections (PostgreSQL only)",
     )
 
+    # IAM RDS Authentication (passwordless, for AWS deployments with IRSA)
+    db_iam_auth: bool = Field(
+        default=False,
+        description="Use IAM authentication for RDS instead of a static password",
+    )
+    db_host: Optional[str] = Field(
+        default=None, description="RDS hostname (required when db_iam_auth=true)"
+    )
+    db_port: int = Field(default=5432, description="RDS port")
+    db_name: Optional[str] = Field(
+        default=None, description="Database name (required when db_iam_auth=true)"
+    )
+    db_username: Optional[str] = Field(
+        default=None, description="Database username (required when db_iam_auth=true)"
+    )
+    aws_region: Optional[str] = Field(
+        default=None, description="AWS region for RDS IAM token generation"
+    )
+
     # PostgreSQL SSL/TLS Settings
     db_ssl_mode: Optional[str] = Field(
         default=None,

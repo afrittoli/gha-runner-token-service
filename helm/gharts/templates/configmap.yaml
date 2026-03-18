@@ -55,3 +55,12 @@ data:
   {{- if .Values.database.sslRootCertPath }}
   DB_SSL_ROOT_CERT: {{ .Values.database.sslRootCertPath | quote }}
   {{- end }}
+  {{- if .Values.database.iamAuth.enabled }}
+  # IAM RDS authentication — connection params passed individually (no password)
+  DB_IAM_AUTH: "true"
+  DB_HOST: {{ required "database.host is required when database.iamAuth.enabled=true" .Values.database.host | quote }}
+  DB_PORT: {{ .Values.database.port | quote }}
+  DB_NAME: {{ required "database.name is required when database.iamAuth.enabled=true" .Values.database.name | quote }}
+  DB_USERNAME: {{ required "database.username is required when database.iamAuth.enabled=true" .Values.database.username | quote }}
+  AWS_REGION: {{ required "database.iamAuth.region is required when database.iamAuth.enabled=true" .Values.database.iamAuth.region | quote }}
+  {{- end }}
