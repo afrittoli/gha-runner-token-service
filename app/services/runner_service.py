@@ -277,6 +277,7 @@ class RunnerService:
             event_type="provision_jit",
             runner_id=runner.id,
             runner_name=runner.runner_name,
+            team_id=team_id,
             user=user,
             success=True,
             event_data={
@@ -479,6 +480,7 @@ class RunnerService:
                 event_type="update_status_failed",
                 runner_id=runner.id,
                 runner_name=runner.runner_name,
+                team_id=runner.team_id,
                 user=user,
                 success=False,
                 error_message=str(e),
@@ -521,6 +523,7 @@ class RunnerService:
                     event_type="deprovision_failed",
                     runner_id=runner.id,
                     runner_name=runner.runner_name,
+                    team_id=runner.team_id,
                     user=user,
                     success=False,
                     error_message=f"Failed to delete from GitHub: {str(e)}",
@@ -538,6 +541,7 @@ class RunnerService:
             event_type="deprovision",
             runner_id=runner.id,
             runner_name=runner.runner_name,
+            team_id=runner.team_id,
             user=user,
             success=True,
         )

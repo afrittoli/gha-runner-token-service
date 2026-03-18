@@ -116,6 +116,7 @@ async def list_audit_logs(
         elif user_identity:
             # Admins can filter by user
             query = query.filter(AuditLog.user_identity == user_identity)
+        # else: admin without filters — no restriction (all logs)
 
     # Apply event_type filter
     if event_type:

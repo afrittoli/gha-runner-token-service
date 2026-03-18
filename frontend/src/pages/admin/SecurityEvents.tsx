@@ -1,17 +1,42 @@
 import { useState } from 'react'
-import { useSecurityEvents, SecurityEventFilters } from '@hooks/useAdmin'
+import {
+  useSecurityEvents,
+  useTeamSecurityEvents,
+  SecurityEventFilters,
+  TeamSecurityEventFilters,
+} from '@hooks/useAdmin'
 import { formatDate } from '@utils/formatters'
 import { SecurityEvent } from '@api/client'
+import { useAuthStore } from '@store/authStore'
 
 export default function SecurityEvents() {
   const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null)
-  const [filters, setFilters] = useState<SecurityEventFilters>({
+  const { user } = useAuthStore()
+
+  // For admins: global filters including optional team ID
+  const [adminFilters, setAdminFilters] = useState<SecurityEventFilters>({
+    limit: 50,
+    offset: 0,
+  })
+  // For non-admins: team selection + filters
+  const [selectedTeamId, setSelectedTeamId] = useState<string>(
+    () => user?.teams?.[0]?.id ?? ''
+  )
+  const [teamFilters, setTeamFilters] = useState<TeamSecurityEventFilters>({
     limit: 50,
     offset: 0,
   })
   const [searchTerm, setSearchTerm] = useState('')
-  
-  const { data, isLoading, error } = useSecurityEvents(filters)
+
+  const isAdmin = user?.is_admin ?? false
+
+  const adminQuery = useSecurityEvents(isAdmin ? adminFilters : {})
+  const teamQuery = useTeamSecurityEvents(
+    !isAdmin ? selectedTeamId : '',
+    !isAdmin ? teamFilters : {}
+  )
+
+  const { data, isLoading, error } = isAdmin ? adminQuery : teamQuery
 
   if (isLoading) {
     return (
@@ -44,26 +69,75 @@ export default function SecurityEvents() {
     }
   }
 
-  const handleFilterChange = (key: keyof SecurityEventFilters, value: string) => {
-    setFilters(prev => ({
+  const handleAdminFilterChange = (key: keyof SecurityEventFilters, value: string) => {
+    setAdminFilters(prev => ({
       ...prev,
       [key]: value || undefined,
-      offset: 0, // Reset pagination when filters change
-    }))
-  }
-
-  const handleSearch = () => {
-    setFilters(prev => ({
-      ...prev,
-      user_identity: searchTerm || undefined,
       offset: 0,
     }))
   }
 
+  const handleTeamFilterChange = (key: keyof TeamSecurityEventFilters, value: string) => {
+    setTeamFilters(prev => ({
+      ...prev,
+      [key]: value || undefined,
+      offset: 0,
+    }))
+  }
+
+  const handleSearch = () => {
+    if (isAdmin) {
+      setAdminFilters(prev => ({
+        ...prev,
+        user_identity: searchTerm || undefined,
+        offset: 0,
+      }))
+    }
+  }
+
   const handleClearFilters = () => {
-    setFilters({ limit: 50, offset: 0 })
+    if (isAdmin) {
+      setAdminFilters({ limit: 50, offset: 0 })
+    } else {
+      setTeamFilters({ limit: 50, offset: 0 })
+    }
     setSearchTerm('')
   }
+
+  const eventTypeSelect = (value: string, onChange: (v: string) => void) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+      >
+        <option value="">All Types</option>
+        <option value="label_violation">Label Violation</option>
+        <option value="quota_exceeded">Quota Exceeded</option>
+        <option value="unauthorized_access">Unauthorized Access</option>
+        <option value="batch_disable_users">Batch Disable Users</option>
+        <option value="batch_delete_runners">Batch Delete Runners</option>
+      </select>
+    </div>
+  )
+
+  const severitySelect = (value: string, onChange: (v: string) => void) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+      >
+        <option value="">All Severities</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="critical">Critical</option>
+      </select>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
@@ -73,67 +147,67 @@ export default function SecurityEvents() {
 
       {/* Filters */}
       <div className="bg-white shadow border border-gray-200 sm:rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
-            <select
-              value={filters.event_type || ''}
-              onChange={(e) => handleFilterChange('event_type', e.target.value)}
-              className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
-            >
-              <option value="">All Types</option>
-              <option value="label_violation">Label Violation</option>
-              <option value="quota_exceeded">Quota Exceeded</option>
-              <option value="unauthorized_access">Unauthorized Access</option>
-              <option value="batch_disable_users">Batch Disable Users</option>
-              <option value="batch_delete_runners">Batch Delete Runners</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
-            <select
-              value={filters.severity || ''}
-              onChange={(e) => handleFilterChange('severity', e.target.value)}
-              className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
-            >
-              <option value="">All Severities</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">User Identity</label>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Search by user..."
-                className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
-              />
+        {isAdmin ? (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {eventTypeSelect(adminFilters.event_type || '', (v) => handleAdminFilterChange('event_type', v))}
+            {severitySelect(adminFilters.severity || '', (v) => handleAdminFilterChange('severity', v))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">User Identity</label>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="Search by user..."
+                  className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                />
+                <button
+                  onClick={handleSearch}
+                  className="px-3 py-2 bg-gh-blue text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+            <div className="flex items-end">
               <button
-                onClick={handleSearch}
-                className="px-3 py-2 bg-gh-blue text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
+                onClick={handleClearFilters}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Search
+                Clear Filters
               </button>
             </div>
           </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={handleClearFilters}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Clear Filters
-            </button>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+              <select
+                value={selectedTeamId}
+                onChange={(e) => {
+                  setSelectedTeamId(e.target.value)
+                  setTeamFilters({ limit: 50, offset: 0 })
+                }}
+                className="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+              >
+                {(user?.teams ?? []).map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+            {eventTypeSelect(teamFilters.event_type || '', (v) => handleTeamFilterChange('event_type', v))}
+            {severitySelect(teamFilters.severity || '', (v) => handleTeamFilterChange('severity', v))}
+            <div className="flex items-end">
+              <button
+                onClick={handleClearFilters}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Clear Filters
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="bg-white shadow border border-gray-200 sm:rounded-lg overflow-hidden">

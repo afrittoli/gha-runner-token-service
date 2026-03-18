@@ -5,9 +5,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import SecurityEvents from './SecurityEvents'
 import * as useAdminHooks from '@hooks/useAdmin'
+import * as authStore from '@store/authStore'
 
 // Mock the hooks
 vi.mock('@hooks/useAdmin')
+
+// Mock the auth store — default to an admin user so the admin code path
+// (useSecurityEvents) is exercised; individual tests can override this.
+vi.mock('@store/authStore', () => ({
+  useAuthStore: vi.fn(() => ({
+    user: { is_admin: true, teams: [] },
+  })),
+}))
 
 const mockSecurityEvents = [
   {
@@ -71,10 +80,14 @@ function renderWithProviders(component: React.ReactElement) {
 
 describe('SecurityEvents', () => {
   const mockUseSecurityEvents = vi.fn()
+  const mockUseTeamSecurityEvents = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useAdminHooks.useSecurityEvents).mockImplementation(mockUseSecurityEvents)
+    vi.mocked(useAdminHooks.useTeamSecurityEvents).mockImplementation(mockUseTeamSecurityEvents)
+    // Restore default admin user
+    vi.mocked(authStore.useAuthStore).mockReturnValue({ user: { is_admin: true, teams: [] } } as ReturnType<typeof authStore.useAuthStore>)
   })
 
   it('renders loading state', () => {
