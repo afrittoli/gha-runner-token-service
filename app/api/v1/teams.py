@@ -901,6 +901,12 @@ async def get_team_security_events(
     team_id: str,
     event_type: Optional[str] = Query(default=None),
     severity: Optional[str] = Query(default=None),
+    since: Optional[datetime] = Query(
+        default=None, description="Return events after this timestamp (ISO 8601)"
+    ),
+    until: Optional[datetime] = Query(
+        default=None, description="Return events before this timestamp (ISO 8601)"
+    ),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     user: AuthenticatedUser = Depends(get_current_user),
@@ -915,6 +921,8 @@ async def get_team_security_events(
     **Query Parameters:**
     - **event_type**: Filter by event type
     - **severity**: Filter by severity (low, medium, high, critical)
+    - **since**: Return events after this timestamp (ISO 8601)
+    - **until**: Return events before this timestamp (ISO 8601)
     - **limit**: Maximum number of events to return (1-200)
     - **offset**: Offset for pagination
     """
@@ -929,6 +937,10 @@ async def get_team_security_events(
         query = query.filter(SecurityEvent.event_type == event_type)
     if severity:
         query = query.filter(SecurityEvent.severity == severity)
+    if since:
+        query = query.filter(SecurityEvent.timestamp >= since)
+    if until:
+        query = query.filter(SecurityEvent.timestamp <= until)
 
     total = query.count()
     events = (

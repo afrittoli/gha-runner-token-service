@@ -177,6 +177,26 @@ export function useSecurityEvents(filters: SecurityEventFilters = {}) {
   })
 }
 
+export interface TeamSecurityEventFilters {
+  severity?: string
+  event_type?: string
+  since?: string
+  until?: string
+  limit?: number
+  offset?: number
+}
+
+export function useTeamSecurityEvents(teamId: string, filters: TeamSecurityEventFilters = {}) {
+  return useQuery<SecurityEventListResponse>({
+    queryKey: ['team', 'security-events', teamId, filters],
+    queryFn: async () => {
+      const response = await apiClient.get(`/api/v1/admin/teams/${teamId}/security-events`, { params: filters })
+      return response.data
+    },
+    enabled: !!teamId,
+  })
+}
+
 // --- Audit Logs ---
 
 export interface AuditLog {
@@ -202,6 +222,7 @@ export interface AuditLogListResponse {
 export interface AuditLogFilters {
   event_type?: string
   user_identity?: string
+  team?: string
   limit?: number
   offset?: number
 }
