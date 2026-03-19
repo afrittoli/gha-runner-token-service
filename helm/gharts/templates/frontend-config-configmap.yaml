@@ -12,6 +12,8 @@ data:
   oidc-redirect-uri: {{ tpl .Values.oidc.redirectUri . | quote }}
   {{- else if .Values.ingress.enabled }}
   oidc-redirect-uri: "https://{{ (index .Values.ingress.hosts 0).host }}/app/callback"
+  {{- else if .Values.gateway.enabled }}
+  oidc-redirect-uri: "https://{{ (index .Values.gateway.hosts 0).hostname }}/app/callback"
   {{- else }}
   oidc-redirect-uri: ""
   {{- end }}
@@ -19,6 +21,8 @@ data:
   oidc-post-logout-redirect-uri: {{ tpl .Values.oidc.postLogoutRedirectUri . | quote }}
   {{- else if .Values.ingress.enabled }}
   oidc-post-logout-redirect-uri: "https://{{ (index .Values.ingress.hosts 0).host }}/app"
+  {{- else if .Values.gateway.enabled }}
+  oidc-post-logout-redirect-uri: "https://{{ (index .Values.gateway.hosts 0).hostname }}/app"
   {{- else }}
   oidc-post-logout-redirect-uri: ""
   {{- end }}

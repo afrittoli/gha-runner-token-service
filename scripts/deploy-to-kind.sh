@@ -49,11 +49,6 @@ OIDC_JWKS_URL="${OIDC_JWKS_URL:-https://placeholder.invalid/.well-known/jwks.jso
 # Monitoring stack (opt-in)
 ENABLE_MONITORING="${ENABLE_MONITORING:-false}"
 
-# M2M team credentials configuration
-TEAM_CREDENTIALS_ENABLED="${TEAM_CREDENTIALS_ENABLED:-true}"
-TEAM_CREDENTIALS_CLAIM="${TEAM_CREDENTIALS_CLAIM:-team}"
-TEAM_CREDENTIALS_REQUIRE_IN_DB="${TEAM_CREDENTIALS_REQUIRE_IN_DB:-true}"
-
 # Frontend OIDC configuration — audience and authority come from OIDC_AUDIENCE / OIDC_ISSUER above
 # VITE_OIDC_CLIENT_ID overrides the Auth0 SPA client ID stored in the k8s Secret
 FRONTEND_OIDC_CLIENT_ID="${VITE_OIDC_CLIENT_ID:-kind-test-client-id}"
@@ -538,11 +533,6 @@ database:
 
 # ─── Application behavior ─────────────────────────────────────────────────────
 config:
-  teamCredentials:
-    enabled: ${TEAM_CREDENTIALS_ENABLED}
-    teamClaim: "${TEAM_CREDENTIALS_CLAIM}"
-    requireTeamInDB: ${TEAM_CREDENTIALS_REQUIRE_IN_DB}
-
   sync:
     enabled: true
     intervalSeconds: 60
