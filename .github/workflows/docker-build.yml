@@ -88,7 +88,7 @@ jobs:
           cache-from: type=gha
 
       - name: Set up kind
-        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           cluster_name: helm-test-cluster
 
