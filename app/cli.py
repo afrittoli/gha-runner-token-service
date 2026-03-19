@@ -86,7 +86,6 @@ def cleanup_stale_runners(hours: int, dry_run: bool):
                 # Update local state
                 runner.status = "deleted"
                 runner.deleted_at = datetime.now(timezone.utc)
-                runner.registration_token = None
                 db.commit()
 
                 click.echo("    ✓ Marked as deleted in database")
@@ -251,10 +250,6 @@ def sync_github():
                     )
                     updates += 1
 
-                # Clear registration token after successful registration
-                if runner.registration_token:
-                    runner.registration_token = None
-                    runner.registration_token_expires_at = None
             else:
                 # Runner not found in GitHub
                 if runner.status != "pending":
@@ -362,8 +357,7 @@ def list_users(include_inactive: bool, admins_only: bool):
                 status_flags.append("admin")
             if not user.is_active:
                 status_flags.append("inactive")
-            if user.can_use_registration_token:
-                status_flags.append("reg-token")
+
             if user.can_use_jit:
                 status_flags.append("jit")
 
