@@ -7,7 +7,7 @@ pydantic-settings==2.13.1
 # GitHub API
 PyJWT==2.12.1
 cryptography==46.0.5
-httpx==0.26.0
+httpx==0.28.1
 
 # OIDC Authentication
 python-jose[cryptography]==3.5.0
