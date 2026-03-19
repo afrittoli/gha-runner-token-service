@@ -136,50 +136,6 @@ export default function RunnerDetail() {
         </div>
       </div>
 
-      {/* Audit trail */}
-      <div className="card">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Audit Trail</h2>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {runner.audit_trail && runner.audit_trail.length > 0 ? (
-            runner.audit_trail.map((event) => (
-              <div key={event.id} className="px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span
-                      className={`status-badge ${
-                        event.severity === 'high'
-                          ? 'bg-red-100 text-red-800'
-                          : event.severity === 'medium'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {event.event_type}
-                    </span>
-                    <span className="ml-2 text-sm text-gray-500">
-                      by {event.user_identity}
-                    </span>
-                    {event.action_taken && (
-                      <span className="ml-2 text-sm text-gray-400">
-                        - {event.action_taken}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-400">
-                    {new Date(event.timestamp).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="px-6 py-8 text-center text-gray-500">
-              No audit events for this runner
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

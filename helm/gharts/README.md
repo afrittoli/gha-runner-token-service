@@ -145,7 +145,6 @@ Required when `postgresql.enabled: false`.
 |-----------|-------------|---------|
 | `config.logLevel` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `"INFO"` |
 | `config.accessLogTracing` | Enable detailed access log tracing | `false` |
-| `config.adminIdentities` | Comma-separated admin emails or OIDC sub claims | `""` |
 | `config.sync.enabled` | Enable background runner sync | `true` |
 | `config.sync.intervalSeconds` | Sync interval | `300` |
 | `config.sync.onStartup` | Sync on startup | `true` |

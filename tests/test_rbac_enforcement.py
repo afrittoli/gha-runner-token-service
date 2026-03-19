@@ -53,7 +53,6 @@ class TestAdminEndpointsRBAC:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = "admin@example.com"  # Non-empty list
 
         async def override_get_current_user():
             return non_admin_user
@@ -155,7 +154,6 @@ class TestRunnerEndpointsRBAC:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         # Test as Alice
         alice_user = AuthenticatedUser(
@@ -214,7 +212,6 @@ class TestRunnerEndpointsRBAC:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         # Alice tries to view Bob's runner
         alice_user = AuthenticatedUser(
@@ -270,7 +267,6 @@ class TestRunnerEndpointsRBAC:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         # Alice tries to delete Bob's runner
         alice_user = AuthenticatedUser(
@@ -326,7 +322,6 @@ class TestAPIMethodPermissions:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return mock_user

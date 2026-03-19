@@ -94,20 +94,11 @@ export interface Runner {
   updated_at: string
   registered_at: string | null
   deleted_at: string | null
-  audit_trail?: SecurityEvent[]
 }
 
 export interface RunnerListResponse {
   runners: Runner[]
   total: number
-}
-
-export interface DashboardStats {
-  total: number
-  active: number
-  offline: number
-  pending: number
-  recent_events: SecurityEvent[]
 }
 
 export interface SecurityEvent {

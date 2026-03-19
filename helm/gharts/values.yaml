@@ -257,9 +257,6 @@ config:
   logLevel: "INFO"
   accessLogTracing: false
 
-  # Comma-separated list of admin identities (email addresses or OIDC sub claims)
-  adminIdentities: ""
-
   # Sync configuration with leader election
   # When running multiple backend replicas, PostgreSQL advisory locks ensure
   # only one pod performs sync at a time. If the leader pod dies, another

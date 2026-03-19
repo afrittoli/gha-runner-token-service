@@ -33,22 +33,6 @@ export const mockRunner = {
   github_id: 123,
 }
 
-export const mockDashboardStats = {
-  total_runners: 10,
-  active_runners: 7,
-  offline_runners: 2,
-  pending_runners: 1,
-  recent_events: [
-    {
-      id: 'event-1',
-      event_type: 'runner_provisioned',
-      user_identity: 'test-user-123',
-      timestamp: '2024-01-01T00:00:00Z',
-      details: { runner_name: 'test-runner-1' },
-    },
-  ],
-}
-
 /**
  * MSW request handlers for API mocking
  */
@@ -56,11 +40,6 @@ export const handlers = [
   // Auth endpoints
   http.get(`${API_BASE}/auth/me`, () => {
     return HttpResponse.json(mockUser)
-  }),
-
-  // Dashboard stats
-  http.get(`${API_BASE}/dashboard/stats`, () => {
-    return HttpResponse.json(mockDashboardStats)
   }),
 
   // Runners endpoints

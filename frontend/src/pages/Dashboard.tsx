@@ -1,10 +1,8 @@
 import { Link } from 'react-router-dom'
-import { useDashboardStats } from '@hooks/useDashboardStats'
-import StatusBadge from '@components/StatusBadge'
-import { formatDate } from '@utils/formatters'
+import { useRunners } from '@hooks/useRunners'
 
 export default function Dashboard() {
-  const { data: stats, isLoading, error } = useDashboardStats()
+  const { data: runnersData, isLoading, error } = useRunners({ limit: 1000 })
 
   if (isLoading) {
     return (
@@ -27,31 +25,32 @@ export default function Dashboard() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <div className="card p-6 text-red-600">
-          Failed to load dashboard stats. Please try again.
+          Failed to load runners. Please try again.
         </div>
       </div>
     )
   }
 
+  const runners = runnersData?.runners || []
   const statCards = [
     {
       name: 'Total Runners',
-      value: stats?.total || 0,
+      value: runnersData?.total || 0,
       color: 'bg-blue-500',
     },
     {
       name: 'Active',
-      value: stats?.active || 0,
+      value: runners.filter((r) => r.status === 'active').length,
       color: 'bg-green-500',
     },
     {
       name: 'Offline',
-      value: stats?.offline || 0,
+      value: runners.filter((r) => r.status === 'offline').length,
       color: 'bg-gray-500',
     },
     {
       name: 'Pending',
-      value: stats?.pending || 0,
+      value: runners.filter((r) => r.status === 'pending').length,
       color: 'bg-yellow-500',
     },
   ]
@@ -85,43 +84,6 @@ export default function Dashboard() {
             </p>
           </div>
         ))}
-      </div>
-
-      {/* Recent activity */}
-      <div className="card">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Recent Activity</h2>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {stats?.recent_events && stats.recent_events.length > 0 ? (
-            stats.recent_events.slice(0, 10).map((event) => (
-              <div key={event.id} className="px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <div className="flex items-center">
-                      <StatusBadge status={event.event_type} />
-                      <span className="ml-2 text-sm text-gray-500">
-                        by {event.user_identity}
-                      </span>
-                    </div>
-                    {event.action_taken && (
-                      <p className="mt-1 text-xs text-gray-600">
-                        {event.action_taken}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-400">
-                    {formatDate(event.timestamp)}
-                  </span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="px-6 py-8 text-center text-gray-500">
-              No recent activity
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

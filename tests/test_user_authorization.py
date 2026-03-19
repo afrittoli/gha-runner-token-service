@@ -21,14 +21,13 @@ class TestUserAuthorizationFlow:
         from app.database import get_db
         from app.main import app
 
-        # Create a user in the database (so we're not in bootstrap mode)
+        # Create a user in the database
         user_service = UserService(test_db)
         user_service.create_user(email="existing@example.com", is_admin=True)
 
         # Mock settings
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         # Create a mock for the OIDC-validated user who is NOT in the database
         async def mock_get_current_user():
@@ -78,7 +77,6 @@ class TestUserAuthorizationFlow:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return mock_user
@@ -112,7 +110,6 @@ class TestUserAuthorizationFlow:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         # Simulate what happens when an inactive user tries to authenticate
         async def mock_get_current_user():
@@ -164,7 +161,6 @@ class TestPerMethodAuthorization:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return mock_user
@@ -225,7 +221,6 @@ class TestPerMethodAuthorization:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
         mock_settings.github_org = "test-org"
         mock_settings.default_runner_group_id = 1
 
@@ -247,85 +242,6 @@ class TestPerMethodAuthorization:
         finally:
             app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(require_jit_access, None)
-            app.dependency_overrides.pop(get_db, None)
-            app.dependency_overrides.pop(get_settings, None)
-
-
-class TestBootstrapMode:
-    """Tests for bootstrap mode when no users exist."""
-
-    def test_bootstrap_mode_allows_admin_identities(
-        self, client: TestClient, test_db: Session
-    ):
-        """Test that bootstrap mode allows ADMIN_IDENTITIES when no users exist."""
-        from app.auth.dependencies import get_current_user
-        from app.config import get_settings
-        from app.database import get_db
-        from app.main import app
-
-        # No users in database (bootstrap mode)
-        # User in ADMIN_IDENTITIES should be allowed
-
-        mock_user = AuthenticatedUser(
-            identity="bootstrap-admin@example.com",
-            claims={
-                "sub": "auth0|bootstrap",
-                "email": "bootstrap-admin@example.com",
-            },
-            db_user=None,  # No DB user (bootstrap mode)
-        )
-
-        mock_settings = MagicMock()
-        mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = "bootstrap-admin@example.com"
-
-        async def override_get_current_user():
-            return mock_user
-
-        app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[get_db] = lambda: test_db
-        app.dependency_overrides[get_settings] = lambda: mock_settings
-
-        try:
-            # Admin endpoints should work in bootstrap mode
-            response = client.get("/api/v1/admin/security-events")
-            assert response.status_code == 200
-        finally:
-            app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_db, None)
-            app.dependency_overrides.pop(get_settings, None)
-
-    def test_bootstrap_mode_dev_allows_all(self, client: TestClient, test_db: Session):
-        """Test that empty ADMIN_IDENTITIES allows all users (dev mode)."""
-        from app.auth.dependencies import get_current_user
-        from app.config import get_settings
-        from app.database import get_db
-        from app.main import app
-
-        # No users in database, no ADMIN_IDENTITIES (dev mode)
-        mock_user = AuthenticatedUser(
-            identity="anyone@example.com",
-            claims={"sub": "auth0|anyone", "email": "anyone@example.com"},
-            db_user=None,  # No DB user
-        )
-
-        mock_settings = MagicMock()
-        mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""  # Empty = dev mode
-
-        async def override_get_current_user():
-            return mock_user
-
-        app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[get_db] = lambda: test_db
-        app.dependency_overrides[get_settings] = lambda: mock_settings
-
-        try:
-            # Anyone should be able to access admin endpoints in dev mode
-            response = client.get("/api/v1/admin/security-events")
-            assert response.status_code == 200
-        finally:
-            app.dependency_overrides.pop(get_current_user, None)
             app.dependency_overrides.pop(get_db, None)
             app.dependency_overrides.pop(get_settings, None)
 
@@ -362,7 +278,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user
@@ -428,7 +343,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user
@@ -480,7 +394,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user
@@ -535,7 +448,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user
@@ -601,7 +513,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user
@@ -645,7 +556,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return non_admin_user
@@ -686,7 +596,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user
@@ -737,7 +646,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user
@@ -792,7 +700,6 @@ class TestUserAdminEndpoints:
 
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
-        mock_settings.admin_identities = ""
 
         async def override_get_current_user():
             return admin_user

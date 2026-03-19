@@ -59,7 +59,6 @@ export function useProvisionRunnerJit() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['runners'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
 }
@@ -75,7 +74,6 @@ export function useDeprovisionRunner() {
     onSuccess: (_, runnerId) => {
       queryClient.invalidateQueries({ queryKey: ['runners'] })
       queryClient.invalidateQueries({ queryKey: ['runner', runnerId] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
 }

@@ -38,19 +38,15 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 def require_admin(
     user: AuthenticatedUser = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
 ) -> AuthenticatedUser:
     """
     Require admin privileges.
 
-    Checks admin status in the following order:
-    1. If user has is_admin=True in the User table, grant access
-    2. If no users exist in database (bootstrap mode), check ADMIN_IDENTITIES env var
-    3. Otherwise, deny access
+    Grants access only if the user has is_admin=True in the User table.
+    Use the CLI command `python -m app.cli create-admin` to bootstrap the first admin.
 
     Args:
         user: Authenticated user
-        settings: Application settings
 
     Returns:
         Authenticated user if admin
@@ -58,25 +54,8 @@ def require_admin(
     Raises:
         HTTPException: If user is not admin
     """
-    # Check database-backed admin status
     if user.is_admin:
         return user
-
-    # Bootstrap mode: if no db_user (no users in database), fall back to env var
-    if user.db_user is None:
-        admin_list = [
-            identity.strip()
-            for identity in settings.admin_identities.split(",")
-            if identity.strip()
-        ]
-
-        # If no admin list configured, allow all authenticated users (dev mode)
-        if not admin_list:
-            return user
-
-        # Check if user identity or sub is in admin list
-        if user.identity in admin_list or (user.sub and user.sub in admin_list):
-            return user
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -612,6 +591,7 @@ async def batch_disable_users(
     - **comment**: Required audit trail comment (10-500 chars)
     - **user_ids**: Optional list of user IDs. If null/empty, disables all non-admin users.
     - **exclude_admins**: Safety flag to exclude admin users (default: true)
+    - **dry_run**: If true, preview affected users without making any changes.
 
     **Returns:**
     Batch operation result with affected count and details
@@ -621,7 +601,8 @@ async def batch_disable_users(
     {
       "comment": "Security incident: disabling all contractor accounts pending review",
       "user_ids": ["uuid1", "uuid2"],
-      "exclude_admins": true
+      "exclude_admins": true,
+      "dry_run": false
     }
     ```
     """
@@ -660,6 +641,21 @@ async def batch_disable_users(
                     "At least one admin must remain active."
                 ),
             )
+
+    if request.dry_run:
+        preview = [
+            {"user_id": u.id, "email": u.email, "status": "would_be_disabled"}
+            for u in users_to_disable
+        ]
+        return BatchActionResponse(
+            success=True,
+            action="disable_users",
+            affected_count=len(preview),
+            failed_count=0,
+            comment=request.comment,
+            dry_run=True,
+            details=preview if preview else None,
+        )
 
     affected = []
     failed = []
@@ -752,6 +748,7 @@ async def batch_restore_users(
     **Request Body:**
     - **comment**: Required audit trail comment (10-500 chars)
     - **user_ids**: Optional list of user IDs. If null/empty, restores all inactive users.
+    - **dry_run**: If true, preview affected users without making any changes.
 
     **Returns:**
     Batch operation result with affected count and details
@@ -760,7 +757,8 @@ async def batch_restore_users(
     ```json
     {
       "comment": "Security incident resolved: restoring access for all affected users",
-      "user_ids": null
+      "user_ids": null,
+      "dry_run": false
     }
     ```
     """
@@ -778,6 +776,21 @@ async def batch_restore_users(
         # All inactive users
         users_to_restore = service.list_users(include_inactive=True)
         users_to_restore = [u for u in users_to_restore if not u.is_active]
+
+    if request.dry_run:
+        preview = [
+            {"user_id": u.id, "email": u.email, "status": "would_be_restored"}
+            for u in users_to_restore
+        ]
+        return BatchActionResponse(
+            success=True,
+            action="restore_users",
+            affected_count=len(preview),
+            failed_count=0,
+            comment=request.comment,
+            dry_run=True,
+            details=preview if preview else None,
+        )
 
     affected = []
     failed = []
@@ -847,13 +860,14 @@ async def batch_delete_runners(
 
     **Request Body:**
     - **comment**: Required audit trail comment (10-500 chars)
-    - **runner_ids**: Optional list of specific runner IDs to delete
-    - **user_identity**: Optional user identity to delete all runners for
+    - **runner_ids**: List of specific runner IDs to delete
+    - **user_identity**: Delete all runners for this user identity
+
+    At least one of `runner_ids` or `user_identity` must be provided.
 
     **Priority:**
     1. If runner_ids provided, delete only those runners
-    2. Else if user_identity provided, delete all runners for that user
-    3. Else delete ALL non-deleted runners (dangerous!)
+    2. Else delete all runners for the given user_identity
 
     **Returns:**
     Batch operation result with affected count and details
@@ -878,10 +892,9 @@ async def batch_delete_runners(
     if request.runner_ids:
         # Specific runners
         query = query.filter(Runner.id.in_(request.runner_ids))
-    elif request.user_identity:
-        # All runners for a specific user
+    else:
+        # All runners for the specified user
         query = query.filter(Runner.provisioned_by == request.user_identity)
-    # else: all non-deleted runners
 
     runners_to_delete = query.all()
 
@@ -998,6 +1011,7 @@ async def batch_deactivate_teams(
     - **team_ids**: Optional list of team IDs. If null/empty, deactivates
       all currently active teams.
     - **reason**: Required reason stored on each team record.
+    - **dry_run**: If true, preview affected teams without making any changes.
 
     **Returns:**
     Batch operation result with affected count and details
@@ -1007,7 +1021,8 @@ async def batch_deactivate_teams(
     {
       "comment": "Security incident: suspending contractor teams",
       "team_ids": ["uuid1", "uuid2"],
-      "reason": "Security audit Q1-2026"
+      "reason": "Security audit Q1-2026",
+      "dry_run": false
     }
     ```
     """
@@ -1021,6 +1036,21 @@ async def batch_deactivate_teams(
         ]
     else:
         teams_to_deactivate = service.list_teams(include_inactive=False)
+
+    if request.dry_run:
+        preview = [
+            {"team_id": t.id, "team_name": t.name, "status": "would_be_deactivated"}
+            for t in teams_to_deactivate
+        ]
+        return BatchActionResponse(
+            success=True,
+            action="deactivate_teams",
+            affected_count=len(preview),
+            failed_count=0,
+            comment=request.comment,
+            dry_run=True,
+            details=preview if preview else None,
+        )
 
     affected = []
     failed = []
@@ -1234,41 +1264,3 @@ async def get_admin_stats(
             .count(),
         },
     }
-
-
-@router.get("/config")
-async def get_admin_config(
-    show_sensitive: bool = False,
-    admin: AuthenticatedUser = Depends(require_admin),  # noqa: ARG001
-    settings: Settings = Depends(get_settings),
-):
-    """
-    Get system configuration.
-
-    **Required Authentication:** Admin privileges
-
-    **Query Parameters:**
-    - `show_sensitive`: If true, show actual values for sensitive fields (default: false)
-
-    **Security Note:**
-    Sensitive fields (tokens, secrets, passwords) are masked by default.
-    Set `show_sensitive=true` to reveal them (use with caution).
-    """
-    # Define sensitive fields to mask
-    sensitive_fields = {
-        "github_token",
-        "app_key",
-        "oidc_client_secret",
-        "database_url",
-        "admin_identities",
-    }
-
-    config = {}
-    for field in settings.model_fields:
-        value = getattr(settings, field)
-        if field in sensitive_fields and value and not show_sensitive:
-            config[field] = "********"
-        else:
-            config[field] = value
-
-    return config

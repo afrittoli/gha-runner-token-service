@@ -171,7 +171,6 @@ database:
 # ─── Application ──────────────────────────────────────────────────────────────
 config:
   logLevel: "INFO"
-  adminIdentities: "admin@example.com"
   sync:
     enabled: true
     intervalSeconds: 300

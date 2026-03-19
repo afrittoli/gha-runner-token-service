@@ -18,11 +18,6 @@ data:
   OIDC_AUDIENCE: {{ .Values.oidc.audience | default "gharts" | quote }}
   OIDC_JWKS_URL: {{ .Values.oidc.jwksUrl | default "https://placeholder.invalid/.well-known/jwks.json" | quote }}
 
-  # Admin identities
-  {{- if .Values.config.adminIdentities }}
-  ADMIN_IDENTITIES: {{ .Values.config.adminIdentities | quote }}
-  {{- end }}
-
   # Sync configuration
   SYNC_ENABLED: {{ .Values.config.sync.enabled | quote }}
   SYNC_INTERVAL_SECONDS: {{ .Values.config.sync.intervalSeconds | quote }}

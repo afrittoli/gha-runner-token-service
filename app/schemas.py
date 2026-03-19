@@ -23,19 +23,8 @@ class RunnerStatus(BaseModel):
     deleted_at: Optional[datetime] = None
 
 
-class AuditEvent(BaseModel):
-    """Audit trail event for runner activity."""
-
-    id: int
-    event_type: str
-    severity: str
-    user_identity: str
-    action_taken: Optional[str] = None
-    timestamp: datetime
-
-
 class RunnerDetailResponse(BaseModel):
-    """Detailed runner information including audit trail."""
+    """Detailed runner information."""
 
     runner_id: str
     runner_name: str
@@ -49,10 +38,6 @@ class RunnerDetailResponse(BaseModel):
     updated_at: datetime
     registered_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
-    audit_trail: List[AuditEvent] = Field(
-        default_factory=list,
-        description="Recent activity and security events for this runner",
-    )
 
 
 class RunnerListResponse(BaseModel):
@@ -95,6 +80,8 @@ class SecurityEventResponse(BaseModel):
     runner_id: Optional[str]
     runner_name: Optional[str]
     github_runner_id: Optional[int]
+    team_id: Optional[str] = None
+    team_name: Optional[str] = None
     user_identity: str
     violation_data: dict
     action_taken: Optional[str]
@@ -316,6 +303,8 @@ class AuditLogResponse(BaseModel):
     event_type: str
     runner_id: Optional[str]
     runner_name: Optional[str]
+    team_id: Optional[str] = None
+    team_name: Optional[str] = None
     user_identity: str
     oidc_sub: Optional[str]
     request_ip: Optional[str]
@@ -358,6 +347,10 @@ class BatchDisableUsersRequest(BatchActionRequest):
         default=True,
         description="Exclude admin users from batch disable (safety measure)",
     )
+    dry_run: bool = Field(
+        default=False,
+        description="If true, preview affected users without making changes",
+    )
 
 
 class BatchRestoreUsersRequest(BatchActionRequest):
@@ -367,6 +360,10 @@ class BatchRestoreUsersRequest(BatchActionRequest):
         default=None,
         description="List of user IDs to restore. If empty/null, restores all inactive users.",
     )
+    dry_run: bool = Field(
+        default=False,
+        description="If true, preview affected users without making changes",
+    )
 
 
 class BatchDeleteRunnersRequest(BatchActionRequest):
@@ -374,12 +371,19 @@ class BatchDeleteRunnersRequest(BatchActionRequest):
 
     user_identity: Optional[str] = Field(
         default=None,
-        description="Delete all runners for this user identity. If null, deletes all runners.",
+        description="Delete all runners for this user identity.",
     )
     runner_ids: Optional[List[str]] = Field(
         default=None,
         description="Specific runner IDs to delete. Takes precedence over user_identity.",
     )
+
+    def model_post_init(self, __context) -> None:
+        """Require targeting field to prevent fleet-wide deletion."""
+        if not self.runner_ids and not self.user_identity:
+            raise ValueError(
+                "At least one of 'runner_ids' or 'user_identity' must be" " provided"
+            )
 
 
 class BatchDeactivateTeamsRequest(BatchActionRequest):
@@ -387,13 +391,17 @@ class BatchDeactivateTeamsRequest(BatchActionRequest):
 
     team_ids: Optional[List[str]] = Field(
         default=None,
-        description="List of team IDs to deactivate. If empty/null, deactivates all active teams.",
+        description=("List of team IDs to deactivate. If null, deactivates all."),
     )
     reason: str = Field(
         ...,
         min_length=1,
         max_length=500,
         description="Reason stored on each team record (separate from the audit comment)",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="If true, preview affected teams without making changes",
     )
 
 
@@ -414,6 +422,7 @@ class BatchActionResponse(BaseModel):
     affected_count: int
     failed_count: int = 0
     comment: str
+    dry_run: bool = False
     details: Optional[List[dict]] = Field(
         default=None,
         description="Details of each affected item (success/failure)",
@@ -621,4 +630,27 @@ class OAuthClientListResponse(BaseModel):
     """Paginated list of OAuth M2M clients."""
 
     clients: List[OAuthClientResponse]
+    total: int
+
+
+# ---------------------------------------------------------------------------
+# Team-scoped events schemas
+# ---------------------------------------------------------------------------
+
+
+class TeamAuditLogListResponse(BaseModel):
+    """Team-scoped list of audit log entries."""
+
+    team_id: str
+    team_name: str
+    logs: List[AuditLogResponse]
+    total: int
+
+
+class TeamSecurityEventListResponse(BaseModel):
+    """Team-scoped list of security events."""
+
+    team_id: str
+    team_name: str
+    events: List[SecurityEventResponse]
     total: int
