@@ -26,7 +26,6 @@
 - [x] Precommit configuration for linting and tests
 - [x] Unit test workflow
 - [x] Missing tests catch-up (55 tests)
-- [x] Admin role checking via ADMIN_IDENTITIES
 - [x] Trim dashboard design doc
 - [x] Review updated docs (Haiku changes)
 - [x] Fix delete runner 500 error

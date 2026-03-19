@@ -315,7 +315,6 @@ def create_admin(email: str, oidc_sub: str, display_name: str):
             oidc_sub=oidc_sub,
             display_name=display_name or email,
             is_admin=True,
-            can_use_registration_token=True,
             can_use_jit=True,
             created_by="cli",
         )
@@ -328,88 +327,6 @@ def create_admin(email: str, oidc_sub: str, display_name: str):
 
     except ValueError as e:
         click.echo(f"✗ Failed to create admin: {e}", err=True)
-        raise SystemExit(1)
-    finally:
-        db.close()
-
-
-@cli.command()
-@click.option(
-    "--dry-run", is_flag=True, help="Show what would be migrated without making changes"
-)
-def migrate_admin_identities(dry_run: bool):
-    """Migrate ADMIN_IDENTITIES env var to User table.
-
-    This command reads the ADMIN_IDENTITIES environment variable and
-    creates admin users in the database for each identity found.
-    """
-    settings = get_settings()
-    db: Session = SessionLocal()
-
-    try:
-        admin_identities = settings.admin_identities
-
-        if not admin_identities:
-            click.echo("No ADMIN_IDENTITIES configured in environment")
-            return
-
-        click.echo(f"Found {len(admin_identities)} admin identities to migrate:\n")
-
-        user_service = UserService(db)
-        created = 0
-        skipped = 0
-
-        for identity in admin_identities:
-            # Determine if this is an email or OIDC sub
-            is_email = "@" in identity
-
-            click.echo(f"  - {identity}")
-
-            if dry_run:
-                continue
-
-            # Check if user already exists
-            if is_email:
-                existing = user_service.get_user_by_email(identity)
-            else:
-                existing = user_service.get_user_by_oidc_sub(identity)
-
-            if existing:
-                if not existing.is_admin:
-                    # Upgrade to admin
-                    user_service.update_user(existing.id, is_admin=True)
-                    click.echo("    ✓ Upgraded to admin")
-                    created += 1
-                else:
-                    click.echo("    → Already an admin, skipped")
-                    skipped += 1
-            else:
-                # Create new admin user
-                user_service.create_user(
-                    email=identity if is_email else None,
-                    oidc_sub=identity if not is_email else None,
-                    display_name=identity,
-                    is_admin=True,
-                    can_use_registration_token=True,
-                    can_use_jit=True,
-                    created_by="migrate-admin-identities",
-                )
-                click.echo("    ✓ Created admin user")
-                created += 1
-
-        if dry_run:
-            click.echo("\n(Dry run - no changes made)")
-        else:
-            click.echo(
-                f"\n✓ Migration complete: {created} users created/upgraded, {skipped} skipped"
-            )
-            if created > 0:
-                click.echo(
-                    "\nNote: You can now remove ADMIN_IDENTITIES from your environment."
-                )
-
-    except Exception as e:
-        click.echo(f"✗ Migration failed: {e}", err=True)
         raise SystemExit(1)
     finally:
         db.close()

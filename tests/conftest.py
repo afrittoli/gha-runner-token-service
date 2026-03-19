@@ -281,7 +281,6 @@ def mock_settings():
     settings.github_api_url = "https://api.github.com"
     settings.database_url = "sqlite:///:memory:"
     settings.default_runner_group_id = 1
-    settings.admin_identities = "admin@example.com"
     settings.enable_oidc_auth = True
     return settings
 

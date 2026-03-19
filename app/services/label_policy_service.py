@@ -55,6 +55,7 @@ class LabelPolicyService:
         action_taken: Optional[str] = None,
         oidc_sub: Optional[str] = None,
         github_runner_id: Optional[int] = None,
+        team_id: Optional[str] = None,
     ) -> SecurityEvent:
         """
         Log a security event for monitoring and alerting.
@@ -69,10 +70,22 @@ class LabelPolicyService:
             action_taken: Action taken in response
             oidc_sub: OIDC subject claim
             github_runner_id: GitHub runner ID
+            team_id: Team this event is scoped to (nullable)
 
         Returns:
             Created SecurityEvent
         """
+        # If team_id not supplied, try to resolve it from the runner record
+        resolved_team_id = team_id
+        if resolved_team_id is None and runner_id is not None:
+            from app.models import Runner as RunnerModel
+
+            runner_row = (
+                self.db.query(RunnerModel).filter(RunnerModel.id == runner_id).first()
+            )
+            if runner_row is not None:
+                resolved_team_id = runner_row.team_id
+
         event = SecurityEvent(
             event_type=event_type,
             severity=severity,
@@ -81,6 +94,7 @@ class LabelPolicyService:
             runner_id=runner_id,
             runner_name=runner_name,
             github_runner_id=github_runner_id,
+            team_id=resolved_team_id,
             violation_data=json.dumps(violation_data),
             action_taken=action_taken,
         )

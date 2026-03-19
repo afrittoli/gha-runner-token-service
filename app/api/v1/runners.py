@@ -13,7 +13,6 @@ from app.auth.dependencies import (
 )
 from app.config import Settings, get_settings
 from app.database import get_db
-from app.models import SecurityEvent
 from app.schemas import (
     DeprovisionResponse,
     JitProvisionRequest,
@@ -171,7 +170,7 @@ async def get_runner(
     settings: Settings = Depends(get_settings),
 ):
     """
-    Get detailed status of a specific runner including audit trail.
+    Get detailed status of a specific runner.
 
     **Required Authentication:** OIDC Bearer token
 
@@ -179,7 +178,6 @@ async def get_runner(
 
     **Returns:**
     - Runner status and metadata
-    - Recent audit trail events (security events, actions taken)
     """
     service = RunnerService(settings, db)
 
@@ -189,28 +187,6 @@ async def get_runner(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(f"Runner with ID '{runner_id}' not found or not owned by you"),
         )
-
-    # Fetch audit trail - recent security events for this runner
-    audit_events = (
-        db.query(SecurityEvent)
-        .filter(SecurityEvent.runner_id == runner_id)
-        .order_by(SecurityEvent.timestamp.desc())
-        .limit(20)
-        .all()
-    )
-
-    # Convert to response schema
-    audit_trail = [
-        {
-            "id": event.id,
-            "event_type": event.event_type,
-            "severity": event.severity,
-            "user_identity": event.user_identity,
-            "action_taken": event.action_taken,
-            "timestamp": event.timestamp,
-        }
-        for event in audit_events
-    ]
 
     return RunnerDetailResponse(
         runner_id=runner.id,
@@ -225,7 +201,6 @@ async def get_runner(
         updated_at=runner.updated_at,
         registered_at=runner.registered_at,
         deleted_at=runner.deleted_at,
-        audit_trail=audit_trail,
     )
 
 

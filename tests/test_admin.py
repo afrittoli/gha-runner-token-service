@@ -12,55 +12,17 @@ from app.models import SecurityEvent
 class TestAdminRoleChecking:
     """Tests for admin role checking functionality."""
 
-    def test_admin_access_with_empty_admin_list(
-        self, client: TestClient, test_db: Session, mock_user: AuthenticatedUser
-    ):
-        """Test that all authenticated users have admin access when ADMIN_IDENTITIES is empty (dev mode)."""
-        from app.auth.dependencies import get_current_user
-        from app.config import get_settings
-        from app.main import app
-        from unittest.mock import MagicMock
-
-        mock_settings = MagicMock()
-        mock_settings.admin_identities = ""  # Empty = dev mode
-
-        async def override_get_current_user():
-            return mock_user
-
-        def override_get_settings():
-            return mock_settings
-
-        app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[get_settings] = override_get_settings
-
-        try:
-            response = client.get("/api/v1/admin/security-events")
-            # Should succeed because empty admin list means all users are admins
-            assert response.status_code == 200
-        finally:
-            app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_settings, None)
-
     def test_admin_access_denied_for_non_admin(
         self, client: TestClient, test_db: Session, mock_user: AuthenticatedUser
     ):
-        """Test that non-admin users are denied access when ADMIN_IDENTITIES is configured."""
+        """Test that non-admin users are denied access to admin endpoints."""
         from app.auth.dependencies import get_current_user
-        from app.config import get_settings
         from app.main import app
-        from unittest.mock import MagicMock
-
-        mock_settings = MagicMock()
-        mock_settings.admin_identities = "admin@example.com,other-admin@example.com"
 
         async def override_get_current_user():
-            return mock_user  # test-user@example.com is NOT in admin list
-
-        def override_get_settings():
-            return mock_settings
+            return mock_user  # mock_user has is_admin=False
 
         app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[get_settings] = override_get_settings
 
         try:
             response = client.get("/api/v1/admin/security-events")
@@ -68,71 +30,37 @@ class TestAdminRoleChecking:
             assert "Admin privileges required" in response.json()["detail"]
         finally:
             app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_settings, None)
 
-    def test_admin_access_granted_by_identity(
+    def test_admin_access_granted_for_db_admin(
         self, client: TestClient, test_db: Session
     ):
-        """Test that users in ADMIN_IDENTITIES list have admin access (by email)."""
+        """Test that users with is_admin=True in the DB have admin access."""
         from app.auth.dependencies import get_current_user
-        from app.config import get_settings
         from app.main import app
-        from unittest.mock import MagicMock
+        from app.models import User
 
+        db_user = User(
+            email="admin@example.com",
+            is_admin=True,
+            is_active=True,
+            can_use_jit=True,
+        )
         admin_user = AuthenticatedUser(
             identity="admin@example.com",
             claims={"sub": "auth0|admin123", "email": "admin@example.com"},
+            db_user=db_user,
         )
-
-        mock_settings = MagicMock()
-        mock_settings.admin_identities = "admin@example.com"
 
         async def override_get_current_user():
             return admin_user
 
-        def override_get_settings():
-            return mock_settings
-
         app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[get_settings] = override_get_settings
 
         try:
             response = client.get("/api/v1/admin/security-events")
             assert response.status_code == 200
         finally:
             app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_settings, None)
-
-    def test_admin_access_granted_by_sub(self, client: TestClient, test_db: Session):
-        """Test that users in ADMIN_IDENTITIES list have admin access (by OIDC sub)."""
-        from app.auth.dependencies import get_current_user
-        from app.config import get_settings
-        from app.main import app
-        from unittest.mock import MagicMock
-
-        admin_user = AuthenticatedUser(
-            identity="some-other-identity",  # Identity doesn't match
-            claims={"sub": "auth0|admin123", "email": "admin@example.com"},
-        )
-
-        mock_settings = MagicMock()
-        mock_settings.admin_identities = "auth0|admin123"  # But sub matches
-
-        async def override_get_current_user():
-            return admin_user
-
-        def override_get_settings():
-            return mock_settings
-
-        app.dependency_overrides[get_current_user] = override_get_current_user
-        app.dependency_overrides[get_settings] = override_get_settings
-
-        try:
-            response = client.get("/api/v1/admin/security-events")
-            assert response.status_code == 200
-        finally:
-            app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_settings, None)
 
 
 class TestSecurityEventsEndpoints:

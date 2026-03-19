@@ -2,21 +2,25 @@
 
 import json
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.database import get_db
-from app.models import Runner, User, UserTeamMembership
+from app.models import AuditLog, Runner, SecurityEvent, Team, User, UserTeamMembership
 from app.schemas import (
     AddTeamMemberRequest,
+    SecurityEventResponse,
+    TeamAuditLogListResponse,
     TeamCreate,
     TeamDeactivate,
     TeamListResponse,
     TeamMemberResponse,
     TeamMembersListResponse,
     TeamResponse,
+    TeamSecurityEventListResponse,
     TeamUpdate,
     UserTeamsResponse,
 )
@@ -778,4 +782,188 @@ async def get_user_teams(
         user_id=user_id,
         teams=team_responses,
         total=len(team_responses),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Team-scoped audit log and security events endpoints (non-admin access)
+# ---------------------------------------------------------------------------
+
+
+def _check_team_access(
+    team_id: str,
+    user: AuthenticatedUser,
+    service: TeamService,
+) -> Team:
+    """Resolve team and verify the caller has access.
+
+    Returns the Team object if access is granted.
+    Raises HTTPException 404 / 403 otherwise.
+    """
+    team = service.get_team(team_id)
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found",
+        )
+
+    if not user.is_admin:
+        if not user.db_user or not service.is_user_in_team(user.db_user.id, team_id):
+            # M2M tokens: check via user.team
+            if not (user.team and user.team.id == team_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: not a member of this team",
+                )
+
+    return team
+
+
+@router.get(
+    "/{team_id}/audit-logs",
+    response_model=TeamAuditLogListResponse,
+)
+async def get_team_audit_logs(
+    team_id: str,
+    event_type: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    List audit logs scoped to a team.
+
+    **Access Control:**
+    - Team members (and admins) can access this endpoint.
+
+    **Query Parameters:**
+    - **event_type**: Filter by event type
+    - **limit**: Maximum number of logs to return (1-200)
+    - **offset**: Offset for pagination
+    """
+    import json as _json
+
+    service = TeamService(db)
+    team = _check_team_access(team_id, user, service)
+
+    query = db.query(AuditLog).filter(AuditLog.team_id == team_id)
+
+    if event_type:
+        query = query.filter(AuditLog.event_type == event_type)
+
+    total = query.count()
+    logs = query.order_by(AuditLog.timestamp.desc()).limit(limit).offset(offset).all()
+
+    from app.schemas import AuditLogResponse as _ALR
+
+    log_responses = []
+    for log in logs:
+        event_data = None
+        if log.event_data:
+            try:
+                event_data = _json.loads(log.event_data)
+            except (ValueError, TypeError):
+                event_data = {"raw": log.event_data}
+
+        log_responses.append(
+            _ALR(
+                id=log.id,
+                event_type=log.event_type,
+                runner_id=log.runner_id,
+                runner_name=log.runner_name,
+                team_id=team.id,
+                team_name=team.name,
+                user_identity=log.user_identity,
+                oidc_sub=log.oidc_sub,
+                request_ip=log.request_ip,
+                user_agent=log.user_agent,
+                event_data=event_data,
+                success=log.success,
+                error_message=log.error_message,
+                timestamp=log.timestamp,
+            )
+        )
+
+    return TeamAuditLogListResponse(
+        team_id=team.id,
+        team_name=team.name,
+        logs=log_responses,
+        total=total,
+    )
+
+
+@router.get(
+    "/{team_id}/security-events",
+    response_model=TeamSecurityEventListResponse,
+)
+async def get_team_security_events(
+    team_id: str,
+    event_type: Optional[str] = Query(default=None),
+    severity: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    List security events scoped to a team.
+
+    **Access Control:**
+    - Team members (and admins) can access this endpoint.
+
+    **Query Parameters:**
+    - **event_type**: Filter by event type
+    - **severity**: Filter by severity (low, medium, high, critical)
+    - **limit**: Maximum number of events to return (1-200)
+    - **offset**: Offset for pagination
+    """
+    import json as _json
+
+    service = TeamService(db)
+    team = _check_team_access(team_id, user, service)
+
+    query = db.query(SecurityEvent).filter(SecurityEvent.team_id == team_id)
+
+    if event_type:
+        query = query.filter(SecurityEvent.event_type == event_type)
+    if severity:
+        query = query.filter(SecurityEvent.severity == severity)
+
+    total = query.count()
+    events = (
+        query.order_by(SecurityEvent.timestamp.desc()).limit(limit).offset(offset).all()
+    )
+
+    event_responses = []
+    for ev in events:
+        violation_data: dict = {}
+        if ev.violation_data:
+            try:
+                violation_data = _json.loads(ev.violation_data)
+            except (ValueError, TypeError):
+                violation_data = {"raw": ev.violation_data}
+
+        event_responses.append(
+            SecurityEventResponse(
+                id=ev.id,
+                event_type=ev.event_type,
+                severity=ev.severity,
+                runner_id=ev.runner_id,
+                runner_name=ev.runner_name,
+                github_runner_id=ev.github_runner_id,
+                team_id=team.id,
+                team_name=team.name,
+                user_identity=ev.user_identity,
+                violation_data=violation_data,
+                action_taken=ev.action_taken,
+                timestamp=ev.timestamp,
+            )
+        )
+
+    return TeamSecurityEventListResponse(
+        team_id=team.id,
+        team_name=team.name,
+        events=event_responses,
+        total=total,
     )

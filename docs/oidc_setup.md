@@ -10,6 +10,7 @@ This guide explains the OIDC architecture, configuration, and setup for the Runn
 - [OIDC Provider Setup (Auth0 Example)](#oidc-provider-setup-auth0-example)
 - [Obtaining Tokens](#obtaining-tokens)
 - [User Authorization](#user-authorization)
+  - [Admin Privilege Escalation](#admin-privilege-escalation)
 - [Development Without OIDC](#development-without-oidc)
 - [Troubleshooting](#troubleshooting)
 
@@ -97,8 +98,6 @@ The backend requires these environment variables in `.env.local`:
 | `OIDC_ISSUER` | Yes* | OIDC provider's issuer URL (with trailing slash) | `https://provider.example.com/` |
 | `OIDC_AUDIENCE` | Yes* | Expected audience claim in tokens | `runner-token-service` |
 | `OIDC_JWKS_URL` | Yes* | URL to fetch public keys for token verification | `https://provider.example.com/.well-known/jwks.json` |
-| `ADMIN_IDENTITIES` | No | Comma-separated list of admin users (email or sub) | `admin@example.com,sub|123` |
-
 *Required when `ENABLE_OIDC_AUTH=true`
 
 Example `.env.local`:
@@ -111,9 +110,6 @@ ENABLE_OIDC_AUTH=true
 OIDC_ISSUER=https://your-provider.example.com/
 OIDC_AUDIENCE=runner-token-service
 OIDC_JWKS_URL=https://your-provider.example.com/.well-known/jwks.json
-
-# Admin users (bootstrap mode - use User table for production)
-ADMIN_IDENTITIES=admin@example.com
 ```
 
 ### Frontend Configuration
@@ -296,9 +292,6 @@ ENABLE_OIDC_AUTH=true
 OIDC_ISSUER=https://your-tenant.region.auth0.com/
 OIDC_AUDIENCE=runner-token-service
 OIDC_JWKS_URL=https://your-tenant.region.auth0.com/.well-known/jwks.json
-
-# Admin users (use email or Auth0 user ID)
-ADMIN_IDENTITIES=your-email@example.com
 ```
 
 #### Frontend `frontend/.env.local`
@@ -581,20 +574,12 @@ The Runner Token Service uses an explicit allowlist approach: users must exist i
 | `email` / `oidc_sub` | User identity (matched from OIDC token claims) |
 | `is_admin` | Can manage users and access admin endpoints |
 | `is_active` | Whether the user can access the API (soft delete) |
-| `can_use_registration_token` | Can use the `/provision` endpoint |
 | `can_use_jit` | Can use the `/jit` endpoint |
 
-### Bootstrap Mode (First Admin Setup)
+### First Admin Setup
 
-When no users exist in the database, the system enters **bootstrap mode**:
-
-1. Any authenticated user can access the API (including admin endpoints)
-2. This allows the first admin to create user accounts
-3. Once any user exists, bootstrap mode is disabled
-
-**To set up your first admin:**
-
-#### Option A: Use the CLI (Recommended)
+Use the CLI to bootstrap the first admin user directly in the database.
+This requires `kubectl exec` (or direct pod access) on a running deployment:
 
 ```bash
 # Create the first admin user
@@ -606,33 +591,34 @@ python -m app.cli create-admin \
 python -m app.cli list-users
 ```
 
-#### Option B: Use the Dashboard in Bootstrap Mode
+Once the admin user exists in the database, you can log in via the dashboard
+and manage further users through the admin API.
 
-1. Ensure no users exist in the database (fresh installation)
-2. Log in to the dashboard with your OIDC account
-3. Navigate to Users management (you have temporary admin access)
-4. Create your admin user with your email address and `is_admin=true`
-5. Log out and log back in - your permissions now come from the database
+### Admin Privilege Escalation
 
-#### Option C: Use the API in Bootstrap Mode
+**Admin status is stored in the database** (`User.is_admin` flag). There is no
+mechanism to escalate privileges from a JWT token alone — the OIDC provider
+cannot grant admin access.
 
-```bash
-# Get a token (using device flow)
-source docs/scripts/oidc.sh
-TOKEN=$(get_oidc_token)
+**Escalation path:**
 
-# Create the first admin user
-curl -X POST http://localhost:8000/api/v1/admin/users \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "your-email@example.com",
-    "display_name": "Your Name",
-    "is_admin": true,
-    "can_use_registration_token": true,
-    "can_use_jit": true
-  }'
-```
+1. An existing admin uses `PUT /api/v1/admin/users/{id}` with `{"is_admin": true}`
+   to grant admin rights to another user.
+2. Alternatively, direct database access via `kubectl exec` can be used to run
+   the CLI:
+   ```bash
+   kubectl exec -n <namespace> deploy/gharts-backend -- \
+     python -m app.cli create-admin --email user@example.com
+   ```
+
+**Security implications:**
+
+- Granting `is_admin` is a high-privilege operation logged in the audit trail.
+- Any admin can grant or revoke admin rights for other users — there is no
+  super-admin tier. Protect admin accounts accordingly.
+- The last active admin cannot be deactivated (enforced by the API).
+- Pod-level access (`kubectl exec`) bypasses all API-level authorization.
+  Restrict who can exec into backend pods using Kubernetes RBAC.
 
 ### Managing Users
 
@@ -724,14 +710,12 @@ const oidcConfig = {
 **Cause**: The user doesn't exist in the application's User table. The system uses an explicit allowlist - users must be pre-created by an admin.
 
 **Solution**:
-1. **If you're the first user**: The system should be in bootstrap mode (no users in DB). Check that the database is properly initialized with `python -m app.cli list_users`. If it shows users but you're not one of them, contact an existing admin.
-
-2. **If you're a regular user**: Ask an admin to create your account via the dashboard or API.
-
-3. **If you're an admin creating the first user**: Use the CLI:
+1. **If you're the first user**: The database has no users yet. Use the CLI to create the first admin:
    ```bash
    python -m app.cli create-admin --email your-email@example.com
    ```
+
+2. **If you're a regular user**: Ask an admin to create your account via the dashboard or API.
 
 See [User Authorization](#user-authorization) for more details on the authorization model.
 

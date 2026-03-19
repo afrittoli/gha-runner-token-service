@@ -206,11 +206,9 @@ export interface AuditLogFilters {
   offset?: number
 }
 
-export interface BulkDeprovisionRequest {
-  comment: string
-  runner_ids?: string[]
-  user_identity?: string
-}
+export type BulkDeprovisionRequest =
+  | { comment: string; runner_ids: string[]; user_identity?: string }
+  | { comment: string; user_identity: string; runner_ids?: string[] }
 
 export function useAuditLogs(filters: AuditLogFilters = {}) {
   return useQuery<AuditLogListResponse>({
@@ -243,7 +241,6 @@ export function useTriggerSync() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['runners'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
     },
   })
 }
@@ -257,7 +254,6 @@ export function useBulkDeprovision() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['runners'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] })
     },
   })
@@ -273,14 +269,3 @@ export function useAdminStats() {
   })
 }
 
-export function useAdminConfig(showSensitive = false) {
-  return useQuery({
-    queryKey: ['admin', 'config', { showSensitive }],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/v1/admin/config', {
-        params: { show_sensitive: showSensitive }
-      })
-      return response.data
-    },
-  })
-}

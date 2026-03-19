@@ -88,6 +88,9 @@ class AuditLog(Base):
     runner_id = Column(String, nullable=True, index=True)
     runner_name = Column(String, nullable=True, index=True)
 
+    # Team association (nullable for backward compatibility)
+    team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
+
     # User information
     user_identity = Column(String, nullable=False, index=True)
     oidc_sub = Column(String, nullable=True)
@@ -149,9 +152,7 @@ class User(Base):
     display_name = Column(String, nullable=True)  # For dashboard display
 
     # Authorization flags
-    is_admin = Column(
-        Boolean, default=False, nullable=False
-    )  # Replaces ADMIN_IDENTITIES
+    is_admin = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)  # Soft disable
 
     # API access controls
@@ -189,6 +190,9 @@ class SecurityEvent(Base):
     runner_id = Column(String, nullable=True, index=True)
     runner_name = Column(String, nullable=True)
     github_runner_id = Column(Integer, nullable=True)
+
+    # Team association (nullable for backward compatibility)
+    team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
 
     # User information
     user_identity = Column(String, nullable=False, index=True)
