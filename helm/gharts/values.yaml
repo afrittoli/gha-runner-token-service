@@ -242,18 +242,6 @@ database:
 
 # ─── Application behavior (non-sensitive) ─────────────────────────────────────
 config:
-  # M2M team credential support
-  # Each Auth0 M2M application has metadata: {"team": "<team-name>"}.
-  # An Auth0 Action copies this into the JWT as a "team" claim.
-  # The backend reads the claim to resolve team context without a DB user lookup.
-  teamCredentials:
-    # Enable M2M team authentication (client_credentials grant)
-    enabled: true
-    # JWT claim that carries the team name (must match the Auth0 Action)
-    teamClaim: "team"
-    # Reject M2M tokens whose team claim doesn't match an active team in DB
-    requireTeamInDB: true
-
   logLevel: "INFO"
   accessLogTracing: false
 
