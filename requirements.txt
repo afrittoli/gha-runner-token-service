@@ -22,7 +22,7 @@ tenacity==8.2.3  # For retry logic with exponential backoff
 psycopg2-binary==2.9.9
 
 # Environment and Configuration
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 
 # Date/Time handling
 python-dateutil==2.9.0.post0
