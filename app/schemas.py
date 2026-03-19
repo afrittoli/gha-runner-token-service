@@ -384,7 +384,7 @@ class BatchDeleteRunnersRequest(BatchActionRequest):
         """Require targeting field to prevent fleet-wide deletion."""
         if not self.runner_ids and not self.user_identity:
             raise ValueError(
-                "At least one of 'runner_ids' or 'user_identity' must be" " provided"
+                "At least one of 'runner_ids' or 'user_identity' must be provided"
             )
 
 
