@@ -5,7 +5,7 @@ pydantic==2.10.3
 pydantic-settings==2.13.1
 
 # GitHub API
-PyJWT==2.8.0
+PyJWT==2.12.1
 cryptography==42.0.0
 httpx==0.26.0
 
