@@ -5,6 +5,8 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions: read-all
+
 env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE_NAME: ${{ github.repository }}-backend

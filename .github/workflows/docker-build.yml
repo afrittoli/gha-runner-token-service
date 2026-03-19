@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions: read-all
+
 env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE_NAME: ${{ github.repository }}-backend

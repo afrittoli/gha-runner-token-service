@@ -12,6 +12,8 @@ on:
       - 'helm/gharts/**'
       - '.github/workflows/helm-chart.yml'
 
+permissions: read-all
+
 jobs:
   lint:
     name: Lint and Validate
