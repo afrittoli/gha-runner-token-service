@@ -26,3 +26,27 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vitest"
+          - "@vitest/*"
+      testing:
+        patterns:
+          - "@testing-library/*"
+          - "msw"
+          - "jsdom"
+      eslint:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "@typescript-eslint/*"
