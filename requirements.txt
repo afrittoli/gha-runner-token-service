@@ -15,7 +15,7 @@ python-multipart==0.0.22
 passlib[bcrypt]==1.7.4
 
 # Database
-sqlalchemy==2.0.36
+sqlalchemy==2.0.48
 alembic==1.18.4
 asyncpg==0.30.0  # For PostgreSQL advisory locks in sync worker (Python 3.11+)
 tenacity==8.2.3  # For retry logic with exponential backoff
