@@ -235,7 +235,7 @@ runner_service.db.*
 .claude
 .bob
 audit.json
-.cli.env
+.cli.env*
 !.cli.env.example
 kind-config.yaml
 docs/.cli.env.example

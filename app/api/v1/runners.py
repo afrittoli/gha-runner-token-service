@@ -100,7 +100,7 @@ async def list_runners(
             "their teams by default; this narrows to one team."
         ),
     ),
-    limit: int = Query(50, ge=1, le=200, description="Limit results (1-200)"),
+    limit: int = Query(50, ge=1, le=1000, description="Limit results (1-1000)"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
 ):
     """List runners with team-scoped visibility.
@@ -117,7 +117,7 @@ async def list_runners(
     - `team`: Narrow results to a specific team name.
     - `status`: Filter by runner status (active, offline, pending).
     - `ephemeral`: Filter by ephemeral flag.
-    - `limit`: Results per page (1-200, default 50).
+    - `limit`: Results per page (1-1000, default 50).
     - `offset`: Pagination offset (default 0).
 
     **Returns:**
