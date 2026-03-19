@@ -299,7 +299,7 @@ async def handle_workflow_job(
                     repo=repo_full_name,
                 )
         except Exception as e:
-            action_taken = f"workflow_cancel_error: {str(e)}"
+            action_taken = "workflow_cancel_error"
             logger.error(
                 "workflow_cancel_error",
                 run_id=run_id,

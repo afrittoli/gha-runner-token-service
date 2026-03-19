@@ -10,6 +10,8 @@ on:
     paths:
       - 'terraform/**'
 
+permissions: read-all
+
 jobs:
   lint:
     name: Lint
