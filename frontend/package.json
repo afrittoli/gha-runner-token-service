@@ -19,7 +19,7 @@
     "axios": "^1.6.5",
     "oidc-client-ts": "^3.0.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.2.4",
     "react-oidc-context": "^3.3.0",
     "react-router-dom": "^7.13.1",
     "zustand": "^4.4.7"
@@ -32,7 +32,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.0.10",
     "@types/react": "^18.2.47",
-    "@types/react-dom": "^18.2.18",
+    "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
     "@vitejs/plugin-react": "^6.0.0",
