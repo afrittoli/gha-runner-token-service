@@ -231,8 +231,19 @@ kind-setup: ## Setup kind cluster for testing
 	@echo "$(GREEN)Setting up kind cluster...$(NC)"
 	./scripts/setup-kind-cluster.sh
 
+.PHONY: kind-prune
+kind-prune: ## Prune unused images from kind cluster nodes to free disk space
+	@echo "$(YELLOW)Pruning unused images from kind cluster nodes...$(NC)"
+	@for node in $$(kind get nodes --name $${CLUSTER_NAME:-gharts-test} 2>/dev/null); do \
+		echo "  Pruning $$node..."; \
+		podman exec --privileged $$node crictl rmi --prune 2>/dev/null || true; \
+		podman exec --privileged $$node bash -c \
+			"ctr --namespace k8s.io content ls -q 2>/dev/null | xargs -r ctr --namespace k8s.io content rm 2>/dev/null || true"; \
+	done
+	@echo "$(GREEN)Kind cluster pruned$(NC)"
+
 .PHONY: kind-deploy
-kind-deploy: ## Build images and deploy to kind cluster
+kind-deploy: kind-prune ## Build images and deploy to kind cluster
 	@echo "$(GREEN)Deploying to kind cluster...$(NC)"
 	./scripts/deploy-to-kind.sh
 

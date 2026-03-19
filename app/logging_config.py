@@ -192,9 +192,27 @@ def setup_logging(
     uv_access.propagate = False
 
     # ===== Silence SQLAlchemy on Console =====
-    # SQLAlchemy engine logs (COMMIT, SELECT, etc.) are useful in files for
-    # debugging but are too noisy for console output.
-    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    # engine echo=True is never used; SQL verbosity is controlled here.
+    # SQLAlchemy uses "sqlalchemy.engine.Engine" (child of "sqlalchemy.engine")
+    # and "sqlalchemy.pool". We set each logger to propagate=False and attach
+    # our handlers directly so we can give the console WARNING-only while the
+    # file handler respects LOG_LEVEL.
+    sa_console = logging.StreamHandler(sys.stdout)
+    sa_console.setLevel(logging.WARNING)
+    sa_console.setFormatter(console_handler.formatter)
+
+    for _name in (
+        "sqlalchemy.engine",
+        "sqlalchemy.engine.Engine",
+        "sqlalchemy.pool",
+        "sqlalchemy.dialects",
+        "sqlalchemy.orm",
+    ):
+        _log = logging.getLogger(_name)
+        _log.propagate = False
+        _log.setLevel(numeric_level)  # file honours LOG_LEVEL
+        _log.addHandler(sa_console)  # console: WARNING+
+        _log.addHandler(app_file_handler)  # file: LOG_LEVEL+
 
     # Store tracing setting for use in middleware
     setattr(root_logger, "access_log_tracing", access_log_tracing)

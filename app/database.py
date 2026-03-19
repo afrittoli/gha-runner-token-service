@@ -92,7 +92,7 @@ def get_engine_config():
 
         return {
             "creator": _iam_creator,
-            "echo": settings.log_level == "DEBUG",
+            "echo": False,
             "pool_size": settings.db_pool_size,
             "max_overflow": settings.db_max_overflow,
             "pool_pre_ping": True,
@@ -101,7 +101,7 @@ def get_engine_config():
 
     config: dict[str, Any] = {
         "url": settings.database_url,
-        "echo": settings.log_level == "DEBUG",
+        "echo": False,
     }
 
     if "sqlite" in settings.database_url:

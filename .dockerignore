@@ -30,6 +30,9 @@ env/
 .gitignore
 .gitattributes
 
+# Claude Code worktrees and session data
+.claude/
+
 # Documentation
 docs/
 *.md
