@@ -1,0 +1,63 @@
+{
+  "name": "GHARTS Dev",
+  "image": "mcr.microsoft.com/devcontainers/python:3.13-bookworm",
+
+  "features": {
+    // Node.js LTS for the React frontend
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    },
+    // GitHub CLI (gh) — already authenticated via Codespaces GITHUB_TOKEN
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Terraform — matches CI (hashicorp/setup-terraform@v4, no pinned version → latest)
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "latest"
+    },
+    // Docker-in-Docker for running the full stack locally
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  // Install Python tooling and Claude Code after the container is created.
+  // uv is used for fast dependency installation.
+  // Claude Code is installed globally via npm.
+  // pre-commit hooks are installed so they run on every commit inside the Codespace.
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  // Forward the FastAPI backend and the Vite dev server
+  "forwardPorts": [8000, 5173],
+  "portsAttributes": {
+    "8000": { "label": "Backend (FastAPI)", "onAutoForward": "notify" },
+    "5173": { "label": "Frontend (Vite)", "onAutoForward": "notify" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Python
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        // Frontend
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        // Terraform
+        "hashicorp.terraform",
+        // General
+        "github.copilot",
+        "eamodio.gitlens",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  // Run as the default vscode user (non-root)
+  "remoteUser": "vscode"
+}
