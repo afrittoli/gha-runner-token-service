@@ -5,7 +5,6 @@ import { AuthProvider } from 'react-oidc-context'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
-import { setQueryClient } from './store/authStore'
 import { getRuntimeConfig, validateConfig } from './config/runtime'
 
 // Configure React Query
@@ -19,9 +18,6 @@ const queryClient = new QueryClient({
     },
   },
 })
-
-// Make queryClient available to authStore for immediate cache invalidation
-setQueryClient(queryClient)
 
 // Get runtime configuration (from window.APP_CONFIG or .env.local)
 const config = getRuntimeConfig()

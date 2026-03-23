@@ -61,23 +61,6 @@ class TestDetectTokenType:
         claims = {"sub": "auth0|123", "email": "user@example.com", "gty": "device_code"}
         assert detect_token_type(claims) == TokenType.INDIVIDUAL
 
-    def test_impersonation_token(self):
-        claims = {
-            "is_impersonation": True,
-            "email": "target@example.com",
-            "impersonated_by": "admin@example.com",
-        }
-        assert detect_token_type(claims) == TokenType.IMPERSONATION
-
-    def test_impersonation_takes_precedence_over_gty(self):
-        """Impersonation flag takes precedence even if gty=client-credentials."""
-        claims = {"is_impersonation": True, "gty": "client-credentials"}
-        assert detect_token_type(claims) == TokenType.IMPERSONATION
-
-    def test_false_impersonation_is_individual(self):
-        claims = {"sub": "auth0|123", "is_impersonation": False}
-        assert detect_token_type(claims) == TokenType.INDIVIDUAL
-
     def test_no_gty_is_individual(self):
         """Tokens without a gty claim fall through to INDIVIDUAL."""
         claims = {"sub": "auth0|123", "email": "user@example.com"}

@@ -186,12 +186,9 @@ from enum import Enum
 class TokenType(Enum):
     M2M_TEAM = "m2m_team"       # OAuth client_credentials with team claim
     INDIVIDUAL = "individual"    # OIDC user token (device flow or SPA)
-    IMPERSONATION = "impersonation"  # Demo admin impersonation (existing)
 
 def detect_token_type(claims: dict) -> TokenType:
     """Detect token type from JWT claims."""
-    if claims.get("is_impersonation"):
-        return TokenType.IMPERSONATION
     if claims.get("team"):
         return TokenType.M2M_TEAM
     return TokenType.INDIVIDUAL
@@ -604,7 +601,6 @@ Optionally, share JWKS cache via Redis if Auth0 rate-limits JWKS endpoint under 
 | **Token replay** | Standard JWT `exp` claim enforced. Short TTL (1h for SPA, 24h for M2M). `jti` tracking not implemented — consider adding for high-security scenarios. |
 | **JWKS endpoint unavailability** | Use TTL-based JWKS cache — continue validating with cached keys for up to 1h during Auth0 JWKS outage. |
 | **Privilege escalation via team claim** | Backend validates that team exists and is active in DB (`requireTeamInDB: true`). A rogue `team` claim for a non-existent team is rejected. |
-| **Impersonation (existing demo feature)** | HS256 secret is `demo-impersonation-secret` — hardcoded. **Must be moved to settings/secrets.** Impersonation tokens should be time-limited and tracked in `ImpersonationSession` table (already exists). |
 
 ### M2M vs Individual Security Posture
 
@@ -620,12 +616,11 @@ Optionally, share JWKS cache via Redis if Auth0 rate-limits JWKS endpoint under 
 
 ### Recommendations
 
-1. **Move `demo-impersonation-secret` to settings** — configurable secret, not hardcoded.
-2. **Register M2M client IDs in `OAuthClient` table** — enables audit trail and revocation tracking.
-3. **Add `azp` (authorized party) claim validation** — optionally check `azp` matches an expected client ID.
-4. **Rate-limit `/provision` and `/jit` endpoints per team** — prevent token flooding if M2M secret is leaked.
-5. **Alert on unusual provisioning volume** — spike in M2M requests may indicate credential compromise.
-6. **Prefer short-lived M2M tokens with rotation** — configure Auth0 token TTL to 1h for M2M apps used in ephemeral pipelines.
+1. **Register M2M client IDs in `OAuthClient` table** — enables audit trail and revocation tracking.
+2. **Add `azp` (authorized party) claim validation** — optionally check `azp` matches an expected client ID.
+3. **Rate-limit `/provision` and `/jit` endpoints per team** — prevent token flooding if M2M secret is leaked.
+4. **Alert on unusual provisioning volume** — spike in M2M requests may indicate credential compromise.
+5. **Prefer short-lived M2M tokens with rotation** — configure Auth0 token TTL to 1h for M2M apps used in ephemeral pipelines.
 
 ---
 

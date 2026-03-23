@@ -54,8 +54,7 @@ class AuthenticatedUser:
         self.team = team
         self.team_name_from_token: Optional[str] = claims.get("team")
 
-        # Database-backed authorization
-        # (set for TokenType.INDIVIDUAL / IMPERSONATION)
+        # Database-backed authorization (set for TokenType.INDIVIDUAL)
         self.db_user = db_user
         self.user_id = db_user.id if db_user else None
         self.display_name = (
@@ -125,9 +124,8 @@ async def _get_authenticated_user(
 ) -> AuthenticatedUser:
     """Resolve a verified JWT payload into an AuthenticatedUser.
 
-    Shared by the production auth path and the demo-mode impersonation override
-    in ``app.demo.auth``.  Callers are responsible for verifying the token
-    signature before passing the payload here.
+    Callers are responsible for verifying the token signature before passing
+    the payload here.
 
     Args:
         payload: Decoded, verified JWT claims.
@@ -187,9 +185,9 @@ async def _get_authenticated_user(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
-                    f"M2M client '{client_sub}' is not registered or inactive. "
-                    "Register the client ID via the admin API "
-                    "(POST /api/v1/admin/oauth-clients) before use."
+                    f"M2M client '{client_sub}' is not registered. "
+                    "Register the client ID via the admin API"
+                    " (POST /api/v1/admin/oauth-clients) before use."
                 ),
             )
 
@@ -278,11 +276,8 @@ async def get_current_user(
     """Validate token and return an authenticated user.
 
     Handles two token types:
-    - M2M team tokens (``team`` claim present): resolves team from DB by name.
+    - M2M team tokens (``gty=client-credentials``): resolves team from DB.
     - Individual OIDC tokens: resolves user from DB by email/sub.
-
-    Impersonation tokens are a demo-only feature handled by the override in
-    ``app.demo.auth`` and are never accepted here.
 
     Args:
         credentials: HTTP Bearer token (optional when OIDC is disabled)
