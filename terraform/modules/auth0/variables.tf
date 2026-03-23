@@ -40,9 +40,3 @@ variable "m2m_token_lifetime" {
   type        = number
   default     = 3600
 }
-
-variable "embed_user_teams" {
-  description = "When true, create the 'Add User Teams' post-login Action that embeds team memberships into user tokens"
-  type        = bool
-  default     = false
-}
