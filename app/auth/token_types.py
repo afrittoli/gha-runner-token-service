@@ -7,11 +7,12 @@ class TokenType(Enum):
     """Types of JWT tokens accepted by gharts."""
 
     M2M_TEAM = "m2m_team"
-    """OAuth client_credentials token with a 'team' claim.
+    """OAuth client_credentials token identified by the standard ``gty`` claim.
 
     Issued to M2M applications (CI/CD pipelines, automation tools).
-    Contains a ``team`` claim set by an Auth0 Action from M2M app metadata.
-    Bypasses per-user DB lookup — team is resolved directly from the claim.
+    Auth0 sets ``gty="client-credentials"`` on all ``client_credentials`` grants
+    without requiring a custom Action.  Team resolution is performed exclusively
+    via the ``OAuthClient`` table using the ``sub`` claim.
     """
 
     INDIVIDUAL = "individual"
@@ -34,8 +35,13 @@ def detect_token_type(claims: dict) -> TokenType:
 
     Rules (evaluated in order):
     1. If ``is_impersonation`` claim is truthy → :attr:`TokenType.IMPERSONATION`
-    2. If ``team`` claim is present (non-empty string) → :attr:`TokenType.M2M_TEAM`
+    2. If ``gty`` claim equals ``"client-credentials"`` → :attr:`TokenType.M2M_TEAM`
     3. Otherwise → :attr:`TokenType.INDIVIDUAL`
+
+    The ``gty`` (grant type) claim is set by Auth0 on all tokens and does not
+    require a custom Action.  SPA tokens have ``gty="authorization_code"`` or
+    no ``gty``; device-flow tokens have ``gty="device_code"``.  Only
+    ``client_credentials`` grants produce M2M tokens.
 
     Args:
         claims: Decoded JWT payload (dict of claims).
@@ -45,6 +51,6 @@ def detect_token_type(claims: dict) -> TokenType:
     """
     if claims.get("is_impersonation"):
         return TokenType.IMPERSONATION
-    if claims.get("team"):
+    if claims.get("gty") == "client-credentials":
         return TokenType.M2M_TEAM
     return TokenType.INDIVIDUAL

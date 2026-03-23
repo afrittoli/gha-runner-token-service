@@ -1,7 +1,10 @@
 """Integration tests for M2M machine-member auth enforcement.
 
 These tests verify that get_current_user correctly enforces the invariant:
-  "every M2M token must have an active, registered OAuthClient for its team."
+  "every M2M token must have an active, registered OAuthClient."
+
+Token type is detected via ``gty="client-credentials"``. Team is resolved
+from OAuthClient.team_id using the sub claim.
 
 The tests mock OIDC validation so they exercise the dependency logic without
 needing a real JWT from Auth0.
@@ -53,11 +56,11 @@ def _make_oauth_client(
     return c
 
 
-def _m2m_claims(team_name: str, sub: str = "pipeline@clients") -> dict:
-    """Return a minimal M2M JWT payload."""
+def _m2m_claims(sub: str = "pipeline@clients") -> dict:
+    """Return a minimal M2M JWT payload using gty instead of team claim."""
     return {
         "sub": sub,
-        "team": team_name,
+        "gty": "client-credentials",
         "aud": "test-audience",
         "iss": "https://test-issuer.example.com/",
         "exp": 9999999999,
@@ -81,7 +84,7 @@ def m2m_client(client: TestClient):
     Usage:
         def test_foo(m2m_client):
             set_claims, tc = m2m_client
-            set_claims({"sub": "x@clients", "team": "my-team"})
+            set_claims({"sub": "x@clients", "gty": "client-credentials"})
             tc.get("/api/v1/runners", headers={"Authorization": "Bearer fake"})
     """
     mock_validator = AsyncMock(return_value={})
@@ -103,7 +106,10 @@ _RUNNERS_URL = "/api/v1/runners"
 
 
 class TestM2MAuthEnforcement:
-    """Verify get_current_user blocks M2M tokens that are not registered."""
+    """Verify that get_current_user enforces M2M token policy.
+
+    Team resolution is via OAuthClient.team_id using the sub claim.
+    """
 
     def test_registered_active_client_succeeds(self, test_db: Session, m2m_client):
         """A properly registered and active client can authenticate."""
@@ -111,7 +117,7 @@ class TestM2MAuthEnforcement:
         _make_oauth_client(test_db, team, client_id="pipeline@clients")
 
         set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="pipeline@clients"))
+        set_claims(_m2m_claims(sub="pipeline@clients"))
 
         response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
         # 200 means authentication succeeded (runner list may be empty)
@@ -123,7 +129,7 @@ class TestM2MAuthEnforcement:
         # No OAuthClient row created — sub is unregistered
 
         set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="ghost@clients"))
+        set_claims(_m2m_claims(sub="ghost@clients"))
 
         response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
         assert response.status_code == 403
@@ -137,7 +143,7 @@ class TestM2MAuthEnforcement:
         _make_oauth_client(test_db, team, client_id="old@clients", is_active=False)
 
         set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="old@clients"))
+        set_claims(_m2m_claims(sub="old@clients"))
 
         response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
         assert response.status_code == 403
@@ -145,40 +151,31 @@ class TestM2MAuthEnforcement:
         assert "disabled" in detail.lower()
 
     def test_inactive_team_rejected(self, test_db: Session, m2m_client):
-        """A token for a deactivated team is rejected even with a valid client."""
+        """A token whose linked team is deactivated is rejected."""
         team = _make_team(test_db, "frozen-team", active=False)
         _make_oauth_client(test_db, team, client_id="ci@clients")
 
         set_claims, tc = m2m_client
-        set_claims(_m2m_claims("frozen-team", sub="ci@clients"))
+        set_claims(_m2m_claims(sub="ci@clients"))
 
         response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
         assert response.status_code == 403
-        assert "frozen-team" in response.json()["detail"]
 
-    def test_unknown_team_rejected(self, test_db: Session, m2m_client):
-        """A token whose team name is not in the DB is rejected."""
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("no-such-team", sub="ci@clients"))
+    def test_client_resolves_to_registered_team(self, test_db: Session, m2m_client):
+        """Team is resolved from OAuthClient.team_id, not from any JWT claim.
 
-        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
-        assert response.status_code == 403
-        assert "no-such-team" in response.json()["detail"]
-
-    def test_client_for_wrong_team_rejected(self, test_db: Session, m2m_client):
-        """A client registered for team-A cannot authenticate as team-B."""
+        A client registered for team-a always resolves to team-a regardless of
+        what any external claim might say — because the ``team`` claim is no
+        longer used.
+        """
         team_a = _make_team(test_db, "team-a")
-        _make_team(test_db, "team-b")
-        # Register the client only for team-a
         _make_oauth_client(test_db, team_a, client_id="a@clients")
 
-        # Token claims team-b but sub belongs to team-a
         set_claims, tc = m2m_client
-        set_claims(_m2m_claims("team-b", sub="a@clients"))
+        set_claims(_m2m_claims(sub="a@clients"))
 
         response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
-        assert response.status_code == 403
-        assert "not registered" in response.json()["detail"]
+        assert response.status_code == 200
 
     def test_last_used_at_updated_on_success(self, test_db: Session, m2m_client):
         """Successful M2M auth updates the OAuthClient.last_used_at field."""
@@ -187,8 +184,55 @@ class TestM2MAuthEnforcement:
         assert oc.last_used_at is None
 
         set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="pipeline@clients"))
+        set_claims(_m2m_claims(sub="pipeline@clients"))
         tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
 
         test_db.refresh(oc)
         assert oc.last_used_at is not None
+
+    def test_no_team_claim_required(self, test_db: Session, m2m_client):
+        """M2M auth succeeds even when no ``team`` claim is present in the JWT."""
+        team = _make_team(test_db, "ci-team")
+        _make_oauth_client(test_db, team, client_id="pipeline@clients")
+
+        set_claims, tc = m2m_client
+        claims = {
+            "sub": "pipeline@clients",
+            "gty": "client-credentials",
+            "aud": "test-audience",
+            "iss": "https://test-issuer.example.com/",
+            "exp": 9999999999,
+            # Explicitly no "team" claim
+        }
+        set_claims(claims)
+
+        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
+        assert response.status_code == 200
+
+    def test_individual_token_not_treated_as_m2m(self, test_db: Session, m2m_client):
+        """A token with gty=device_code is treated as INDIVIDUAL, not M2M."""
+        from app.models import User
+
+        user = User(
+            email="dev@example.com",
+            oidc_sub="auth0|dev",
+            is_active=True,
+            can_use_jit=True,
+        )
+        test_db.add(user)
+        test_db.commit()
+
+        set_claims, tc = m2m_client
+        set_claims(
+            {
+                "sub": "auth0|dev",
+                "email": "dev@example.com",
+                "gty": "device_code",
+                "aud": "test-audience",
+                "iss": "https://test-issuer.example.com/",
+                "exp": 9999999999,
+            }
+        )
+
+        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
+        assert response.status_code == 200

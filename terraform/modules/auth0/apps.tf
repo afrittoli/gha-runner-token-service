@@ -48,11 +48,6 @@ resource "auth0_client" "m2m_team" {
 
   oidc_conformant = true
 
-  # Embed team name in app metadata so the "Add Team Claim" Action can read it
-  client_metadata = {
-    team = each.key
-  }
-
   jwt_configuration {
     alg = "RS256"
   }
