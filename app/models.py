@@ -255,12 +255,21 @@ class SyncState(Base):
 
 
 class OAuthClient(Base):
-    """OAuth M2M clients registered for team-level access.
+    """M2M clients registered for team-level access via GHARTS-native API keys.
 
-    Each record links an Auth0 M2M ``client_id`` to a team. When gharts
-    receives a JWT with a ``team`` claim it validates that the sub/client is
-    known and active. This table also provides an audit trail for credential
-    rotation and activity monitoring.
+    Each record links an opaque API key (stored as a bcrypt hash) to a team.
+    When GHARTS receives a ``Bearer gharts_<key>`` token it hashes the key
+    and looks it up here, resolving the team without any Auth0 involvement.
+
+    Schema notes
+    ------------
+    * ``client_id`` — human-readable label supplied by the admin at creation
+      time (e.g. ``"ci-pipeline"``).  Kept for display and audit purposes.
+    * ``hashed_key`` — bcrypt hash of the raw API key.  The raw key is shown
+      to the admin exactly once (at creation or rotation) and never stored.
+
+    Migration (DDL only):
+        ALTER TABLE oauth_clients ADD COLUMN hashed_key TEXT;
     """
 
     __tablename__ = "oauth_clients"
@@ -268,8 +277,11 @@ class OAuthClient(Base):
     # Primary key
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
 
-    # Auth0 client_id (matches ``sub`` claim in client_credentials tokens)
+    # Human-readable identifier supplied by the admin (e.g. "ci-pipeline").
     client_id = Column(String, nullable=False, unique=True, index=True)
+
+    # bcrypt hash of the raw API key.  NULL on legacy rows created before B-1.
+    hashed_key = Column(Text, nullable=True)
 
     # Team association
     team_id = Column(

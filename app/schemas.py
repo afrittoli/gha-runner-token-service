@@ -593,11 +593,14 @@ class UserTeamsResponse(BaseModel):
 
 
 class OAuthClientCreate(BaseModel):
-    """Request to register a new OAuth M2M client for a team."""
+    """Request to register a new GHARTS-native M2M API-key client for a team."""
 
     client_id: str = Field(
         ...,
-        description="Auth0 client_id of the M2M application",
+        description=(
+            "Human-readable identifier for this client (e.g. 'ci-pipeline'). "
+            "Must be unique across all clients."
+        ),
         min_length=1,
     )
     team_id: str = Field(..., description="Team this client is authorized for")
@@ -614,7 +617,7 @@ class OAuthClientUpdate(BaseModel):
 
 
 class OAuthClientResponse(BaseModel):
-    """OAuth M2M client details."""
+    """OAuth M2M client details (does not include the raw API key)."""
 
     id: str
     client_id: str
@@ -626,6 +629,23 @@ class OAuthClientResponse(BaseModel):
     last_used_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OAuthClientCreateResponse(BaseModel):
+    """Response returned exactly once when an API key is first issued or rotated.
+
+    The ``api_key`` field contains the raw bearer token value.  It is shown
+    **exactly once** and cannot be retrieved again — store it securely.
+    """
+
+    client: OAuthClientResponse
+    api_key: str = Field(
+        ...,
+        description=(
+            "Raw API key — shown exactly once. "
+            "Use as: Authorization: Bearer <api_key>"
+        ),
+    )
 
 
 class OAuthClientListResponse(BaseModel):

@@ -21,11 +21,6 @@ variable "audience" {
   default     = "gharts"
 }
 
-variable "teams" {
-  description = "List of team names; one M2M application is created per team"
-  type        = list(string)
-}
-
 variable "spa_urls" {
   description = "Allowed URLs for the SPA application"
   type = object({
@@ -35,14 +30,15 @@ variable "spa_urls" {
   })
 }
 
-variable "m2m_token_lifetime" {
-  description = "Lifetime in seconds for M2M access tokens"
-  type        = number
-  default     = 3600
-}
-
 variable "embed_user_teams" {
   description = "When true, create the 'Add User Teams' post-login Action that embeds team memberships into user tokens"
   type        = bool
   default     = false
 }
+
+# ---------------------------------------------------------------------------
+# Removed variables (Proposal B-1)
+# ---------------------------------------------------------------------------
+# variable "teams"             -- M2M apps are no longer provisioned via Terraform.
+#                                 Teams are registered in GHARTS via the admin API.
+# variable "m2m_token_lifetime" -- Auth0 no longer issues M2M tokens.

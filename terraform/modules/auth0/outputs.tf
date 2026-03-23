@@ -18,13 +18,9 @@ output "native_cli_client_id" {
   value       = auth0_client.native_cli.client_id
 }
 
-output "m2m_client_ids" {
-  description = "Map of team name → M2M application client ID"
-  value       = { for team, client in auth0_client.m2m_team : team => client.client_id }
-}
-
-output "m2m_client_secrets" {
-  description = "Map of team name → M2M application client secret (sensitive)"
-  value       = { for team, creds in auth0_client_credentials.m2m_team : team => creds.client_secret }
-  sensitive   = true
-}
+# ---------------------------------------------------------------------------
+# Removed outputs (Proposal B-1)
+# ---------------------------------------------------------------------------
+# output "m2m_client_ids"     -- Auth0 M2M apps no longer exist.
+# output "m2m_client_secrets" -- Auth0 M2M apps no longer exist.
+#                                 API keys are issued via POST /api/v1/admin/oauth-clients.

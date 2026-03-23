@@ -1,19 +1,16 @@
-"""Integration tests for M2M machine-member auth enforcement.
+"""Integration tests for M2M API-key authentication enforcement (Proposal B-1).
 
-These tests verify that get_current_user correctly enforces the invariant:
-  "every M2M token must have an active, registered OAuthClient for its team."
-
-The tests mock OIDC validation so they exercise the dependency logic without
-needing a real JWT from Auth0.
+These tests verify that get_current_user correctly handles GHARTS-native
+opaque API keys (``Bearer gharts_…``).  No JWT or Auth0 involvement.
 """
 
 import json
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.auth.api_keys import generate_api_key
 from app.models import OAuthClient, Team
 
 
@@ -38,11 +35,19 @@ def _make_team(db: Session, name: str = "ci-team", active: bool = True) -> Team:
 def _make_oauth_client(
     db: Session,
     team: Team,
-    client_id: str = "pipeline@clients",
+    client_id: str = "ci-pipeline",
     is_active: bool = True,
-) -> OAuthClient:
+    with_key: bool = True,
+):
+    """Return (OAuthClient, raw_key).  raw_key is empty string when with_key=False."""
+    raw_key = ""
+    hashed_key = None
+    if with_key:
+        raw_key, hashed_key = generate_api_key()
+
     c = OAuthClient(
         client_id=client_id,
+        hashed_key=hashed_key,
         team_id=team.id,
         description="test pipeline",
         is_active=is_active,
@@ -50,48 +55,7 @@ def _make_oauth_client(
     db.add(c)
     db.commit()
     db.refresh(c)
-    return c
-
-
-def _m2m_claims(team_name: str, sub: str = "pipeline@clients") -> dict:
-    """Return a minimal M2M JWT payload."""
-    return {
-        "sub": sub,
-        "team": team_name,
-        "aud": "test-audience",
-        "iss": "https://test-issuer.example.com/",
-        "exp": 9999999999,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Fixture: patch OIDC validation so we control the claims
-# ---------------------------------------------------------------------------
-
-_PATCH_TARGET = "app.auth.dependencies.OIDCValidator.validate_token"
-_AUTH_HEADERS = {"Authorization": "Bearer fake-token"}
-
-
-@pytest.fixture
-def m2m_client(client: TestClient):
-    """
-    Fixture that provides a helper to set the M2M claims returned by the
-    mocked OIDC validator for the duration of the test.
-
-    Usage:
-        def test_foo(m2m_client):
-            set_claims, tc = m2m_client
-            set_claims({"sub": "x@clients", "team": "my-team"})
-            tc.get("/api/v1/runners", headers={"Authorization": "Bearer fake"})
-    """
-    mock_validator = AsyncMock(return_value={})
-
-    with patch(_PATCH_TARGET, new=mock_validator):
-
-        def set_claims(claims: dict) -> None:
-            mock_validator.return_value = claims
-
-        yield set_claims, client
+    return c, raw_key
 
 
 # ---------------------------------------------------------------------------
@@ -102,93 +66,120 @@ def m2m_client(client: TestClient):
 _RUNNERS_URL = "/api/v1/runners"
 
 
-class TestM2MAuthEnforcement:
-    """Verify get_current_user blocks M2M tokens that are not registered."""
+class TestApiKeyAuthEnforcement:
+    """Verify get_current_user handles GHARTS API keys correctly."""
 
-    def test_registered_active_client_succeeds(self, test_db: Session, m2m_client):
-        """A properly registered and active client can authenticate."""
+    def test_valid_key_authenticates(self, test_db: Session, client: TestClient):
+        """A valid gharts_ key for an active team succeeds (200)."""
         team = _make_team(test_db, "ci-team")
-        _make_oauth_client(test_db, team, client_id="pipeline@clients")
+        _, raw_key = _make_oauth_client(test_db, team, "ci-pipeline")
 
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="pipeline@clients"))
-
-        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
-        # 200 means authentication succeeded (runner list may be empty)
+        response = client.get(
+            _RUNNERS_URL, headers={"Authorization": f"Bearer {raw_key}"}
+        )
         assert response.status_code == 200
 
-    def test_unregistered_client_rejected(self, test_db: Session, m2m_client):
-        """A token whose sub is not in oauth_clients is rejected (403)."""
-        _make_team(test_db, "ci-team")
-        # No OAuthClient row created — sub is unregistered
-
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="ghost@clients"))
-
-        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
-        assert response.status_code == 403
-        detail = response.json()["detail"]
-        assert "not registered" in detail
-        assert "ghost@clients" in detail
-
-    def test_disabled_client_rejected(self, test_db: Session, m2m_client):
-        """A token whose OAuthClient row is is_active=False is rejected."""
+    def test_wrong_key_rejected(self, test_db: Session, client: TestClient):
+        """A gharts_ key that doesn't match any stored hash is rejected (401)."""
         team = _make_team(test_db, "ci-team")
-        _make_oauth_client(test_db, team, client_id="old@clients", is_active=False)
+        _make_oauth_client(test_db, team, "ci-pipeline")
 
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="old@clients"))
+        # Different key — same prefix, different bytes
+        wrong_raw, _ = generate_api_key()
 
-        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
-        assert response.status_code == 403
-        detail = response.json()["detail"]
-        assert "disabled" in detail.lower()
+        response = client.get(
+            _RUNNERS_URL, headers={"Authorization": f"Bearer {wrong_raw}"}
+        )
+        assert response.status_code == 401
 
-    def test_inactive_team_rejected(self, test_db: Session, m2m_client):
-        """A token for a deactivated team is rejected even with a valid client."""
+    def test_disabled_client_rejected(self, test_db: Session, client: TestClient):
+        """A key belonging to a disabled client is rejected (401).
+
+        Disabled clients are excluded from the candidate scan (is_active filter),
+        so the key never matches → 401 rather than 403.
+        """
+        team = _make_team(test_db, "ci-team")
+        _, raw_key = _make_oauth_client(
+            test_db, team, "old-pipeline", is_active=False
+        )
+
+        response = client.get(
+            _RUNNERS_URL, headers={"Authorization": f"Bearer {raw_key}"}
+        )
+        assert response.status_code == 401
+
+    def test_inactive_team_rejected(self, test_db: Session, client: TestClient):
+        """A valid key for a deactivated team is rejected (403)."""
         team = _make_team(test_db, "frozen-team", active=False)
-        _make_oauth_client(test_db, team, client_id="ci@clients")
+        _, raw_key = _make_oauth_client(test_db, team, "ci-pipeline")
 
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("frozen-team", sub="ci@clients"))
-
-        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
+        response = client.get(
+            _RUNNERS_URL, headers={"Authorization": f"Bearer {raw_key}"}
+        )
         assert response.status_code == 403
-        assert "frozen-team" in response.json()["detail"]
+        assert "inactive" in response.json()["detail"].lower()
 
-    def test_unknown_team_rejected(self, test_db: Session, m2m_client):
-        """A token whose team name is not in the DB is rejected."""
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("no-such-team", sub="ci@clients"))
-
-        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
-        assert response.status_code == 403
-        assert "no-such-team" in response.json()["detail"]
-
-    def test_client_for_wrong_team_rejected(self, test_db: Session, m2m_client):
-        """A client registered for team-A cannot authenticate as team-B."""
-        team_a = _make_team(test_db, "team-a")
-        _make_team(test_db, "team-b")
-        # Register the client only for team-a
-        _make_oauth_client(test_db, team_a, client_id="a@clients")
-
-        # Token claims team-b but sub belongs to team-a
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("team-b", sub="a@clients"))
-
-        response = tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
-        assert response.status_code == 403
-        assert "not registered" in response.json()["detail"]
-
-    def test_last_used_at_updated_on_success(self, test_db: Session, m2m_client):
-        """Successful M2M auth updates the OAuthClient.last_used_at field."""
+    def test_client_without_hashed_key_not_matched(
+        self, test_db: Session, client: TestClient
+    ):
+        """A client row with hashed_key=None is never matched (legacy row)."""
         team = _make_team(test_db, "ci-team")
-        oc = _make_oauth_client(test_db, team, client_id="pipeline@clients")
-        assert oc.last_used_at is None
+        _make_oauth_client(test_db, team, "legacy-client", with_key=False)
 
-        set_claims, tc = m2m_client
-        set_claims(_m2m_claims("ci-team", sub="pipeline@clients"))
-        tc.get(_RUNNERS_URL, headers=_AUTH_HEADERS)
+        # Any gharts_ key will not match since the only row has no hash
+        fake_raw, _ = generate_api_key()
+        response = client.get(
+            _RUNNERS_URL, headers={"Authorization": f"Bearer {fake_raw}"}
+        )
+        assert response.status_code == 401
 
-        test_db.refresh(oc)
-        assert oc.last_used_at is not None
+    def test_last_used_at_updated_on_success(
+        self, test_db: Session, client: TestClient
+    ):
+        """Successful API-key auth updates OAuthClient.last_used_at."""
+        team = _make_team(test_db, "ci-team")
+        row, raw_key = _make_oauth_client(test_db, team, "ci-pipeline")
+        assert row.last_used_at is None
+
+        client.get(_RUNNERS_URL, headers={"Authorization": f"Bearer {raw_key}"})
+
+        test_db.refresh(row)
+        assert row.last_used_at is not None
+
+    def test_non_api_key_token_goes_to_jwt_path(
+        self, test_db: Session, client: TestClient
+    ):
+        """Bearer tokens without gharts_ prefix are routed to the JWT path.
+
+        We patch OIDC validation and create a matching user to confirm that
+        the API-key branch does not intercept regular OIDC tokens.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from app.models import User
+
+        db_user = User(
+            email="dev@example.com",
+            oidc_sub="auth0|dev123",
+            is_active=True,
+            can_use_jit=True,
+        )
+        test_db.add(db_user)
+        test_db.commit()
+
+        with patch(
+            "app.auth.dependencies.OIDCValidator.validate_token",
+            new=AsyncMock(
+                return_value={
+                    "sub": "auth0|dev123",
+                    "email": "dev@example.com",
+                    "aud": "test-audience",
+                    "iss": "https://test-issuer.example.com/",
+                    "exp": 9999999999,
+                }
+            ),
+        ):
+            response = client.get(
+                _RUNNERS_URL, headers={"Authorization": "Bearer some.jwt.token"}
+            )
+        assert response.status_code == 200

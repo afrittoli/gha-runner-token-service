@@ -1,17 +1,22 @@
-"""Token type detection for M2M and individual OIDC tokens."""
+"""Token type detection for OIDC tokens.
+
+M2M authentication (Proposal B-1) is handled before JWT decoding via the
+``gharts_`` prefix in ``app.auth.api_keys``.  ``detect_token_type`` is only
+called for JWTs that have already passed signature validation.
+"""
 
 from enum import Enum
 
 
 class TokenType(Enum):
-    """Types of JWT tokens accepted by gharts."""
+    """Types of bearer tokens accepted by GHARTS."""
 
     M2M_TEAM = "m2m_team"
-    """OAuth client_credentials token with a 'team' claim.
+    """GHARTS-native opaque API key (``Bearer gharts_…``).
 
-    Issued to M2M applications (CI/CD pipelines, automation tools).
-    Contains a ``team`` claim set by an Auth0 Action from M2M app metadata.
-    Bypasses per-user DB lookup — team is resolved directly from the claim.
+    Issued to M2M clients (CI/CD pipelines, automation tools) via the admin API.
+    Validated by bcrypt hash lookup — no JWT involved.
+    Team is resolved directly from the ``OAuthClient`` row.
     """
 
     INDIVIDUAL = "individual"
@@ -30,12 +35,15 @@ class TokenType(Enum):
 
 
 def detect_token_type(claims: dict) -> TokenType:
-    """Detect the token type from JWT claims.
+    """Detect the token type from decoded JWT claims.
+
+    This function is only called for JWTs (SPA, device flow, impersonation).
+    GHARTS-native API keys (M2M_TEAM) are detected earlier by the
+    ``gharts_`` bearer prefix and never reach this function.
 
     Rules (evaluated in order):
     1. If ``is_impersonation`` claim is truthy → :attr:`TokenType.IMPERSONATION`
-    2. If ``team`` claim is present (non-empty string) → :attr:`TokenType.M2M_TEAM`
-    3. Otherwise → :attr:`TokenType.INDIVIDUAL`
+    2. Otherwise → :attr:`TokenType.INDIVIDUAL`
 
     Args:
         claims: Decoded JWT payload (dict of claims).
@@ -45,6 +53,4 @@ def detect_token_type(claims: dict) -> TokenType:
     """
     if claims.get("is_impersonation"):
         return TokenType.IMPERSONATION
-    if claims.get("team"):
-        return TokenType.M2M_TEAM
     return TokenType.INDIVIDUAL
