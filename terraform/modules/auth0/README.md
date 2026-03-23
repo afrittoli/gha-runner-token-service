@@ -6,7 +6,6 @@ Provisions all Auth0 resources required by gharts:
 - **SPA application** – React frontend (authorization_code + PKCE)
 - **Native CLI application** – device_code flow for interactive demos
 - **M2M applications** – one per team, `client_credentials` grant
-- **Auth0 Actions** – "Add Team Claim" (M2M flow) and optionally "Add User Teams" (login flow)
 - **Flow bindings** – wires Actions into the correct Auth0 trigger pipelines
 
 ## Requirements
@@ -47,7 +46,6 @@ module "auth0" {
   }
 
   m2m_token_lifetime = 3600          # 1 hour (default)
-  embed_user_teams   = false         # set true to add teams claim to user tokens
 }
 ```
 
@@ -62,7 +60,6 @@ module "auth0" {
 | `teams` | `list(string)` | — | Team names; one M2M app per team |
 | `spa_urls` | `object` | — | SPA callback / logout / web_origins lists |
 | `m2m_token_lifetime` | `number` | `3600` | M2M access token lifetime in seconds |
-| `embed_user_teams` | `bool` | `false` | Create "Add User Teams" post-login Action |
 
 ## Outputs
 
@@ -100,17 +97,3 @@ for TEAM in platform-team infra security; do
 done
 ```
 
-## Auth0 Actions
-
-### Add Team Claim (post-token)
-
-Runs on every `client_credentials` token request. Reads `event.client.metadata.team`
-(set on the M2M application) and injects it as a `team` claim in the access token.
-The gharts backend reads this claim to resolve team context without a DB user lookup.
-
-### Add User Teams (post-login, optional)
-
-When `embed_user_teams = true`, runs on every login. Reads
-`event.user.app_metadata.teams` and embeds the array as a `teams` claim in both
-the id_token and access_token. Useful if you want the SPA to display team
-information without fetching `/auth/me`.

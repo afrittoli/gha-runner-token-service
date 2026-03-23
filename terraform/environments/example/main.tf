@@ -18,7 +18,6 @@ module "auth0" {
   }
 
   # Defaults: audience = "runner-token-service", m2m_token_lifetime = 3600
-  # embed_user_teams = false
 }
 
 # ---------------------------------------------------------------------------
