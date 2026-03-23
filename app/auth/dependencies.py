@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.auth.api_keys import is_api_key, verify_api_key
 from app.auth.oidc import OIDCValidator
 from app.auth.token_types import TokenType, detect_token_type
 from app.config import Settings, get_settings
@@ -25,14 +26,14 @@ security = HTTPBearer(auto_error=False)
 class AuthenticatedUser:
     """Represents an authenticated and authorized user.
 
-    Supports two authentication paths:
+    Supports three authentication paths:
 
     * **Individual** (``token_type == TokenType.INDIVIDUAL``): standard OIDC
       user token. ``db_user`` is populated; team membership is fetched from
       the DB.
-    * **M2M team** (``token_type == TokenType.M2M_TEAM``): OAuth
-      ``client_credentials`` token. ``team`` is populated directly from the
-      JWT ``team`` claim; no per-user DB lookup is performed.
+    * **M2M team** (``token_type == TokenType.M2M_TEAM``): GHARTS-native
+      opaque API key (``Bearer gharts_…``).  ``team`` is populated directly
+      from the ``OAuthClient`` row; no JWT validation is performed.
     * **Impersonation** (``token_type == TokenType.IMPERSONATION``): demo
       admin impersonation. Behaves like INDIVIDUAL but token is HS256-signed.
     """
@@ -120,6 +121,85 @@ def _find_team_by_name(db: Session, team_name: str) -> Optional["Team"]:
     )
 
 
+async def _authenticate_api_key(token: str, db: Session) -> AuthenticatedUser:
+    """Authenticate a GHARTS-native opaque API key.
+
+    Scans all active OAuthClient rows that have a hashed_key set and
+    verifies the key via bcrypt.  On success returns an M2M-scoped
+    AuthenticatedUser bound to the client's team.
+
+    Args:
+        token: Raw bearer token value starting with ``gharts_``.
+        db: Database session.
+
+    Returns:
+        AuthenticatedUser with M2M_TEAM token type.
+
+    Raises:
+        HTTPException: 401 if the key is invalid or not found.
+    """
+    from app.models import OAuthClient, Team
+
+    # Load all active clients that have a key hash set.
+    # In practice there will be O(teams) rows — typically < 100.
+    # A dedicated hash index is not used here because bcrypt verification is
+    # the bottleneck and cannot be accelerated by indexing the full hash.
+    candidates = (
+        db.query(OAuthClient)
+        .filter(
+            OAuthClient.is_active.is_(True),
+            OAuthClient.hashed_key.isnot(None),
+        )
+        .all()
+    )
+
+    matched: Optional[OAuthClient] = None
+    for candidate in candidates:
+        if verify_api_key(token, candidate.hashed_key):
+            matched = candidate
+            break
+
+    if matched is None:
+        logger.warning("api_key_not_matched")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or unrecognised API key.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    team = (
+        db.query(Team)
+        .filter(Team.id == matched.team_id, Team.is_active.is_(True))
+        .first()
+    )
+    if team is None:
+        logger.warning(
+            "api_key_team_inactive",
+            client_id=matched.client_id,
+            team_id=matched.team_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Team not found or inactive.",
+        )
+
+    # Record usage for audit trail
+    matched.last_used_at = datetime.now(timezone.utc)
+    db.commit()
+
+    logger.info(
+        "api_key_authenticated",
+        client_id=matched.client_id,
+        team=team.name,
+    )
+    return AuthenticatedUser(
+        identity=f"m2m:{team.name}",
+        claims={"client_id": matched.client_id},
+        token_type=TokenType.M2M_TEAM,
+        team=team,
+    )
+
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
     settings: Settings = Depends(get_settings),
@@ -128,7 +208,7 @@ async def get_current_user(
     """Validate token and return an authenticated user.
 
     Handles three token types:
-    - M2M team tokens (``team`` claim present): resolves team from DB by name.
+    - GHARTS API keys (``Bearer gharts_…``): resolves team from OAuthClient table.
     - Individual OIDC tokens: resolves user from DB by email/sub.
     - Impersonation tokens (``is_impersonation`` claim): same as individual.
 
@@ -163,6 +243,14 @@ async def get_current_user(
         )
 
     token = credentials.credentials
+
+    # --- GHARTS-native API key path (Proposal B-1) ---
+    # The gharts_ prefix unambiguously identifies opaque API keys.
+    # This check short-circuits JWT validation entirely for M2M clients.
+    if is_api_key(token):
+        return await _authenticate_api_key(token, db)
+
+    # --- JWT path (SPA / device flow / impersonation) ---
     validator = OIDCValidator(settings)
 
     # Check if this is an impersonation token (demo feature).
@@ -194,86 +282,6 @@ async def get_current_user(
         payload = await validator.validate_token(token)
 
     token_type = detect_token_type(payload)
-
-    # --- M2M team path ---
-    if token_type == TokenType.M2M_TEAM:
-        team_name = payload["team"]
-        client_sub = payload.get("sub", "")
-
-        team = _find_team_by_name(db, team_name)
-        if not team:
-            logger.warning(
-                "m2m_team_not_found",
-                team_name=team_name,
-                sub=client_sub,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"Team '{team_name}' not found or inactive. "
-                    "Ensure the team name in the Auth0 M2M application metadata "
-                    "matches a registered active team in this service."
-                ),
-            )
-
-        # Each team must have exactly one registered and active machine member
-        # (OAuthClient). Tokens from unregistered or disabled clients are rejected
-        # to guarantee complete audit coverage.
-        from app.models import OAuthClient
-
-        oauth_client = (
-            db.query(OAuthClient)
-            .filter(
-                OAuthClient.client_id == client_sub,
-                OAuthClient.team_id == team.id,
-            )
-            .first()
-        )
-        if oauth_client is None:
-            logger.warning(
-                "m2m_client_not_registered",
-                team_name=team_name,
-                sub=client_sub,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"M2M client '{client_sub}' is not registered for team "
-                    f"'{team_name}'. Register the Auth0 client ID via the admin "
-                    "API (POST /api/v1/admin/oauth-clients) before use."
-                ),
-            )
-        if not oauth_client.is_active:
-            logger.warning(
-                "m2m_client_disabled",
-                team_name=team_name,
-                sub=client_sub,
-                client_record_id=oauth_client.id,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"M2M client for team '{team_name}' is disabled. "
-                    "Contact an administrator to re-enable it."
-                ),
-            )
-
-        # Record usage timestamp for the audit trail (blocking — failure raises).
-        from app.api.v1.oauth_clients import record_m2m_usage
-
-        record_m2m_usage(db, client_sub)
-
-        logger.info(
-            "m2m_token_authenticated",
-            team=team_name,
-            sub=client_sub,
-        )
-        return AuthenticatedUser(
-            identity=f"m2m:{team_name}",
-            claims=payload,
-            token_type=token_type,
-            team=team,
-        )
 
     # --- Individual / impersonation path ---
     identity = validator.get_user_identity(payload)

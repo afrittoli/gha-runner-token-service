@@ -1,17 +1,18 @@
-"""Tests for token type detection and M2M AuthenticatedUser construction."""
+"""Tests for token type detection, API key utilities, and AuthenticatedUser."""
 
 import json
 
 import pytest
 from sqlalchemy.orm import Session
 
+from app.auth.api_keys import generate_api_key, is_api_key, verify_api_key
 from app.auth.dependencies import AuthenticatedUser, _find_team_by_name
 from app.auth.token_types import TokenType, detect_token_type
 from app.models import Team
 
 
 # ---------------------------------------------------------------------------
-# detect_token_type
+# detect_token_type  (JWT-only — M2M is handled pre-JWT by is_api_key())
 # ---------------------------------------------------------------------------
 
 
@@ -29,19 +30,6 @@ class TestDetectTokenType:
     def test_individual_token_empty_claims(self):
         assert detect_token_type({}) == TokenType.INDIVIDUAL
 
-    def test_m2m_team_token(self):
-        claims = {
-            "sub": "client@clients",
-            "team": "platform-team",
-            "aud": "gharts",
-        }
-        assert detect_token_type(claims) == TokenType.M2M_TEAM
-
-    def test_m2m_team_token_no_email(self):
-        """M2M tokens from client_credentials have no email claim."""
-        claims = {"sub": "service-account@clients", "team": "infra"}
-        assert detect_token_type(claims) == TokenType.M2M_TEAM
-
     def test_impersonation_token(self):
         claims = {
             "is_impersonation": True,
@@ -50,24 +38,75 @@ class TestDetectTokenType:
         }
         assert detect_token_type(claims) == TokenType.IMPERSONATION
 
-    def test_impersonation_takes_precedence_over_team(self):
-        """Impersonation flag takes precedence even if team claim present."""
-        claims = {"is_impersonation": True, "team": "some-team"}
+    def test_impersonation_takes_precedence(self):
+        """Impersonation flag takes precedence over any other claims."""
+        claims = {"is_impersonation": True, "sub": "auth0|123"}
         assert detect_token_type(claims) == TokenType.IMPERSONATION
-
-    def test_empty_team_string_is_individual(self):
-        """An empty team claim should not be treated as M2M."""
-        claims = {"sub": "auth0|123", "team": ""}
-        assert detect_token_type(claims) == TokenType.INDIVIDUAL
-
-    def test_none_team_is_individual(self):
-        """A None team claim should not be treated as M2M."""
-        claims = {"sub": "auth0|123", "team": None}
-        assert detect_token_type(claims) == TokenType.INDIVIDUAL
 
     def test_false_impersonation_is_individual(self):
         claims = {"sub": "auth0|123", "is_impersonation": False}
         assert detect_token_type(claims) == TokenType.INDIVIDUAL
+
+    def test_team_claim_no_longer_triggers_m2m(self):
+        """The old Auth0 'team' claim is now ignored — M2M uses the API key path."""
+        claims = {"sub": "auth0|123", "team": "platform-team"}
+        assert detect_token_type(claims) == TokenType.INDIVIDUAL
+
+
+# ---------------------------------------------------------------------------
+# API key utilities
+# ---------------------------------------------------------------------------
+
+
+class TestApiKeyUtilities:
+    """Unit tests for generate_api_key, verify_api_key, and is_api_key."""
+
+    def test_generated_key_has_prefix(self):
+        raw_key, _ = generate_api_key()
+        assert raw_key.startswith("gharts_")
+
+    def test_generated_key_has_sufficient_entropy(self):
+        raw_key, _ = generate_api_key()
+        # 32 bytes → 43 base64url chars (no padding) + 7 prefix
+        assert len(raw_key) >= 40
+
+    def test_generated_key_verifies_against_hash(self):
+        raw_key, hashed = generate_api_key()
+        assert verify_api_key(raw_key, hashed)
+
+    def test_different_key_does_not_verify(self):
+        raw_key, hashed = generate_api_key()
+        other_key, _ = generate_api_key()
+        assert not verify_api_key(other_key, hashed)
+
+    def test_empty_key_does_not_verify(self):
+        _, hashed = generate_api_key()
+        assert not verify_api_key("", hashed)
+
+    def test_empty_hash_does_not_verify(self):
+        raw_key, _ = generate_api_key()
+        assert not verify_api_key(raw_key, "")
+
+    def test_is_api_key_true_for_gharts_prefix(self):
+        raw_key, _ = generate_api_key()
+        assert is_api_key(raw_key)
+
+    def test_is_api_key_false_for_jwt(self):
+        assert not is_api_key("eyJhbGciOiJSUzI1NiJ9.abc.def")
+
+    def test_is_api_key_false_for_empty(self):
+        assert not is_api_key("")
+
+    def test_hash_stored_as_bcrypt(self):
+        _, hashed = generate_api_key()
+        # bcrypt hashes start with $2b$ or $2a$
+        assert hashed.startswith("$2")
+
+    def test_two_keys_produce_unique_values(self):
+        raw1, hash1 = generate_api_key()
+        raw2, hash2 = generate_api_key()
+        assert raw1 != raw2
+        assert hash1 != hash2
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +160,7 @@ class TestAuthenticatedUserIndividual:
 
 
 class TestAuthenticatedUserM2M:
-    """Tests for AuthenticatedUser in M2M_TEAM mode."""
+    """Tests for AuthenticatedUser in M2M_TEAM mode (API key path)."""
 
     def _make_team(self):
         from unittest.mock import MagicMock
@@ -136,7 +175,7 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"client_id": "ci-pipeline"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
@@ -146,19 +185,18 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"client_id": "ci-pipeline"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
         assert user.team is team
-        assert user.team_name_from_token == "platform-team"
 
     def test_m2m_not_admin(self):
-        """M2M tokens should never have admin privileges."""
+        """M2M API keys must never grant admin privileges."""
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"client_id": "ci-pipeline"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
@@ -168,7 +206,7 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"client_id": "ci-pipeline"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
@@ -179,7 +217,7 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"client_id": "ci-pipeline"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
