@@ -16,7 +16,12 @@ from app.models import Team
 
 
 class TestDetectTokenType:
-    """Unit tests for detect_token_type()."""
+    """Unit tests for detect_token_type().
+
+    Token type is now determined by the standard ``gty`` claim rather than
+    the custom ``team`` claim that was previously injected by the Auth0
+    credentials-exchange Action.
+    """
 
     def test_individual_token_email_only(self):
         claims = {"sub": "auth0|123", "email": "dev@example.com"}
@@ -29,17 +34,22 @@ class TestDetectTokenType:
     def test_individual_token_empty_claims(self):
         assert detect_token_type({}) == TokenType.INDIVIDUAL
 
-    def test_m2m_team_token(self):
+    def test_m2m_team_token_via_gty(self):
+        """gty=client-credentials is the canonical M2M signal (Auth0 and Zitadel)."""
         claims = {
             "sub": "client@clients",
-            "team": "platform-team",
+            "gty": "client-credentials",
             "aud": "gharts",
         }
         assert detect_token_type(claims) == TokenType.M2M_TEAM
 
-    def test_m2m_team_token_no_email(self):
-        """M2M tokens from client_credentials have no email claim."""
-        claims = {"sub": "service-account@clients", "team": "infra"}
+    def test_m2m_team_token_zitadel_style(self):
+        """Zitadel machine-user tokens carry gty=client-credentials and no email."""
+        claims = {
+            "sub": "123456789012345678",  # Zitadel machine-user ID
+            "gty": "client-credentials",
+            "iss": "https://your-org.zitadel.cloud",
+        }
         assert detect_token_type(claims) == TokenType.M2M_TEAM
 
     def test_impersonation_token(self):
@@ -50,23 +60,41 @@ class TestDetectTokenType:
         }
         assert detect_token_type(claims) == TokenType.IMPERSONATION
 
-    def test_impersonation_takes_precedence_over_team(self):
-        """Impersonation flag takes precedence even if team claim present."""
-        claims = {"is_impersonation": True, "team": "some-team"}
+    def test_impersonation_takes_precedence_over_gty(self):
+        """Impersonation flag takes precedence even if gty claim present."""
+        claims = {"is_impersonation": True, "gty": "client-credentials"}
         assert detect_token_type(claims) == TokenType.IMPERSONATION
-
-    def test_empty_team_string_is_individual(self):
-        """An empty team claim should not be treated as M2M."""
-        claims = {"sub": "auth0|123", "team": ""}
-        assert detect_token_type(claims) == TokenType.INDIVIDUAL
-
-    def test_none_team_is_individual(self):
-        """A None team claim should not be treated as M2M."""
-        claims = {"sub": "auth0|123", "team": None}
-        assert detect_token_type(claims) == TokenType.INDIVIDUAL
 
     def test_false_impersonation_is_individual(self):
         claims = {"sub": "auth0|123", "is_impersonation": False}
+        assert detect_token_type(claims) == TokenType.INDIVIDUAL
+
+    def test_spa_token_authorization_code_is_individual(self):
+        """SPA tokens have gty=authorization_code and should be INDIVIDUAL."""
+        claims = {
+            "sub": "auth0|123",
+            "email": "dev@example.com",
+            "gty": "authorization_code",
+        }
+        assert detect_token_type(claims) == TokenType.INDIVIDUAL
+
+    def test_device_code_token_is_individual(self):
+        """Device-code tokens have gty=device_code and should be INDIVIDUAL."""
+        claims = {
+            "sub": "auth0|123",
+            "email": "dev@example.com",
+            "gty": "device_code",
+        }
+        assert detect_token_type(claims) == TokenType.INDIVIDUAL
+
+    def test_no_gty_claim_is_individual(self):
+        """Absence of gty claim (some OIDC providers omit it) → INDIVIDUAL."""
+        claims = {"sub": "auth0|123", "email": "dev@example.com"}
+        assert detect_token_type(claims) == TokenType.INDIVIDUAL
+
+    def test_team_claim_without_gty_is_individual(self):
+        """Legacy 'team' claim alone no longer triggers M2M path — gty is required."""
+        claims = {"sub": "auth0|123", "team": "platform-team"}
         assert detect_token_type(claims) == TokenType.INDIVIDUAL
 
 
@@ -136,7 +164,7 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"sub": "client@clients", "gty": "client-credentials"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
@@ -146,19 +174,29 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"sub": "client@clients", "gty": "client-credentials"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
         assert user.team is team
-        assert user.team_name_from_token == "platform-team"
+
+    def test_m2m_team_name_from_token_is_none_for_zitadel(self):
+        """team_name_from_token is None for Zitadel tokens (no team JWT claim)."""
+        team = self._make_team()
+        user = AuthenticatedUser(
+            identity="m2m:platform-team",
+            claims={"sub": "123456789012345678", "gty": "client-credentials"},
+            token_type=TokenType.M2M_TEAM,
+            team=team,
+        )
+        assert user.team_name_from_token is None
 
     def test_m2m_not_admin(self):
         """M2M tokens should never have admin privileges."""
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"sub": "client@clients", "gty": "client-credentials"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
@@ -168,7 +206,7 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"sub": "client@clients", "gty": "client-credentials"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )
@@ -179,7 +217,7 @@ class TestAuthenticatedUserM2M:
         team = self._make_team()
         user = AuthenticatedUser(
             identity="m2m:platform-team",
-            claims={"sub": "client@clients", "team": "platform-team"},
+            claims={"sub": "client@clients", "gty": "client-credentials"},
             token_type=TokenType.M2M_TEAM,
             team=team,
         )

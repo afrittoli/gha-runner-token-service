@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.auth.oidc import OIDCValidator
+from app.auth.oidc import MultiIssuerValidator
 from app.auth.token_types import TokenType, detect_token_type
 from app.config import Settings, get_settings
 from app.database import get_db
@@ -31,8 +31,8 @@ class AuthenticatedUser:
       user token. ``db_user`` is populated; team membership is fetched from
       the DB.
     * **M2M team** (``token_type == TokenType.M2M_TEAM``): OAuth
-      ``client_credentials`` token. ``team`` is populated directly from the
-      JWT ``team`` claim; no per-user DB lookup is performed.
+      ``client_credentials`` token (from Auth0 or Zitadel). ``team`` is
+      resolved from the ``OAuthClient`` table via the ``sub`` claim.
     * **Impersonation** (``token_type == TokenType.IMPERSONATION``): demo
       admin impersonation. Behaves like INDIVIDUAL but token is HS256-signed.
     """
@@ -54,6 +54,8 @@ class AuthenticatedUser:
 
         # M2M team context (set for TokenType.M2M_TEAM)
         self.team = team
+        # Retained for backward compatibility; always None for Zitadel tokens
+        # (team is now resolved from OAuthClient, not a JWT claim).
         self.team_name_from_token: Optional[str] = claims.get("team")
 
         # Database-backed authorization
@@ -108,7 +110,7 @@ def _find_team_by_name(db: Session, team_name: str) -> Optional["Team"]:
 
     Args:
         db: Database session
-        team_name: Team name from JWT claim
+        team_name: Team name
 
     Returns:
         Team if found and active, None otherwise
@@ -128,7 +130,9 @@ async def get_current_user(
     """Validate token and return an authenticated user.
 
     Handles three token types:
-    - M2M team tokens (``team`` claim present): resolves team from DB by name.
+    - M2M team tokens (``gty='client-credentials'``): resolves team from DB
+      via OAuthClient.client_id == sub.  Works for both Auth0 and Zitadel
+      issued tokens.
     - Individual OIDC tokens: resolves user from DB by email/sub.
     - Impersonation tokens (``is_impersonation`` claim): same as individual.
 
@@ -163,7 +167,7 @@ async def get_current_user(
         )
 
     token = credentials.credentials
-    validator = OIDCValidator(settings)
+    validator = MultiIssuerValidator.from_settings(settings)
 
     # Check if this is an impersonation token (demo feature).
     # Impersonation tokens are signed with HS256 and carry is_impersonation=True.
@@ -186,7 +190,7 @@ async def get_current_user(
                 target_user=payload.get("email"),
             )
         else:
-            # Regular OIDC token - validate normally
+            # Regular OIDC token — route to Auth0 or Zitadel validator by iss.
             payload = await validator.validate_token(token)
     except Exception as e:
         # If impersonation check fails, try OIDC validation
@@ -197,65 +201,49 @@ async def get_current_user(
 
     # --- M2M team path ---
     if token_type == TokenType.M2M_TEAM:
-        team_name = payload["team"]
         client_sub = payload.get("sub", "")
 
-        team = _find_team_by_name(db, team_name)
-        if not team:
-            logger.warning(
-                "m2m_team_not_found",
-                team_name=team_name,
-                sub=client_sub,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"Team '{team_name}' not found or inactive. "
-                    "Ensure the team name in the Auth0 M2M application metadata "
-                    "matches a registered active team in this service."
-                ),
-            )
-
-        # Each team must have exactly one registered and active machine member
-        # (OAuthClient). Tokens from unregistered or disabled clients are rejected
-        # to guarantee complete audit coverage.
-        from app.models import OAuthClient
+        # Look up OAuthClient by sub — this is the authoritative allowlist.
+        # Team is derived from the DB record, not from any JWT claim, so no
+        # custom Auth0 Action or Zitadel metadata is required.
+        from app.models import OAuthClient, Team
 
         oauth_client = (
             db.query(OAuthClient)
             .filter(
                 OAuthClient.client_id == client_sub,
-                OAuthClient.team_id == team.id,
+                OAuthClient.is_active.is_(True),
             )
             .first()
         )
         if oauth_client is None:
             logger.warning(
                 "m2m_client_not_registered",
-                team_name=team_name,
                 sub=client_sub,
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
-                    f"M2M client '{client_sub}' is not registered for team "
-                    f"'{team_name}'. Register the Auth0 client ID via the admin "
-                    "API (POST /api/v1/admin/oauth-clients) before use."
+                    f"M2M client '{client_sub}' is not registered or inactive. "
+                    "Register the client ID via the admin API "
+                    "(POST /api/v1/admin/oauth-clients) before use."
                 ),
             )
-        if not oauth_client.is_active:
+
+        team = (
+            db.query(Team)
+            .filter(Team.id == oauth_client.team_id, Team.is_active.is_(True))
+            .first()
+        )
+        if team is None:
             logger.warning(
-                "m2m_client_disabled",
-                team_name=team_name,
+                "m2m_team_not_found",
                 sub=client_sub,
-                client_record_id=oauth_client.id,
+                team_id=oauth_client.team_id,
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"M2M client for team '{team_name}' is disabled. "
-                    "Contact an administrator to re-enable it."
-                ),
+                detail="Team associated with this M2M client not found or inactive.",
             )
 
         # Record usage timestamp for the audit trail (blocking — failure raises).
@@ -265,11 +253,11 @@ async def get_current_user(
 
         logger.info(
             "m2m_token_authenticated",
-            team=team_name,
+            team=team.name,
             sub=client_sub,
         )
         return AuthenticatedUser(
-            identity=f"m2m:{team_name}",
+            identity=f"m2m:{team.name}",
             claims=payload,
             token_type=token_type,
             team=team,

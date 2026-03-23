@@ -28,12 +28,34 @@ class Settings(BaseSettings):
         default="https://api.github.com", description="GitHub API base URL"
     )
 
-    # OIDC Configuration
-    oidc_issuer: str = Field(..., description="OIDC issuer URL")
+    # OIDC Configuration (Auth0 — SPA and device-code user flows)
+    oidc_issuer: str = Field(..., description="OIDC issuer URL (Auth0)")
     oidc_audience: str = Field(..., description="Expected OIDC audience")
-    oidc_jwks_url: str = Field(..., description="OIDC JWKS URL for token validation")
+    oidc_jwks_url: str = Field(..., description="OIDC JWKS URL for token validation (Auth0)")
     enable_oidc_auth: bool = Field(
         default=True, description="Enable OIDC authentication"
+    )
+
+    # Zitadel Configuration (M2M client_credentials tokens only)
+    # When set, M2M tokens must be issued by Zitadel; Auth0 M2M apps are no
+    # longer needed.  Leave unset to keep Auth0 as the sole issuer (backward-
+    # compatible mode for deployments that have not yet migrated to Zitadel).
+    zitadel_issuer: Optional[str] = Field(
+        default=None,
+        description=(
+            "Zitadel issuer URL for M2M client_credentials tokens "
+            "(e.g. https://your-org.zitadel.cloud). "
+            "When set, M2M tokens must originate from Zitadel; "
+            "Auth0 handles SPA/device-code user flows only."
+        ),
+    )
+    zitadel_jwks_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "JWKS URL for Zitadel token validation "
+            "(e.g. https://your-org.zitadel.cloud/oauth/v2/keys). "
+            "Required when zitadel_issuer is set."
+        ),
     )
 
     # Database

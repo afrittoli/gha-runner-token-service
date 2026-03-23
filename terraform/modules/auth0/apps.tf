@@ -36,41 +36,14 @@ resource "auth0_client" "native_cli" {
 }
 
 # ---------------------------------------------------------------------------
-# M2M applications — one per team (client_credentials grant)
+# M2M applications have been removed from Auth0.
+#
+# M2M token issuance has moved to Zitadel (see terraform/modules/zitadel).
+# Existing Auth0 M2M applications (auth0_client.m2m_team,
+# auth0_client_credentials.m2m_team, auth0_client_grant.m2m_team) should be
+# removed from state with `terraform state rm` and then deleted from the
+# Auth0 tenant before the Zitadel migration is complete.
+#
+# Auth0 continues to serve SPA (Authorization Code + PKCE) and device-code
+# flows for interactive user authentication.
 # ---------------------------------------------------------------------------
-resource "auth0_client" "m2m_team" {
-  for_each = local.teams_set
-
-  name     = "gharts-${each.key}"
-  app_type = "non_interactive"
-
-  grant_types = ["client_credentials"]
-
-  oidc_conformant = true
-
-  # Embed team name in app metadata so the "Add Team Claim" Action can read it
-  client_metadata = {
-    team = each.key
-  }
-
-  jwt_configuration {
-    alg = "RS256"
-  }
-}
-
-# Read back the auto-generated client secret for each M2M app
-resource "auth0_client_credentials" "m2m_team" {
-  for_each = local.teams_set
-
-  client_id             = auth0_client.m2m_team[each.key].client_id
-  authentication_method = "client_secret_post"
-}
-
-# Grant each M2M app access to the API
-resource "auth0_client_grant" "m2m_team" {
-  for_each = local.teams_set
-
-  client_id = auth0_client.m2m_team[each.key].client_id
-  audience  = auth0_resource_server.api.identifier
-  scopes    = []
-}

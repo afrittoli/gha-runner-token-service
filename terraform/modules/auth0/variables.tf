@@ -21,11 +21,6 @@ variable "audience" {
   default     = "gharts"
 }
 
-variable "teams" {
-  description = "List of team names; one M2M application is created per team"
-  type        = list(string)
-}
-
 variable "spa_urls" {
   description = "Allowed URLs for the SPA application"
   type = object({
@@ -33,12 +28,6 @@ variable "spa_urls" {
     logout      = list(string)
     web_origins = list(string)
   })
-}
-
-variable "m2m_token_lifetime" {
-  description = "Lifetime in seconds for M2M access tokens"
-  type        = number
-  default     = 3600
 }
 
 variable "embed_user_teams" {

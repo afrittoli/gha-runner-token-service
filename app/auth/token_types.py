@@ -7,11 +7,11 @@ class TokenType(Enum):
     """Types of JWT tokens accepted by gharts."""
 
     M2M_TEAM = "m2m_team"
-    """OAuth client_credentials token with a 'team' claim.
+    """OAuth client_credentials token (gty='client-credentials').
 
-    Issued to M2M applications (CI/CD pipelines, automation tools).
-    Contains a ``team`` claim set by an Auth0 Action from M2M app metadata.
-    Bypasses per-user DB lookup — team is resolved directly from the claim.
+    Issued to M2M applications (CI/CD pipelines, automation tools) by either
+    Auth0 or Zitadel.  Team context is resolved from the ``OAuthClient`` table
+    using the ``sub`` claim — no custom ``team`` claim is required.
     """
 
     INDIVIDUAL = "individual"
@@ -34,8 +34,17 @@ def detect_token_type(claims: dict) -> TokenType:
 
     Rules (evaluated in order):
     1. If ``is_impersonation`` claim is truthy → :attr:`TokenType.IMPERSONATION`
-    2. If ``team`` claim is present (non-empty string) → :attr:`TokenType.M2M_TEAM`
+    2. If ``gty`` claim equals ``"client-credentials"`` → :attr:`TokenType.M2M_TEAM`
     3. Otherwise → :attr:`TokenType.INDIVIDUAL`
+
+    The ``gty`` (grant type) claim is set by both Auth0 and Zitadel on all
+    tokens issued via the OAuth2 client_credentials grant.  It is a standard
+    claim that does not require a custom Action or metadata, making it
+    compatible with the Zitadel M2M issuer as well as legacy Auth0 M2M apps.
+
+    SPA tokens have ``gty`` absent or set to ``"authorization_code"``.
+    Device-code tokens have ``gty="device_code"``.
+    Neither will be misidentified as M2M.
 
     Args:
         claims: Decoded JWT payload (dict of claims).
@@ -45,6 +54,6 @@ def detect_token_type(claims: dict) -> TokenType:
     """
     if claims.get("is_impersonation"):
         return TokenType.IMPERSONATION
-    if claims.get("team"):
+    if claims.get("gty") == "client-credentials":
         return TokenType.M2M_TEAM
     return TokenType.INDIVIDUAL
