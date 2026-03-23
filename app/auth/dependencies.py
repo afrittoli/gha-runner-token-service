@@ -33,8 +33,6 @@ class AuthenticatedUser:
     * **M2M team** (``token_type == TokenType.M2M_TEAM``): OAuth
       ``client_credentials`` token. ``team`` is populated directly from the
       JWT ``team`` claim; no per-user DB lookup is performed.
-    * **Impersonation** (``token_type == TokenType.IMPERSONATION``): demo
-      admin impersonation. Behaves like INDIVIDUAL but token is HS256-signed.
     """
 
     def __init__(
@@ -120,79 +118,28 @@ def _find_team_by_name(db: Session, team_name: str) -> Optional["Team"]:
     )
 
 
-async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
-    settings: Settings = Depends(get_settings),
-    db: Session = Depends(get_db),
+async def _get_authenticated_user(
+    payload: dict,
+    db: Session,
+    validator: OIDCValidator,
 ) -> AuthenticatedUser:
-    """Validate token and return an authenticated user.
+    """Resolve a verified JWT payload into an AuthenticatedUser.
 
-    Handles three token types:
-    - M2M team tokens (``team`` claim present): resolves team from DB by name.
-    - Individual OIDC tokens: resolves user from DB by email/sub.
-    - Impersonation tokens (``is_impersonation`` claim): same as individual.
+    Shared by the production auth path and the demo-mode impersonation override
+    in ``app.demo.auth``.  Callers are responsible for verifying the token
+    signature before passing the payload here.
 
     Args:
-        credentials: HTTP Bearer token (optional when OIDC is disabled)
-        settings: Application settings
-        db: Database session
+        payload: Decoded, verified JWT claims.
+        db: Database session.
+        validator: OIDCValidator instance (used for identity extraction).
 
     Returns:
-        AuthenticatedUser object with database-backed authorization
+        AuthenticatedUser object with database-backed authorization.
 
     Raises:
-        HTTPException: If authentication or authorization fails
+        HTTPException: If authorization fails (user not found, deactivated, etc.)
     """
-    if not settings.enable_oidc_auth:
-        # For testing/development: return a mock user without DB check
-        return AuthenticatedUser(
-            identity="dev-user@example.com",
-            claims={
-                "sub": "dev-user",
-                "email": "dev-user@example.com",
-            },
-            token_type=TokenType.INDIVIDUAL,
-        )
-
-    # OIDC is enabled - require credentials
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    token = credentials.credentials
-    validator = OIDCValidator(settings)
-
-    # Check if this is an impersonation token (demo feature).
-    # Impersonation tokens are signed with HS256 and carry is_impersonation=True.
-    try:
-        from jose import jwt
-
-        # Peek at claims without verification to detect impersonation tokens.
-        unverified_payload = jwt.get_unverified_claims(token)
-        if unverified_payload.get("is_impersonation"):
-            payload = jwt.decode(
-                token,
-                "demo-impersonation-secret",  # TODO: Move to settings
-                algorithms=["HS256"],
-                audience=settings.oidc_audience,
-                issuer=settings.oidc_issuer,
-            )
-            logger.info(
-                "impersonation_token_validated",
-                impersonated_by=payload.get("impersonated_by"),
-                target_user=payload.get("email"),
-            )
-        else:
-            # Regular OIDC token - validate normally
-            payload = await validator.validate_token(token)
-    except Exception as e:
-        # If impersonation check fails, try OIDC validation
-        logger.debug("impersonation_check_failed", error=str(e))
-        payload = await validator.validate_token(token)
-
     token_type = detect_token_type(payload)
 
     # --- M2M team path ---
@@ -275,7 +222,7 @@ async def get_current_user(
             team=team,
         )
 
-    # --- Individual / impersonation path ---
+    # --- Individual path ---
     identity = validator.get_user_identity(payload)
     db_user = _find_user_by_claims(db, payload)
 
@@ -312,6 +259,56 @@ async def get_current_user(
         token_type=token_type,
         db_user=db_user,
     )
+
+
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+) -> AuthenticatedUser:
+    """Validate token and return an authenticated user.
+
+    Handles two token types:
+    - M2M team tokens (``team`` claim present): resolves team from DB by name.
+    - Individual OIDC tokens: resolves user from DB by email/sub.
+
+    Impersonation tokens are a demo-only feature handled by the override in
+    ``app.demo.auth`` and are never accepted here.
+
+    Args:
+        credentials: HTTP Bearer token (optional when OIDC is disabled)
+        settings: Application settings
+        db: Database session
+
+    Returns:
+        AuthenticatedUser object with database-backed authorization
+
+    Raises:
+        HTTPException: If authentication or authorization fails
+    """
+    if not settings.enable_oidc_auth:
+        # For testing/development: return a mock user without DB check
+        return AuthenticatedUser(
+            identity="dev-user@example.com",
+            claims={
+                "sub": "dev-user",
+                "email": "dev-user@example.com",
+            },
+            token_type=TokenType.INDIVIDUAL,
+        )
+
+    # OIDC is enabled - require credentials
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+    validator = OIDCValidator(settings)
+    payload = await validator.validate_token(token)
+    return await _get_authenticated_user(payload, db, validator)
 
 
 async def get_current_user_optional(
