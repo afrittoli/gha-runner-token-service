@@ -87,6 +87,23 @@ runners_by_status = Gauge(
     ["status", "team"],
 )
 
+# M2M authentication metrics
+#
+# Tracks every M2M authentication attempt at the GHARTS API layer.
+# A high ratio of `result="success"` entries relative to the number of
+# runner-provisioning requests (gharts_runner_state_transitions_total) is a
+# signal that clients are re-using tokens correctly.  Conversely, observing
+# the same `sub` appearing at a rate consistent with per-job token issuance
+# helps identify clients that are not caching their Auth0 tokens.
+#
+# Labels:
+#   result: "success" | "not_registered" | "disabled" | "team_not_found"
+m2m_auth_requests_total = Counter(
+    "gharts_m2m_auth_requests_total",
+    "Total number of M2M client_credentials authentication attempts at the GHARTS API",
+    ["result"],
+)
+
 
 def get_metrics() -> tuple[bytes, str]:
     """Generate Prometheus metrics in text format.

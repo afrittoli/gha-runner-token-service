@@ -1,39 +1,4 @@
 # ---------------------------------------------------------------------------
-# Action: Add Team Claim
-# Trigger: credentials-exchange (Machine-to-Machine / client_credentials flow)
-#
-# Copies the `team` key from the M2M app's metadata into the access token.
-# This allows the gharts backend to resolve team context from the JWT alone,
-# without a database user lookup.
-# ---------------------------------------------------------------------------
-resource "auth0_action" "add_team_claim" {
-  name    = "Add Team Claim"
-  runtime = "node18"
-  deploy  = true
-
-  supported_triggers {
-    id      = "credentials-exchange"
-    version = "v2"
-  }
-
-  code = <<-JS
-    /**
-     * Add Team Claim Action (credentials-exchange / Machine-to-Machine trigger)
-     *
-     * Reads event.client.metadata.team and injects it as a custom claim
-     * into the access token so the backend can resolve team context without
-     * a database user lookup.
-     */
-    exports.onExecuteCredentialsExchange = async (event, api) => {
-      const team = event.client && event.client.metadata && event.client.metadata.team;
-      if (team) {
-        api.accessToken.setCustomClaim("team", team);
-      }
-    };
-  JS
-}
-
-# ---------------------------------------------------------------------------
 # Action: Add User Teams  (optional — only created when embed_user_teams=true)
 # Trigger: post-login
 #
