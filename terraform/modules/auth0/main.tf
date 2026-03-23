@@ -15,8 +15,3 @@ provider "auth0" {
   client_secret = var.auth0_client_secret
 }
 
-locals {
-  # Normalise team names to lower-case and replace spaces with hyphens
-  # so they are safe to embed in resource names.
-  teams_set = toset([for t in var.teams : lower(replace(t, " ", "-"))])
-}
