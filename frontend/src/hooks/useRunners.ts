@@ -5,6 +5,7 @@ import {
   RunnerListResponse,
   JitProvisionResponse
 } from '@api/client'
+import { getRuntimeConfig } from '@/config/runtime'
 
 export interface RunnerFilters {
   status?: string
@@ -16,6 +17,8 @@ export interface RunnerFilters {
   team?: string
 }
 
+const REFETCH_INTERVAL = getRuntimeConfig().refetchInterval
+
 export function useRunners(filters: RunnerFilters = {}) {
   return useQuery<RunnerListResponse>({
     queryKey: ['runners', filters],
@@ -23,8 +26,7 @@ export function useRunners(filters: RunnerFilters = {}) {
       const response = await apiClient.get('/api/v1/runners', { params: filters })
       return response.data
     },
-    // Aggressive polling for demo: refetch every 5 seconds
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVAL,
     refetchIntervalInBackground: false, // Only when tab is active
   })
 }
@@ -37,8 +39,7 @@ export function useRunner(runnerId: string | undefined) {
       return response.data
     },
     enabled: !!runnerId,
-    // Aggressive polling for demo: refetch every 5 seconds
-    refetchInterval: 5000,
+    refetchInterval: REFETCH_INTERVAL,
     refetchIntervalInBackground: false, // Only when tab is active
   })
 }

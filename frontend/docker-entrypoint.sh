@@ -5,6 +5,7 @@ echo "Generating runtime configuration..."
 
 # Set defaults for optional environment variables
 export API_BASE_URL="${API_BASE_URL:-}"
+export REFETCH_INTERVAL="${REFETCH_INTERVAL:-30000}"
 
 # Validate required environment variables
 if [ -z "$OIDC_AUTHORITY" ]; then

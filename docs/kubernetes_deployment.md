@@ -34,7 +34,7 @@ This guide covers deploying the GitHub Actions Runner Token Service to Kubernete
 
 ## Quick Start
 
-### Method 1: Install from OCI Registry (Recommended)
+### Method 1: Install from OCI Registry
 
 The fastest way to get started is to install directly from GitHub Container Registry:
 

@@ -12,4 +12,5 @@ window.APP_CONFIG = {
   api: {
     baseUrl: '${API_BASE_URL}',
   },
+  refetchInterval: ${REFETCH_INTERVAL},
 };

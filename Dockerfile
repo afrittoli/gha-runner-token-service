@@ -32,9 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy Python dependencies from builder
 COPY --from=builder /root/.local /home/appuser/.local
 
-# Copy application code — demo modules are intentionally excluded
+# Copy application code
 COPY --chown=appuser:appuser app/ ./app/
-RUN rm -rf /app/app/demo /app/app/demo_main.py
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/logs /app/data /tmp/app && \

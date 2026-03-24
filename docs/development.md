@@ -27,7 +27,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-## 1. GitHub App Setup
+## GitHub App Setup
 
 ### Create a GitHub App
 
@@ -182,114 +182,13 @@ For production deployments (not using smee.io):
 4. Configure `LABEL_POLICY_ENFORCEMENT=enforce` for strict enforcement
 5. Monitor security events via `/api/v1/admin/security-events` endpoint
 
-## 2. Auth0 OIDC Setup
+## Auth0 OIDC Setup
 
-Auth0 provides a free tier that's perfect for development and testing.
+Auth0 provides a free tier that's perfect for development and testing. For full step-by-step instructions — including API definition, SPA and native application setup, M2M team credentials, and the Auth0 Action — see the [OIDC Setup Guide](oidc_setup.md).
 
-### Create Auth0 Account and Tenant
+### Minimal configuration for development
 
-1. Go to [auth0.com](https://auth0.com) and sign up
-2. Create a new tenant (e.g., `runner-token-dev`)
-
-### Create an API
-
-1. Go to **Applications > APIs** in the Auth0 dashboard
-2. Click "Create API"
-3. Configure:
-
-   | Field | Value |
-   |-------|-------|
-   | **Name** | Runner Token Service |
-   | **Identifier** | `gharts` |
-   | **Signing Algorithm** | RS256 |
-
-4. Click "Create"
-
-### Create a Machine-to-Machine Application
-
-This is for automated/service authentication:
-
-1. Go to **Applications > Applications**
-2. Click "Create Application"
-3. Configure:
-
-   | Field | Value |
-   |-------|-------|
-   | **Name** | Runner Token Service M2M |
-   | **Application Type** | Machine to Machine Applications |
-
-4. Click "Create"
-5. Select the "Runner Token Service" API you created
-6. Click "Authorize" (no custom scopes are required - the service uses the token's `sub` claim for identity)
-
-Note down:
-- **Domain**: `your-tenant.auth0.com`
-- **Client ID**: (from application settings)
-- **Client Secret**: (from application settings)
-
-### Create Test Users
-
-1. Go to **User Management > Users**
-2. Click "Create User"
-3. Create test users:
-
-   | Email | Password | Description |
-   |-------|----------|-------------|
-   | `admin@example.com` | (strong password) | Admin user for testing |
-   | `developer@example.com` | (strong password) | Regular developer user |
-
-### Create a Regular Web Application (for user login)
-
-1. Go to **Applications > Applications**
-2. Click "Create Application"
-3. Configure:
-
-   | Field | Value |
-   |-------|-------|
-   | **Name** | Runner Token Service Web |
-   | **Application Type** | Regular Web Applications |
-
-
-### Configure Frontend Application
-
-For the frontend dashboard, you need a Single Page Application (SPA) in Auth0:
-
-1. Go to **Applications > Applications**
-2. Click "Create Application"
-3. Configure:
-
-   | Field | Value |
-   |-------|-------|
-   | **Name** | Runner Token Service Frontend |
-   | **Application Type** | Single Page Applications |
-
-4. Click "Create"
-5. In Settings, configure:
-
-   | Field | Value |
-   |-------|-------|
-   | **Allowed Callback URLs** | `http://localhost:5173/app/callback` |
-   | **Allowed Logout URLs** | `http://localhost:5173/app` |
-   | **Allowed Web Origins** | `http://localhost:5173` |
-   | **Allowed Origins (CORS)** | `http://localhost:5173` |
-
-6. Save Changes
-7. Note the **Client ID** for frontend configuration
-
-4. Click "Create"
-5. In Settings, configure:
-
-   | Field | Value |
-   |-------|-------|
-   | **Allowed Callback URLs** | `http://localhost:8000/callback` |
-   | **Allowed Logout URLs** | `http://localhost:8000` |
-   | **Allowed Web Origins** | `http://localhost:8000` |
-
-6. Save Changes
-
-### Update Configuration
-
-Edit `.env` with your Auth0 details:
+After completing the Auth0 setup, add the following to `.env`:
 
 ```bash
 ENABLE_OIDC_AUTH=true
@@ -298,7 +197,7 @@ OIDC_AUDIENCE=runner-token-service
 OIDC_JWKS_URL=https://your-tenant.auth0.com/.well-known/jwks.json
 ```
 
-## 3. Database Setup
+## Database Setup
 
 The service uses SQLite by default for development:
 
@@ -317,7 +216,7 @@ pip install psycopg2-binary
 DATABASE_URL=postgresql://user:password@localhost:5432/runner_service
 ```
 
-## 6. Frontend Development
+## Frontend Development
 
 The frontend uses **runtime configuration** instead of build-time configuration. This allows the same build to work in different environments.
 
@@ -384,7 +283,7 @@ npm run preview
 The build output in `dist/` is a generic build with no environment-specific configuration.
 
 
-## 4. Running the Service
+## Running the Service
 
 ### Development Mode (with auto-reload)
 
@@ -403,7 +302,7 @@ The service is now available at:
 - API Docs (Swagger): `http://localhost:8000/docs`
 - API Docs (ReDoc): `http://localhost:8000/redoc`
 
-## 5. Testing with OIDC
+## Testing with OIDC
 
 ### Get an Access Token (M2M)
 
@@ -484,7 +383,7 @@ curl -s http://localhost:8000/api/v1/runners \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" | jq .
 ```
 
-## 6. Development Without OIDC
+## Development Without OIDC
 
 For quick local testing without setting up OIDC:
 
@@ -495,7 +394,7 @@ ENABLE_OIDC_AUTH=false
 
 This disables authentication and uses a mock user identity. **Never use this in production.**
 
-## 7. CLI Commands
+## CLI Commands
 
 The service includes a CLI for administrative tasks:
 
@@ -536,7 +435,7 @@ This command:
 
 **Note:** For production deployments, consider running this periodically via a cron job or scheduled task to keep runner statuses in sync.
 
-## 8. Running Tests
+## Running Tests
 
 ```bash
 # Install test dependencies
@@ -549,64 +448,34 @@ pytest
 pytest --cov=app --cov-report=html
 ```
 
-## 9. Project Structure
+## Architecture & Design
+
+Before making changes to the backend, review the [design documentation](design/README.md).
+
+
+## Project Structure
 
 ```
 runner-token-service/
 ├── app/
-│   ├── api/
-│   │   └── v1/
-│   │       └── runners.py      # API endpoints
-│   ├── auth/
-│   │   └── dependencies.py     # OIDC authentication
-│   ├── github/
-│   │   ├── app_auth.py         # GitHub App authentication
-│   │   └── client.py           # GitHub API client
-│   ├── services/
-│   │   ├── runner_service.py   # Runner management logic
-│   │   └── label_policy_service.py  # Label policy enforcement
-│   ├── cli.py                  # CLI commands
-│   ├── config.py               # Configuration
-│   ├── main.py                 # FastAPI application
+│   ├── api/v1/                 # REST API endpoints
+│   ├── auth/                   # OIDC validation and token type detection
+│   ├── github/                 # GitHub App auth and API client
+│   ├── services/               # Business logic (runners, teams, label policy, sync)
 │   ├── models.py               # Database models
-│   └── schemas.py              # Pydantic schemas
-├── .env.example                # Example configuration
-├── requirements.txt            # Python dependencies
-├── QUICKSTART.md              # Quick start guide
-├── DEVELOPMENT.md             # This file
-└── README.md                  # Project overview
-```
-
-## 10. Project Structure
-
-```
-runner-token-service/
-├── app/
-│   ├── api/
-│   │   └── v1/
-│   │       ├── runners.py      # API endpoints
-│   │       └── admin.py        # Admin endpoints
-│   ├── auth/
-│   │   └── dependencies.py     # OIDC authentication
-│   ├── github/
-│   │   ├── app_auth.py         # GitHub App authentication
-│   │   └── client.py           # GitHub API client
-│   ├── services/
-│   │   ├── runner_service.py   # Runner management logic
-│   │   └── label_policy_service.py  # Label policy enforcement
-│   ├── cli.py                  # CLI commands
+│   ├── schemas.py              # Pydantic schemas
 │   ├── config.py               # Configuration
-│   ├── main.py                 # FastAPI application
-│   ├── models.py               # Database models
-│   └── schemas.py              # Pydantic schemas
-├── .env.example                # Example configuration
-├── requirements.txt            # Python dependencies
-├── quickstart.md              # Quick start guide
-├── development.md             # This file
-└── README.md                  # Project overview
+│   ├── cli.py                  # Admin CLI commands
+│   ├── worker.py               # Background sync worker
+│   └── main.py                 # FastAPI application
+├── docs/                       # Documentation
+├── frontend/                   # React dashboard
+├── helm/                       # Helm chart
+├── tests/                      # Test suite
+└── requirements.txt
 ```
 
-## 11. Troubleshooting
+## Troubleshooting
 
 ### "Failed to generate GitHub token"
 
@@ -625,20 +494,17 @@ runner-token-service/
 
 ### Database errors
 
-```bash
-# Reset the database
-rm runner_service.db
-python -m app.cli init-db
-```
+- Check `DATABASE_URL` in `.env` points to a running PostgreSQL instance
+- Re-initialize the schema: `python -m app.cli init-db`
 
 ### Runner not appearing in GitHub
 
 - Wait 30-60 seconds after provisioning
-- Check the registration token hasn't expired (1 hour limit)
+- Check the JIT config hasn't expired (1 hour limit)
 - Verify the runner name is unique
-- Check the runner was configured with the correct token and URL
+- Ensure the runner was started with `./run.sh --jitconfig <encoded_jit_config>`
 
-## 11. Auth0 Free Tier Limits
+## Auth0 Free Tier Limits
 
 The Auth0 free tier includes:
 - 7,500 monthly active users
@@ -648,11 +514,11 @@ The Auth0 free tier includes:
 
 This is more than sufficient for development and small-scale testing.
 
-## 12. HTTPS Configuration
+## HTTPS Configuration
 
 For production deployments, HTTPS is strongly recommended.
 
-### Option A: Using `python -m app.main` (Recommended)
+### Option A: Using `python -m app.main`
 
 The service reads HTTPS configuration from environment variables when started via the main module:
 
@@ -721,7 +587,7 @@ uvicorn app.main:app \
 
 **Important:** The `HTTPS_ENABLED` environment variable only works when using `python -m app.main`. When using `uvicorn app.main:app` directly, you must pass `--ssl-keyfile` and `--ssl-certfile` arguments to uvicorn.
 
-## 13. JIT Provisioning
+## JIT Provisioning
 
 JIT (Just-In-Time) provisioning offers enhanced security by enforcing labels and ephemeral mode server-side.
 
@@ -768,7 +634,7 @@ When drift is detected:
 2. Idle runners are deleted from GitHub
 3. Busy runners are logged but not deleted (unless `LABEL_DRIFT_DELETE_BUSY_RUNNERS=true`)
 
-## 14. Alternative: Registration Token API
+## Alternative: Registration Token API
 
 For cases where JIT provisioning doesn't meet your needs (e.g., non-ephemeral runners, custom configuration), the registration token API is available.
 
@@ -827,7 +693,7 @@ Unlike JIT, registration token runners start in "pending" state. After the runne
 python -m app.cli sync-github
 ```
 
-## 15. Security Notes for Development
+## Security Notes for Development
 
 - Never commit `.env` or private keys to version control
 - Use different Auth0 tenants for development and production

@@ -4,13 +4,13 @@
 
 ## Table of Contents
 
+- [Quick start](#quick-start)
 - [How it works](#how-it-works)
 - [Obtaining credentials](#obtaining-credentials)
   - [Individual user (OIDC)](#individual-user-oidc)
   - [Automated pipelines (M2M)](#automated-pipelines-m2m)
 - [Provisioning runners](#provisioning-runners)
-  - [JIT provisioning (recommended)](#jit-provisioning-recommended)
-  - [Registration token (legacy)](#registration-token-legacy)
+  - [JIT provisioning](#jit-provisioning)
 - [Runner management](#runner-management)
   - [List runners](#list-runners)
   - [Refresh runner status](#refresh-runner-status)
@@ -18,6 +18,32 @@
 - [Teams and label policies](#teams-and-label-policies)
 - [Using the dashboard](#using-the-dashboard)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## Quick start
+
+You need: the GHARTS service URL and an OIDC token (ask your administrator).
+
+```bash
+export GHARTS_URL="https://gharts.example.com"
+export GHARTS_TOKEN="<your-oidc-jwt>"
+
+# Provision a JIT runner
+RESPONSE=$(curl -s -X POST "$GHARTS_URL/api/v1/runners/jit" \
+  -H "Authorization: Bearer $GHARTS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runner_name_prefix": "my-runner",
+    "labels": ["linux"],
+    "team_id": "<your-team-uuid>"
+  }')
+
+# Start the runner
+./run.sh --jitconfig "$(echo "$RESPONSE" | jq -r '.encoded_jit_config')"
+```
+
+The runner handles one job then terminates automatically. See [Obtaining credentials](#obtaining-credentials) for how to get a token, and [Teams and label policies](#teams-and-label-policies) for finding your `team_id`.
 
 ---
 
@@ -58,7 +84,7 @@ Your organization's administrator will tell you:
 - The OIDC issuer URL (e.g. `https://auth.example.com`)
 - The OIDC audience value (e.g. `gharts`)
 
-Obtain a Bearer token from your OIDC provider using whichever flow your provider supports (Device Authorization, Authorization Code + PKCE, etc.). The resulting JWT is your credential for every GHARTS API call.
+Obtain a Bearer token from your OIDC provider using whichever flow your provider supports (Device Authorization, Authorization Code + PKCE, etc.). The resulting JWT is your credential for every GHARTS API call. See the [OIDC Setup Guide](oidc_setup.md) for detailed configuration instructions and Auth0 setup steps.
 
 ```bash
 # Example: export your token into an environment variable
@@ -129,9 +155,9 @@ The resulting JWT contains a `team` claim — GHARTS resolves the team automatic
 
 ## Provisioning runners
 
-### JIT provisioning (recommended)
+### JIT provisioning
 
-JIT (Just-In-Time) provisioning is the recommended approach. The runner is pre-registered with GitHub by GHARTS before you receive the configuration. Labels and ephemeral mode are enforced server-side and cannot be changed by the client.
+With JIT (Just-In-Time) provisioning, the runner is pre-registered with GitHub by GHARTS before you receive the configuration. Labels and ephemeral mode are enforced server-side and cannot be changed by the client.
 
 **Endpoint:** `POST /api/v1/runners/jit`
 
@@ -184,7 +210,7 @@ docker run --rm \
   ghcr.io/actions/actions-runner:latest \
   ./run.sh --jitconfig "$JIT_CONFIG"
 
-# Or with Podman (macOS)
+# Or with Podman
 podman run --rm \
   ghcr.io/actions/actions-runner:latest \
   ./run.sh --jitconfig "$JIT_CONFIG"
@@ -284,27 +310,6 @@ spec:
           ./run.sh --jitconfig "$JIT_CONFIG"
       restartPolicy: Never
 ```
-
-### Registration token (legacy)
-
-> **Note:** Registration tokens allow the runner binary's `config.sh` to apply labels and ephemeral settings after the fact, which means the client can override them. Use JIT provisioning unless you have a specific reason not to.
-
-**Endpoint:** `POST /api/v1/runners/provision`
-
-Requires the `can_use_registration_token` permission on your account (set by an administrator).
-
-```bash
-curl -s -X POST "$GHARTS_URL/api/v1/runners/provision" \
-  -H "Authorization: Bearer $GHARTS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "runner_name": "gpu-worker-001",
-    "labels": ["gpu", "ubuntu-22.04"],
-    "ephemeral": true
-  }' | jq .
-```
-
-Response includes a `registration_token` (valid 1 hour) and a ready-made `configuration_command`. Run `config.sh` with that command, then `./run.sh`.
 
 ---
 

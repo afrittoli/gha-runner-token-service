@@ -66,6 +66,11 @@ spec:
             configMapKeyRef:
               name: {{ include "gharts.fullname" . }}-frontend-config
               key: oidc-post-logout-redirect-uri
+        - name: REFETCH_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "gharts.fullname" . }}-frontend-config
+              key: refetch-interval
         # OIDC client ID from pre-existing k8s Secret
         - name: OIDC_CLIENT_ID
           valueFrom:

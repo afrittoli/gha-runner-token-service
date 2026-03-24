@@ -23,6 +23,8 @@ export interface RuntimeConfig {
   api: {
     baseUrl: string;
   };
+  /** Polling interval for runner data in milliseconds. Default: 30000. */
+  refetchInterval: number;
 }
 
 declare global {
@@ -54,6 +56,7 @@ export function getRuntimeConfig(): RuntimeConfig {
     api: {
       baseUrl: import.meta.env.VITE_API_BASE_URL || '',
     },
+    refetchInterval: Number(import.meta.env.VITE_REFETCH_INTERVAL ?? 30_000),
   };
 }
 
