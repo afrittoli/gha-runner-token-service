@@ -26,3 +26,4 @@ data:
   {{- else }}
   oidc-post-logout-redirect-uri: ""
   {{- end }}
+  refetch-interval: {{ .Values.frontend.refetchInterval | default 30000 | quote }}

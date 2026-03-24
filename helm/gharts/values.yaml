@@ -130,6 +130,9 @@ frontend:
         - ALL
     readOnlyRootFilesystem: false  # nginx writes config.js at startup
 
+  # Polling interval for runner data in milliseconds. Lower values increase API load.
+  refetchInterval: 30000
+
   podAnnotations: {}
   nodeSelector: {}
   tolerations: []

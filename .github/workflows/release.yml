@@ -50,7 +50,7 @@ jobs:
 
             ### Helm Chart Installation
 
-            **From OCI Registry (Recommended):**
+            **From OCI Registry:**
             ```bash
             helm install gharts oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/gharts --version ${{ steps.get_version.outputs.version }}
             ```

@@ -39,25 +39,20 @@ The **Runner Token Service** is a secure central service that enables third part
 
 ### Getting Started
 - [End-User Guide](user_guide.md) - How to obtain credentials, provision runners, use the dashboard
-- [Quick Start Guide](quickstart.md) - Get up and running in 5 minutes with JIT provisioning
-- [Usage Examples](usage_examples.md) - Practical examples and workflows
 
 ### Development
 - [Development Guide](development.md) - Setting up development environment, OIDC configuration
-- [OIDC Setup Guide](oidc_setup.md) - Complete OIDC configuration and authentication flows
+- [OIDC Setup Guide](oidc_setup.md) - Complete OIDC configuration, authentication flows, and Auth0 setup
 
 ### Operations
 - [Demo Script](demo.md) - Comprehensive demonstration of system capabilities
-- [Deployment Checklist](deployment_checklist.md) - Production deployment guide
-- [Team Management Guide](team_management.md) - Team-based authorization workflows
-- [API Contract](api_contract.md) - API specifications and compatibility
 
 ### Design & Architecture
-- [JIT Provisioning Design](design/jit_provisioning.md) - JIT architecture and security benefits
-- [Architecture](design/token_service.md) - System design and technical architecture
-- [GitHub Sync Design](design/github_sync.md) - Periodic sync and label drift detection
-- [Dashboard Design](design/dashboard.md) - Web dashboard specifications and design
-- [Design Overview](design/README.md) - Overview of design documents
+- [Design Overview](design/README.md) - Index of all design documents, diagrams, and architecture references
+- [Backend Architecture](design/backend.md) - System overview, authentication, data model, label policy, and observability
+- [Team-Based Authorization](design/team_based_authorization.md) - Team model, membership, and label policies
+- [Kubernetes Deployment](design/kubernetes_deployment.md) - Kubernetes architecture and Helm chart
+- [ARC Integration](design/arc.md) - Actions Runner Controller integration
 
 ## Project Structure
 
@@ -99,8 +94,8 @@ The service uses a relational database with the following core tables:
 - **User**: Authenticated users with OIDC integration
 - **Team**: Organizational units with label policies and quotas
 - **UserTeamMembership**: Many-to-many relationship between users and teams
+- **OAuthClient**: M2M client credentials linked to teams
 - **Runner**: Self-hosted GitHub runners with status tracking
-- **LabelPolicy**: User-based label policies (legacy, being migrated to teams)
 - **AuditLog**: Complete audit trail of all operations
 - **SecurityEvent**: Security violations and policy enforcement events
 
