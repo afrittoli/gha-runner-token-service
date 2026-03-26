@@ -28,7 +28,7 @@ python-dotenv==1.2.2
 python-dateutil==2.9.0.post0
 
 # AWS (IAM RDS authentication)
-boto3==1.42.71
+boto3==1.42.76
 
 # Logging
 structlog==24.1.0
