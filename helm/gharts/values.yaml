@@ -14,7 +14,7 @@ replicaCount:
 # Backend (FastAPI) configuration
 backend:
   image:
-    repository: ghcr.io/afrittoli/gharts-backend
+    repository: ghcr.io/afrittoli/gha-runner-token-service-backend
     pullPolicy: IfNotPresent
     tag: "" # Defaults to chart appVersion
 
@@ -76,7 +76,7 @@ backend:
 # Frontend (Nginx + React) configuration
 frontend:
   image:
-    repository: ghcr.io/afrittoli/gharts-frontend
+    repository: ghcr.io/afrittoli/gha-runner-token-service-frontend
     pullPolicy: IfNotPresent
     tag: "" # Defaults to chart appVersion
 
