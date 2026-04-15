@@ -18,7 +18,6 @@ jobs:
     permissions:
       contents: write
     outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -33,17 +32,10 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          generate_release_notes: true
           body: |
-            ## Release ${{ steps.get_version.outputs.version }}
-
             ### Docker Images
             - Backend: `${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ steps.get_version.outputs.version }}`
             - Frontend: `${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ steps.get_version.outputs.version }}`
@@ -193,14 +185,9 @@ jobs:
           helm package helm/gharts
 
       - name: Upload Helm chart to release
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./gharts-${{ needs.create-release.outputs.version }}.tgz
-          asset_name: gharts-${{ needs.create-release.outputs.version }}.tgz
-          asset_content_type: application/gzip
+          files: ./gharts-${{ needs.create-release.outputs.version }}.tgz
 
       - name: Log in to Container Registry
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
