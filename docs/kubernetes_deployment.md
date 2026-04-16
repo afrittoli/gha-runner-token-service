@@ -267,6 +267,12 @@ config:
 
 ### Ingress Configuration
 
+The application uses a **split routing architecture** where the ingress/gateway handles routing decisions:
+- `/api/*` routes to the backend service
+- All other paths (`/*`) route to the frontend service
+
+The frontend nginx container serves static files and handles SPA routing, but does **not** proxy API requests. This provides a cleaner separation of concerns and makes the frontend more portable.
+
 #### Using Nginx Ingress
 
 ```yaml
@@ -276,6 +282,8 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Rewrite rules are automatically configured by the chart
+    # to handle /api/* → backend and /* → frontend
   hosts:
     - host: gharts.example.com
       paths:
@@ -286,6 +294,20 @@ ingress:
       hosts:
         - gharts.example.com
 ```
+
+**How Nginx Ingress Routing Works:**
+
+The chart configures two path rules with regex matching:
+1. `/api(/|$)(.*)` → backend service (matched first, more specific)
+2. `/(.*)` → frontend service (catch-all for SPA routes)
+
+The `nginx.ingress.kubernetes.io/rewrite-target: /$2` annotation captures the path after `/api` or `/` and forwards it to the respective service. This handles trailing slashes automatically.
+
+**Example routing:**
+- `https://gharts.example.com/api/runners` → backend:8000/api/runners
+- `https://gharts.example.com/api/` → backend:8000/api
+- `https://gharts.example.com/` → frontend:80/
+- `https://gharts.example.com/runners/123` → frontend:80/ (nginx serves index.html, React Router handles /runners/123)
 
 #### Using Gateway API
 
@@ -306,6 +328,29 @@ gateway:
         certificateRefs:
           - name: gharts-tls
 ```
+
+**How Gateway API Routing Works:**
+
+The HTTPRoute resource defines two rules evaluated in order:
+1. PathPrefix `/api` → backend service (checked first)
+2. PathPrefix `/` → frontend service (catch-all)
+
+Gateway API uses simple prefix matching (no regex needed). The longest matching prefix wins, so `/api` takes precedence over `/` for API requests.
+
+**Example routing:**
+- `https://gharts.example.com/api/runners` → backend:8000/api/runners
+- `https://gharts.example.com/api/` → backend:8000/api/
+- `https://gharts.example.com/` → frontend:80/
+- `https://gharts.example.com/runners/123` → frontend:80/ (nginx serves index.html, React Router handles /runners/123)
+
+**Key Differences:**
+
+| Aspect | Nginx Ingress | Gateway API |
+|--------|--------------|-------------|
+| Path Matching | Regex with capture groups | Simple PathPrefix |
+| Order | Longer paths matched first | Rules evaluated in order |
+| Trailing Slash | Handled via rewrite-target | Native PathPrefix behavior |
+| Flexibility | Very flexible (regex) | Simpler, more standardized |
 
 ### Autoscaling Configuration
 

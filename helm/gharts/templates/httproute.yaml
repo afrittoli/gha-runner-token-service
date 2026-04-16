@@ -18,6 +18,15 @@ spec:
     - {{ .hostname | quote }}
   {{- end }}
   rules:
+    # API routes go to backend service (matched first due to more specific path)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: {{ include "gharts.fullname" $ }}-backend
+          port: {{ $.Values.backend.service.port }}
+    # All other routes go to frontend service (SPA)
     - matches:
         - path:
             type: PathPrefix
