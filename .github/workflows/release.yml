@@ -118,6 +118,7 @@ jobs:
   build-and-push-frontend:
     runs-on: ubuntu-latest
     needs: create-release
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
@@ -216,6 +217,20 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Get version
+        id: get_version
+        run: |
+          # Try to use version from create-release job output first
+          VERSION="${{ needs.create-release.outputs.version }}"
+          # Fall back to extracting from git tag if not available (e.g., during re-runs)
+          if [ -z "$VERSION" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "Using version from git tag: $VERSION"
+          else
+            echo "Using version from create-release job: $VERSION"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
       - name: Set up kind
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
@@ -228,7 +243,7 @@ jobs:
 
       - name: Deploy to kind
         run: |
-          VERSION=${{ needs.create-release.outputs.version }}
+          VERSION=${{ steps.get_version.outputs.version }}
 
           # Update Chart version
           sed -i "s/^version:.*/version: ${VERSION}/" helm/gharts/Chart.yaml
