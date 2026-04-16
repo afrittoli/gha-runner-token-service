@@ -68,6 +68,11 @@ data:
                 add_header Content-Type text/plain;
             }
 
+            # API proxy to backend - redirect /api to /api/
+            location = /api {
+                return 301 $scheme://$http_host/api/;
+            }
+
             # API proxy to backend
             location /api/ {
                 proxy_pass http://backend;
