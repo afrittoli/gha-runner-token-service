@@ -34,4 +34,4 @@ boto3==1.42.89
 structlog==25.5.0
 
 # Monitoring
-prometheus-client==0.24.1
+prometheus-client==0.25.0
