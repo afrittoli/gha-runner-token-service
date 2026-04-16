@@ -91,6 +91,7 @@ def get_engine_config():
             )
 
         return {
+            "url": "postgresql://",  # Dummy URL for dialect detection; actual connection via creator
             "creator": _iam_creator,
             "echo": False,
             "pool_size": settings.db_pool_size,
