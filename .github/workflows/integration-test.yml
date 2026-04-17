@@ -90,19 +90,19 @@ jobs:
           echo "✅ Secrets created"
 
       - name: Deploy helm chart with ingress
+        env:
+          BACKEND_TAG: ${{ github.event.inputs.backend_tag }}
+          FRONTEND_TAG: ${{ github.event.inputs.frontend_tag }}
         run: |
-          BACKEND_TAG="${{ github.event.inputs.backend_tag }}"
-          FRONTEND_TAG="${{ github.event.inputs.frontend_tag }}"
-          
           echo "Deploying with:"
           echo "  Backend: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${BACKEND_TAG}"
           echo "  Frontend: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${FRONTEND_TAG}"
           
           helm install gharts ./helm/gharts --wait --timeout 10m \
             --set backend.image.repository=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }} \
-            --set backend.image.tag=${BACKEND_TAG} \
+            --set backend.image.tag="${BACKEND_TAG}" \
             --set frontend.image.repository=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }} \
-            --set frontend.image.tag=${FRONTEND_TAG} \
+            --set frontend.image.tag="${FRONTEND_TAG}" \
             --set postgresql.enabled=true \
             --set postgresql.auth.username=testuser \
             --set postgresql.auth.password=testpass \
@@ -232,13 +232,17 @@ jobs:
 
       - name: Summary
         if: success()
+        env:
+          BACKEND_TAG: ${{ github.event.inputs.backend_tag }}
+          FRONTEND_TAG: ${{ github.event.inputs.frontend_tag }}
+          HELM_CHART_REF: ${{ github.event.inputs.helm_chart_ref }}
         run: |
           echo "✅ Integration test completed successfully!"
           echo ""
           echo "Tested configuration:"
-          echo "  Backend: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.event.inputs.backend_tag }}"
-          echo "  Frontend: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.event.inputs.frontend_tag }}"
-          echo "  Chart ref: ${{ github.event.inputs.helm_chart_ref }}"
+          echo "  Backend: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${BACKEND_TAG}"
+          echo "  Frontend: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${FRONTEND_TAG}"
+          echo "  Chart ref: ${HELM_CHART_REF}"
           echo ""
           echo "Verified:"
           echo "  ✅ Direct service connectivity"
