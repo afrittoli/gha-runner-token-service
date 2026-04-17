@@ -34,40 +34,45 @@ jobs:
         with:
           ref: ${{ github.event.inputs.helm_chart_ref }}
 
+      - name: Create kind config
+        run: |
+          cat <<EOF > kind-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            kubeadmConfigPatches:
+            - |
+              kind: InitConfiguration
+              nodeRegistration:
+                kubeletExtraArgs:
+                  node-labels: "ingress-ready=true"
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+          EOF
+
       - name: Set up kind cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           cluster_name: integration-test
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              kubeadmConfigPatches:
-              - |
-                kind: InitConfiguration
-                nodeRegistration:
-                  kubeletExtraArgs:
-                    node-labels: "ingress-ready=true"
-              extraPortMappings:
-              - containerPort: 80
-                hostPort: 80
-                protocol: TCP
-              - containerPort: 443
-                hostPort: 443
-                protocol: TCP
+          config: kind-config.yaml
 
       - name: Install nginx-ingress controller
         run: |
           echo "Installing nginx-ingress controller..."
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-          
+
           echo "Waiting for ingress controller to be ready..."
           kubectl wait --namespace ingress-nginx \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/component=controller \
             --timeout=90s
-          
+
           echo "✅ Nginx-ingress controller ready"
 
       - name: Install Helm
@@ -82,11 +87,11 @@ jobs:
             --from-literal=private-key.pem="-----BEGIN RSA PRIVATE KEY-----
           MIIEpAIBAAKCAQEAtest-key-for-integration-testing
           -----END RSA PRIVATE KEY-----"
-          
+
           echo "Creating OIDC secret..."
           kubectl create secret generic gharts-oidc \
             --from-literal=oidc-client-id=test-client-id
-          
+
           echo "✅ Secrets created"
 
       - name: Deploy helm chart with ingress
@@ -97,7 +102,7 @@ jobs:
           echo "Deploying with:"
           echo "  Backend: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${BACKEND_TAG}"
           echo "  Frontend: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${FRONTEND_TAG}"
-          
+
           helm install gharts ./helm/gharts --wait --timeout 10m \
             --set backend.image.repository=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }} \
             --set backend.image.tag="${BACKEND_TAG}" \
@@ -123,7 +128,7 @@ jobs:
             --set ingress.hosts[0].host=test.local \
             --set ingress.hosts[0].paths[0].path=/ \
             --set ingress.hosts[0].paths[0].pathType=Prefix
-          
+
           echo "✅ Helm chart deployed"
 
       - name: Wait for pods to be ready
@@ -132,23 +137,23 @@ jobs:
           kubectl wait --for=condition=ready pod \
             -l app.kubernetes.io/name=gharts,app.kubernetes.io/component=backend \
             --timeout=120s
-          
+
           echo "Waiting for frontend pods..."
           kubectl wait --for=condition=ready pod \
             -l app.kubernetes.io/name=gharts,app.kubernetes.io/component=frontend \
             --timeout=120s
-          
+
           echo "✅ All pods ready"
 
       - name: Check deployment status
         run: |
           echo "=== Pods ==="
           kubectl get pods -l app.kubernetes.io/name=gharts
-          
+
           echo ""
           echo "=== Services ==="
           kubectl get svc -l app.kubernetes.io/name=gharts
-          
+
           echo ""
           echo "=== Ingress ==="
           kubectl get ingress
@@ -159,51 +164,51 @@ jobs:
           echo "Testing direct backend service connectivity..."
           kubectl run curl-backend --image=curlimages/curl:latest --rm -i --restart=Never -- \
             curl -f -v http://gharts-backend:8000/health
-          
+
           echo ""
           echo "Testing direct frontend service connectivity..."
           kubectl run curl-frontend --image=curlimages/curl:latest --rm -i --restart=Never -- \
             curl -f -v http://gharts-frontend:80/health
-          
+
           echo "✅ Direct service connectivity works"
 
       - name: Test ingress routing - API to backend
         run: |
           echo "Testing /api/health → backend through ingress..."
-          
+
           # Get ingress controller pod
           INGRESS_POD=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].metadata.name}')
-          
+
           # Test from inside the cluster (ingress controller perspective)
           kubectl exec -n ingress-nginx ${INGRESS_POD} -- \
             curl -f -v -H "Host: test.local" http://localhost/api/health
-          
+
           echo "✅ API routing through ingress works"
 
       - name: Test ingress routing - Frontend
         run: |
           echo "Testing / → frontend through ingress..."
-          
+
           # Get ingress controller pod
           INGRESS_POD=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].metadata.name}')
-          
+
           # Test from inside the cluster (ingress controller perspective)
           kubectl exec -n ingress-nginx ${INGRESS_POD} -- \
             curl -f -v -H "Host: test.local" http://localhost/health
-          
+
           echo "✅ Frontend routing through ingress works"
 
       - name: Test ingress routing - SPA routes
         run: |
           echo "Testing /runners → frontend (SPA routing) through ingress..."
-          
+
           # Get ingress controller pod
           INGRESS_POD=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].metadata.name}')
-          
+
           # Test SPA route - should return HTML (200) not 404
           kubectl exec -n ingress-nginx ${INGRESS_POD} -- \
             curl -f -v -H "Host: test.local" http://localhost/runners
-          
+
           echo "✅ SPA routing through ingress works"
 
       - name: Run helm tests
@@ -215,20 +220,35 @@ jobs:
       - name: Check logs on failure
         if: failure()
         run: |
+          # Check if kubectl can connect to the cluster
+          if ! kubectl cluster-info &>/dev/null; then
+            echo "⚠️ Cannot connect to Kubernetes cluster. Cluster may not have been created."
+            echo "This likely means the failure occurred before cluster setup completed."
+            exit 0
+          fi
+
+          echo "=== Cluster Info ==="
+          kubectl cluster-info
+
+          echo ""
+          echo "=== All Pods ==="
+          kubectl get pods --all-namespaces
+
+          echo ""
           echo "=== Backend Logs ==="
-          kubectl logs -l app.kubernetes.io/name=gharts,app.kubernetes.io/component=backend --tail=100
-          
+          kubectl logs -l app.kubernetes.io/name=gharts,app.kubernetes.io/component=backend --tail=100 || echo "No backend pods found or logs unavailable"
+
           echo ""
           echo "=== Frontend Logs ==="
-          kubectl logs -l app.kubernetes.io/name=gharts,app.kubernetes.io/component=frontend --tail=100
-          
+          kubectl logs -l app.kubernetes.io/name=gharts,app.kubernetes.io/component=frontend --tail=100 || echo "No frontend pods found or logs unavailable"
+
           echo ""
           echo "=== Ingress Controller Logs ==="
-          kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=100
-          
+          kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=100 || echo "No ingress controller logs available"
+
           echo ""
           echo "=== Pod Descriptions ==="
-          kubectl describe pods -l app.kubernetes.io/name=gharts
+          kubectl describe pods -l app.kubernetes.io/name=gharts || echo "No gharts pods found"
 
       - name: Summary
         if: success()
