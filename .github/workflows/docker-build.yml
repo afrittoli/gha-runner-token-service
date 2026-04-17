@@ -199,7 +199,7 @@ jobs:
       - name: Update Chart version for main branch
         run: |
           # Use a development version with commit SHA
-          CHART_VERSION="0.0.0-main.${GITHUB_SHA::7}"
+          CHART_VERSION="0.0.0-main-${GITHUB_SHA::7}"
           sed -i "s/^version:.*/version: ${CHART_VERSION}/" helm/gharts/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"main-${GITHUB_SHA::7}\"/" helm/gharts/Chart.yaml
           echo "Updated chart version to: ${CHART_VERSION}"
