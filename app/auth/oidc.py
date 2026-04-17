@@ -124,11 +124,18 @@ class OIDCValidator:
         except JWTError as e:
             import structlog
 
+            try:
+                token_claims = jwt.get_unverified_claims(token)
+                token_issuer = token_claims.get("iss", "unknown")
+            except Exception:
+                token_issuer = "unknown"
+
             structlog.get_logger().warning(
                 "token_validation_failed",
                 error=str(e),
-                audience=self.audience,
-                issuer=self.issuer,
+                expected_audience=self.audience,
+                expected_issuer=self.issuer,
+                token_issuer=token_issuer,
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
