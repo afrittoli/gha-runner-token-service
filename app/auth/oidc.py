@@ -127,8 +127,10 @@ class OIDCValidator:
             try:
                 token_claims = jwt.get_unverified_claims(token)
                 token_issuer = token_claims.get("iss", "unknown")
+                token_audience = token_claims.get("aud", "unknown")
             except Exception:
                 token_issuer = "unknown"
+                token_audience = "unknown"
 
             structlog.get_logger().warning(
                 "token_validation_failed",
@@ -136,6 +138,7 @@ class OIDCValidator:
                 expected_audience=self.audience,
                 expected_issuer=self.issuer,
                 token_issuer=token_issuer,
+                token_audience=token_audience,
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

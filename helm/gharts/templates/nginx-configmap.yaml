@@ -50,14 +50,10 @@ data:
         add_header X-XSS-Protection "1; mode=block" always;
         add_header Referrer-Policy "no-referrer-when-downgrade" always;
 
-        # Backend upstream - uses Kubernetes service name
-        upstream backend {
-            server {{ include "gharts.fullname" . }}-backend:{{ .Values.backend.service.port }};
-        }
-
         server {
             listen 8080;
             server_name _;
+            absolute_redirect off;
             root /usr/share/nginx/html;
             index index.html;
 
@@ -66,25 +62,6 @@ data:
                 access_log off;
                 return 200 "OK\n";
                 add_header Content-Type text/plain;
-            }
-
-            # API proxy to backend - redirect /api to /api/
-            location = /api {
-                return 301 $scheme://$http_host/api/;
-            }
-
-            # API proxy to backend
-            location /api/ {
-                proxy_pass http://backend;
-                proxy_http_version 1.1;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header Connection 'upgrade';
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
-                proxy_cache_bypass $http_upgrade;
-                proxy_read_timeout 90;
             }
 
             # Serve /app/ path - Vite builds with base: '/app/'
