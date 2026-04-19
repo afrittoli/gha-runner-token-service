@@ -44,8 +44,9 @@ class Runner(Base):
     disable_update = Column(Boolean, default=False, nullable=False)
 
     # Ownership and authentication
-    provisioned_by = Column(String, nullable=False, index=True)  # OIDC identity
-    oidc_sub = Column(String, nullable=True)  # OIDC subject claim
+    provisioned_by = Column(
+        String, nullable=False, index=True
+    )  # User.id UUID or m2m:<team>
 
     # Team association (nullable for backward compatibility)
     team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
@@ -88,15 +89,11 @@ class AuditLog(Base):
     runner_id = Column(String, nullable=True, index=True)
     runner_name = Column(String, nullable=True, index=True)
 
-    # Team association (nullable for backward compatibility)
+    # Team association
     team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
 
-    # User information
-    user_identity = Column(String, nullable=False, index=True)
-    oidc_sub = Column(String, nullable=True)
-
-    # Team association (nullable for backward compatibility)
-    team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
+    # User information — stores User.id UUID, or m2m:<team> for machine tokens
+    user_id = Column(String, nullable=False, index=True)
 
     # Request information
     request_ip = Column(String, nullable=True)
@@ -194,15 +191,11 @@ class SecurityEvent(Base):
     runner_name = Column(String, nullable=True)
     github_runner_id = Column(Integer, nullable=True)
 
-    # Team association (nullable for backward compatibility)
+    # Team association
     team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
 
-    # User information
-    user_identity = Column(String, nullable=False, index=True)
-    oidc_sub = Column(String, nullable=True)
-
-    # Team association (nullable for backward compatibility)
-    team_id = Column(String, ForeignKey("teams.id"), nullable=True, index=True)
+    # User information — stores User.id UUID, or m2m:<team> for machine tokens
+    user_id = Column(String, nullable=False, index=True)
 
     # Violation details
     violation_data = Column(Text, nullable=False)  # JSON with violation specifics
@@ -213,7 +206,7 @@ class SecurityEvent(Base):
 
     __table_args__ = (
         Index("ix_security_events_type_severity", "event_type", "severity"),
-        Index("ix_security_events_user_timestamp", "user_identity", "timestamp"),
+        Index("ix_security_events_user_timestamp", "user_id", "timestamp"),
     )
 
 
@@ -357,3 +350,25 @@ class UserTeamMembership(Base):
         Index("ix_user_team_team", "team_id"),
         Index("ix_user_team_unique", "user_id", "team_id", unique=True),
     )
+
+
+def resolve_user_display(user_id: str, db) -> str:
+    """Resolve a stored user_id to a human-readable display string.
+
+    For individual users, looks up the User row and returns the first
+    available of: display_name, email, oidc_sub, or the raw user_id.
+    For M2M tokens (stored as ``m2m:<team>``), returns the value as-is.
+
+    Args:
+        user_id: Value stored in provisioned_by / AuditLog.user_id / SecurityEvent.user_id.
+        db: SQLAlchemy session.
+
+    Returns:
+        Human-readable display string.
+    """
+    if user_id.startswith("m2m:"):
+        return user_id
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return user_id
+    return user.display_name or user.email or user.oidc_sub or user_id

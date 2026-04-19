@@ -12,7 +12,10 @@ from app.config import Settings, get_settings
 from app.database import get_db
 from app.models import (
     AuditLog,
+    Runner,
     SecurityEvent,
+    User,
+    resolve_user_display,
 )
 from app.schemas import (
     BatchActionResponse,
@@ -99,14 +102,31 @@ async def list_security_events(
     - `high`: Security violation detected and mitigated
     - `critical`: Severe security violation
     """
+    # Resolve user_identity filter to a user_id if supplied
+    resolved_user_id: Optional[str] = None
+    if user_identity:
+        resolved_user = (
+            db.query(User)
+            .filter(
+                (User.id == user_identity)
+                | (User.email == user_identity)
+                | (User.oidc_sub == user_identity)
+            )
+            .first()
+        )
+        if resolved_user:
+            resolved_user_id = resolved_user.id
+        else:
+            return SecurityEventListResponse(events=[], total=0)
+
     query = db.query(SecurityEvent)
 
     if event_type:
         query = query.filter(SecurityEvent.event_type == event_type)
     if severity:
         query = query.filter(SecurityEvent.severity == severity)
-    if user_identity:
-        query = query.filter(SecurityEvent.user_identity == user_identity)
+    if resolved_user_id:
+        query = query.filter(SecurityEvent.user_id == resolved_user_id)
 
     events = (
         query.order_by(SecurityEvent.timestamp.desc()).limit(limit).offset(offset).all()
@@ -122,23 +142,14 @@ async def list_security_events(
                 runner_id=event.runner_id,
                 runner_name=event.runner_name,
                 github_runner_id=event.github_runner_id,
-                user_identity=event.user_identity,
+                user_identity=resolve_user_display(event.user_id, db),
                 violation_data=json.loads(event.violation_data),
                 action_taken=event.action_taken,
                 timestamp=event.timestamp,
             )
         )
 
-    # Get total count with same filters
-    total_query = db.query(SecurityEvent)
-    if event_type:
-        total_query = total_query.filter(SecurityEvent.event_type == event_type)
-    if severity:
-        total_query = total_query.filter(SecurityEvent.severity == severity)
-    if user_identity:
-        total_query = total_query.filter(SecurityEvent.user_identity == user_identity)
-
-    total = total_query.count()
+    total = query.count()
 
     return SecurityEventListResponse(events=event_responses, total=total)
 
@@ -489,8 +500,7 @@ async def delete_user(
     label_policy_service.log_security_event(
         event_type="user_deactivated",
         severity="medium",
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         runner_id=None,
         runner_name=None,
         violation_data={
@@ -507,8 +517,7 @@ async def delete_user(
         event_type="user_deactivated",
         runner_id=None,
         runner_name=None,
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         success=True,
         error_message=None,
         event_data=json.dumps(
@@ -684,8 +693,7 @@ async def batch_disable_users(
     label_policy_service.log_security_event(
         event_type="batch_disable_users",
         severity="high",
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         runner_id=None,
         runner_name=None,
         violation_data={
@@ -703,8 +711,7 @@ async def batch_disable_users(
         event_type="batch_disable_users",
         runner_id=None,
         runner_name=None,
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         success=len(failed) == 0,
         error_message=f"{len(failed)} failures" if failed else None,
         event_data=json.dumps(
@@ -819,8 +826,7 @@ async def batch_restore_users(
     label_policy_service.log_security_event(
         event_type="batch_restore_users",
         severity="medium",
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         runner_id=None,
         runner_name=None,
         violation_data={
@@ -880,7 +886,6 @@ async def batch_delete_runners(
     }
     ```
     """
-    from app.models import Runner
     from app.github.client import GitHubClient
 
     label_policy_service = LabelPolicyService(db)
@@ -893,8 +898,22 @@ async def batch_delete_runners(
         # Specific runners
         query = query.filter(Runner.id.in_(request.runner_ids))
     else:
-        # All runners for the specified user
-        query = query.filter(Runner.provisioned_by == request.user_identity)
+        # All runners for the specified user — resolve identity to user_id
+        target_user = (
+            db.query(User)
+            .filter(
+                (User.id == request.user_identity)
+                | (User.email == request.user_identity)
+                | (User.oidc_sub == request.user_identity)
+            )
+            .first()
+        )
+        if target_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User not found: {request.user_identity}",
+            )
+        query = query.filter(Runner.provisioned_by == target_user.id)
 
     runners_to_delete = query.all()
 
@@ -938,8 +957,7 @@ async def batch_delete_runners(
     label_policy_service.log_security_event(
         event_type="batch_delete_runners",
         severity="high",
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         runner_id=None,
         runner_name=None,
         violation_data={
@@ -960,8 +978,7 @@ async def batch_delete_runners(
         event_type="batch_delete_runners",
         runner_id=None,
         runner_name=None,
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         success=len(failed) == 0,
         error_message=f"{len(failed)} failures" if failed else None,
         event_data=json.dumps(
@@ -1082,8 +1099,7 @@ async def batch_deactivate_teams(
     label_policy_service.log_security_event(
         event_type="batch_deactivate_teams",
         severity="high",
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         runner_id=None,
         runner_name=None,
         violation_data={
@@ -1100,8 +1116,7 @@ async def batch_deactivate_teams(
         event_type="batch_deactivate_teams",
         runner_id=None,
         runner_name=None,
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         success=len(failed) == 0,
         error_message=f"{len(failed)} failures" if failed else None,
         event_data=json.dumps(
@@ -1197,8 +1212,7 @@ async def batch_reactivate_teams(
     label_policy_service.log_security_event(
         event_type="batch_reactivate_teams",
         severity="medium",
-        user_identity=admin.identity,
-        oidc_sub=admin.sub,
+        user_id=admin.identity,
         runner_id=None,
         runner_name=None,
         violation_data={

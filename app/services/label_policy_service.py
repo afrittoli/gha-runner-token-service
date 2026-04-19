@@ -48,12 +48,11 @@ class LabelPolicyService:
         self,
         event_type: str,
         severity: str,
-        user_identity: str,
+        user_id: str,
         runner_id: Optional[str],
         runner_name: Optional[str],
         violation_data: dict,
         action_taken: Optional[str] = None,
-        oidc_sub: Optional[str] = None,
         github_runner_id: Optional[int] = None,
         team_id: Optional[str] = None,
     ) -> SecurityEvent:
@@ -63,12 +62,11 @@ class LabelPolicyService:
         Args:
             event_type: Type of security event
             severity: Event severity (low, medium, high, critical)
-            user_identity: User who triggered the event
+            user_id: User.id UUID (or m2m:<team> for machine tokens)
             runner_id: Internal runner ID
             runner_name: Runner name
             violation_data: Details of the violation
             action_taken: Action taken in response
-            oidc_sub: OIDC subject claim
             github_runner_id: GitHub runner ID
             team_id: Team this event is scoped to (nullable)
 
@@ -89,8 +87,7 @@ class LabelPolicyService:
         event = SecurityEvent(
             event_type=event_type,
             severity=severity,
-            user_identity=user_identity,
-            oidc_sub=oidc_sub,
+            user_id=user_id,
             runner_id=runner_id,
             runner_name=runner_name,
             github_runner_id=github_runner_id,

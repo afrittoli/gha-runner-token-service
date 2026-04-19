@@ -18,6 +18,7 @@ export interface UserCreate {
   display_name?: string
   is_admin?: boolean
   can_use_jit?: boolean
+  team_ids?: string[]
 }
 
 export interface UserUpdate {

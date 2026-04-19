@@ -370,7 +370,7 @@ class SyncService:
             self.label_policy_service.log_security_event(
                 event_type="label_drift_detected",
                 severity="high",
-                user_identity=runner.provisioned_by,
+                user_id=runner.provisioned_by,
                 runner_id=str(runner.id),
                 runner_name=runner.runner_name,
                 github_runner_id=github_runner.id,
@@ -414,7 +414,7 @@ class SyncService:
         self.label_policy_service.log_security_event(
             event_type="label_drift_detected",
             severity="high",
-            user_identity=runner.provisioned_by,
+            user_id=runner.provisioned_by,
             runner_id=str(runner.id),
             runner_name=runner.runner_name,
             github_runner_id=github_runner.id,

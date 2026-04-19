@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.auth.token_types import TokenType
 from app.database import get_db
-from app.models import AuditLog, Team, UserTeamMembership
+from app.models import AuditLog, Team, User, UserTeamMembership, resolve_user_display
 from app.schemas import AuditLogListResponse, AuditLogResponse
 
 router = APIRouter(prefix="/audit-logs", tags=["Audit"])
@@ -114,8 +114,21 @@ async def list_audit_logs(
                 )
             query = query.filter(AuditLog.team_id == team_obj.id)
         elif user_identity:
-            # Admins can filter by user
-            query = query.filter(AuditLog.user_identity == user_identity)
+            # Admins can filter by user: resolve the supplied value to a user_id UUID
+            resolved_user = (
+                db.query(User)
+                .filter(
+                    (User.id == user_identity)
+                    | (User.email == user_identity)
+                    | (User.oidc_sub == user_identity)
+                )
+                .first()
+            )
+            if resolved_user:
+                query = query.filter(AuditLog.user_id == resolved_user.id)
+            else:
+                # No matching user — return empty rather than silently ignoring
+                return AuditLogListResponse(logs=[], total=0)
         # else: admin without filters — no restriction (all logs)
 
     # Apply event_type filter
@@ -150,8 +163,7 @@ async def list_audit_logs(
                 runner_name=log.runner_name,
                 team_id=log.team_id,
                 team_name=(team_name_map.get(log.team_id) if log.team_id else None),
-                user_identity=log.user_identity,
-                oidc_sub=log.oidc_sub,
+                user_identity=resolve_user_display(log.user_id, db),
                 request_ip=log.request_ip,
                 user_agent=log.user_agent,
                 event_data=event_data,

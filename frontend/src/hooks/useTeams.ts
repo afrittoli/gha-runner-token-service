@@ -40,7 +40,8 @@ export interface TeamUpdate {
 
 export interface TeamMember {
   user_id: string
-  email: string
+  email: string | null
+  oidc_sub: string | null
   display_name: string | null
   joined_at: string
 }

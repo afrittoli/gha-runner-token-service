@@ -62,8 +62,7 @@ erDiagram
         string   runner_name
         int      github_runner_id
         text     labels               "JSON array – provisioned label set"
-        string   provisioned_by       "OIDC identity"
-        string   oidc_sub
+        string   provisioned_by       "User.id UUID or m2m:<team>"
         string   team_id FK
         string   team_name            "Denormalized"
         string   status               "pending | active | offline | deleted"

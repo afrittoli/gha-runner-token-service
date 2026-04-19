@@ -571,7 +571,7 @@ The Runner Token Service uses an explicit allowlist approach: users must exist i
 
 | Field | Description |
 |-------|-------------|
-| `email` / `oidc_sub` | User identity (matched from OIDC token claims) |
+| `email` / `oidc_sub` | User identity fields (at least one required; matched from OIDC token `email` / `sub` claims) |
 | `is_admin` | Can manage users and access admin endpoints |
 | `is_active` | Whether the user can access the API (soft delete) |
 | `can_use_jit` | Can use the `/jit` endpoint |

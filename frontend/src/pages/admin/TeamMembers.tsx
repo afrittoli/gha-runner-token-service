@@ -27,6 +27,9 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState('')
 
+  const getMemberLabel = (member: { display_name: string | null; email: string | null; oidc_sub: string | null; user_id: string }): string =>
+    member.display_name ?? member.email ?? member.oidc_sub ?? member.user_id
+
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -42,10 +45,10 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
     }
   }
 
-  const handleRemoveMember = async (userId: string, email: string) => {
+  const handleRemoveMember = async (userId: string, label: string) => {
     const confirmMsg = isAdminTeam
-      ? `Remove admin privileges from ${email}?`
-      : `Remove ${email} from ${teamName}?`
+      ? `Remove admin privileges from ${label}?`
+      : `Remove ${label} from ${teamName}?`
     if (!confirm(confirmMsg)) {
       return
     }
@@ -130,10 +133,10 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {member.display_name || member.email}
+                          {member.display_name ?? member.email ?? member.oidc_sub ?? member.user_id}
                         </div>
                         {member.display_name && (
-                          <div className="text-sm text-gray-500">{member.email}</div>
+                          <div className="text-sm text-gray-500">{member.email ?? member.oidc_sub}</div>
                         )}
                       </div>
                     </td>
@@ -145,7 +148,7 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                         menuItems={[
                           {
                             label: 'Remove',
-                            onClick: () => handleRemoveMember(member.user_id, member.email),
+                            onClick: () => handleRemoveMember(member.user_id, getMemberLabel(member)),
                             disabled: removeMember.isPending,
                             variant: 'danger',
                           },
@@ -217,7 +220,7 @@ export default function TeamMembers({ teamId, teamName, onClose }: TeamMembersPr
                       .filter(u => u.is_active && !membersData?.members.some(m => m.user_id === u.id))
                       .map(u => (
                         <option key={u.id} value={u.id}>
-                          {u.email}{u.display_name ? ` (${u.display_name})` : ''}
+                          {u.email ?? u.oidc_sub ?? u.id}{u.display_name ? ` (${u.display_name})` : ''}
                         </option>
                       ))
                     }
