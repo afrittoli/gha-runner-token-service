@@ -82,7 +82,9 @@ class SecurityEventResponse(BaseModel):
     github_runner_id: Optional[int]
     team_id: Optional[str] = None
     team_name: Optional[str] = None
-    user_identity: str
+    user_identity: (
+        str  # Resolved display string (display_name / email / oidc_sub / user_id)
+    )
     violation_data: dict
     action_taken: Optional[str]
     timestamp: datetime
@@ -305,16 +307,15 @@ class AuditLogResponse(BaseModel):
     runner_name: Optional[str]
     team_id: Optional[str] = None
     team_name: Optional[str] = None
-    user_identity: str
-    oidc_sub: Optional[str]
+    user_identity: (
+        str  # Resolved display string (display_name / email / oidc_sub / user_id)
+    )
     request_ip: Optional[str]
     user_agent: Optional[str]
     event_data: Optional[dict]
     success: bool
     error_message: Optional[str]
     timestamp: datetime
-    team_id: Optional[str] = None
-    team_name: Optional[str] = None
 
 
 class AuditLogListResponse(BaseModel):
@@ -559,6 +560,7 @@ class TeamMemberResponse(BaseModel):
 
     user_id: str
     email: Optional[str]
+    oidc_sub: Optional[str]
     display_name: Optional[str]
     joined_at: datetime
     added_by: Optional[str]

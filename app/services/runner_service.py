@@ -138,8 +138,7 @@ class RunnerService:
             label_policy_service.log_security_event(
                 event_type="label_policy_violation",
                 severity="medium",
-                user_identity=user.identity,
-                oidc_sub=user.sub,
+                user_id=user.identity,
                 runner_id=None,
                 runner_name=runner_name,
                 team_id=team_id,
@@ -178,8 +177,7 @@ class RunnerService:
             label_policy_service.log_security_event(
                 event_type="quota_exceeded",
                 severity="low",
-                user_identity=user.identity,
-                oidc_sub=user.sub,
+                user_id=user.identity,
                 runner_id=None,
                 runner_name=runner_name,
                 team_id=team_id,
@@ -260,7 +258,6 @@ class RunnerService:
             ephemeral=True,  # JIT enforces ephemeral
             disable_update=False,
             provisioned_by=user.identity,
-            oidc_sub=user.sub,
             team_id=team_id,
             team_name=team_name,
             status="pending",
@@ -321,16 +318,12 @@ class RunnerService:
         Returns:
             Runner if found and authorized, None otherwise
         """
-        from sqlalchemy import or_
 
         query = self.db.query(Runner).filter(Runner.id == runner_id)
 
         # If not admin, enforce ownership
         if not user.is_admin:
-            ownership_conditions = [Runner.provisioned_by == user.identity]
-            if user.sub:
-                ownership_conditions.append(Runner.oidc_sub == user.sub)
-            query = query.filter(or_(*ownership_conditions))
+            query = query.filter(Runner.provisioned_by == user.identity)
 
         return query.first()
 
@@ -352,7 +345,6 @@ class RunnerService:
         Returns:
             Runner if found and authorized, None otherwise
         """
-        from sqlalchemy import or_
 
         query = self.db.query(Runner).filter(
             Runner.runner_name == runner_name,
@@ -361,10 +353,7 @@ class RunnerService:
 
         # If not admin, enforce ownership
         if not user.is_admin:
-            ownership_conditions = [Runner.provisioned_by == user.identity]
-            if user.sub:
-                ownership_conditions.append(Runner.oidc_sub == user.sub)
-            query = query.filter(or_(*ownership_conditions))
+            query = query.filter(Runner.provisioned_by == user.identity)
 
         return query.order_by(Runner.created_at.desc()).first()
 
@@ -412,12 +401,9 @@ class RunnerService:
                 .filter(UserTeamMembership.user_id == user.user_id)
                 .scalar_subquery()
             )
-            own_conditions = [Runner.provisioned_by == user.identity]
-            if user.sub:
-                own_conditions.append(Runner.oidc_sub == user.sub)
             query = query.filter(
                 or_(
-                    or_(*own_conditions),
+                    Runner.provisioned_by == user.identity,
                     Runner.team_id.in_(memberships),
                 )
             )
@@ -572,8 +558,7 @@ class RunnerService:
             runner_id=runner_id,
             runner_name=runner_name,
             team_id=resolved_team_id,
-            user_identity=user.identity,
-            oidc_sub=user.sub,
+            user_id=user.identity,
             success=success,
             error_message=error_message,
             event_data=json.dumps(event_data) if event_data else None,

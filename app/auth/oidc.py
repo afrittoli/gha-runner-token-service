@@ -159,21 +159,3 @@ class OIDCValidator:
                 detail=f"Authentication failed: {str(e)}",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-
-    def get_user_identity(self, payload: dict) -> str:
-        """
-        Extract user identity from token payload.
-
-        Args:
-            payload: Token claims
-
-        Returns:
-            User identity string (email, sub, or preferred_username)
-        """
-        # Try common identity claims in order of preference
-        for claim in ["email", "preferred_username", "sub"]:
-            if claim in payload:
-                return payload[claim]
-
-        # Fallback to sub claim
-        return payload.get("sub", "unknown")

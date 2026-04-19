@@ -277,30 +277,22 @@ class TestDeleteRunner:
         assert response.status_code == 400
         assert "already deleted" in response.json()["detail"].lower()
 
-    def test_delete_runner_by_oidc_sub_when_identity_differs(
+    def test_delete_runner_provisioned_by_different_user_is_forbidden(
         self, client: TestClient, test_db: Session, mock_user
     ):
         """
-        REGRESSION TEST: User should be able to delete runners provisioned by them
-        even when their OIDC token has different claims.
-
-        Scenario: User provisions runner with email-based identity, then tries to
-        delete with M2M token that only has 'sub' claim. The ownership check should
-        match on oidc_sub as well as provisioned_by.
-
-        Fix: get_runner_by_id now checks both provisioned_by == user.identity
-        OR oidc_sub == user.sub for ownership.
+        Ownership check uses provisioned_by (User.id UUID) exclusively.
+        A runner provisioned by a different user_id cannot be deleted by another user.
         """
         from app.auth.dependencies import get_current_user
         from app.main import app
 
-        # Runner was provisioned with email identity
+        # Runner was provisioned by a different user (different UUID)
         runner = Runner(
-            runner_name="sub-match-runner",
+            runner_name="other-user-runner",
             runner_group_id=1,
             labels=json.dumps(["test"]),
-            provisioned_by="different-identity@example.com",  # Different from user.identity
-            oidc_sub=mock_user.sub,  # But same OIDC sub
+            provisioned_by="00000000-0000-0000-0000-000000000099",  # Different UUID
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -309,27 +301,20 @@ class TestDeleteRunner:
         test_db.refresh(runner)
         runner_id = runner.id
 
-        # Override auth to use mock_user (whose sub matches oidc_sub)
+        # Override auth to use mock_user (whose identity is a different UUID)
         async def override_get_current_user():
             return mock_user
 
         app.dependency_overrides[get_current_user] = override_get_current_user
 
         try:
-            with patch("app.services.runner_service.GitHubClient") as MockGitHubClient:
-                mock_github = AsyncMock()
-                mock_github.delete_runner = AsyncMock(return_value=True)
-                MockGitHubClient.return_value = mock_github
+            response = client.delete(f"/api/v1/runners/{runner_id}")
 
-                response = client.delete(f"/api/v1/runners/{runner_id}")
-
-            # Should be able to delete because oidc_sub matches
-            assert response.status_code == 200, (
-                f"Expected 200 OK when deleting runner by OIDC sub match, "
+            # Should be forbidden because provisioned_by does not match user.identity
+            assert response.status_code in (403, 404), (
+                f"Expected 403/404 when deleting runner owned by different user, "
                 f"got {response.status_code}: {response.json()}"
             )
-            data = response.json()
-            assert data["success"] is True
         finally:
             app.dependency_overrides.pop(get_current_user, None)
 

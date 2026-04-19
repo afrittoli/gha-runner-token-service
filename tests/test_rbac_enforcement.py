@@ -124,16 +124,15 @@ class TestRunnerEndpointsRBAC:
         # Create two users
         user_service = UserService(test_db)
         alice_db = user_service.create_user(email="alice@example.com", can_use_jit=True)
-        user_service.create_user(email="bob@example.com", can_use_jit=True)
+        bob_db = user_service.create_user(email="bob@example.com", can_use_jit=True)
 
-        # Create runners for each user
+        # Create runners for each user (provisioned_by stores User.id UUID)
         alice_runner = Runner(
             runner_name="alice-runner",
             runner_group_id=1,
             labels='["linux"]',
             ephemeral=True,
-            provisioned_by="alice@example.com",
-            oidc_sub="auth0|alice",
+            provisioned_by=alice_db.id,
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -142,8 +141,7 @@ class TestRunnerEndpointsRBAC:
             runner_group_id=1,
             labels='["linux"]',
             ephemeral=True,
-            provisioned_by="bob@example.com",
-            oidc_sub="auth0|bob",
+            provisioned_by=bob_db.id,
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -155,9 +153,9 @@ class TestRunnerEndpointsRBAC:
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
 
-        # Test as Alice
+        # Test as Alice (identity is now db_user.id)
         alice_user = AuthenticatedUser(
-            identity="alice@example.com",
+            identity=alice_db.id,
             claims={"sub": "auth0|alice", "email": "alice@example.com"},
             db_user=alice_db,
         )
@@ -193,16 +191,15 @@ class TestRunnerEndpointsRBAC:
         # Create users
         user_service = UserService(test_db)
         alice_db = user_service.create_user(email="alice2@example.com")
-        user_service.create_user(email="bob2@example.com")
+        bob_db = user_service.create_user(email="bob2@example.com")
 
-        # Create runner for Bob
+        # Create runner for Bob (provisioned_by stores User.id UUID)
         bob_runner = Runner(
             runner_name="bob-private-runner",
             runner_group_id=1,
             labels='["linux"]',
             ephemeral=True,
-            provisioned_by="bob2@example.com",
-            oidc_sub="auth0|bob2",
+            provisioned_by=bob_db.id,
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -213,9 +210,9 @@ class TestRunnerEndpointsRBAC:
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
 
-        # Alice tries to view Bob's runner
+        # Alice tries to view Bob's runner (identity is now db_user.id)
         alice_user = AuthenticatedUser(
-            identity="alice2@example.com",
+            identity=alice_db.id,
             claims={"sub": "auth0|alice2", "email": "alice2@example.com"},
             db_user=alice_db,
         )
@@ -248,16 +245,15 @@ class TestRunnerEndpointsRBAC:
         # Create users
         user_service = UserService(test_db)
         alice_db = user_service.create_user(email="alice3@example.com")
-        user_service.create_user(email="bob3@example.com")
+        bob_db = user_service.create_user(email="bob3@example.com")
 
-        # Create runner for Bob
+        # Create runner for Bob (provisioned_by stores User.id UUID)
         bob_runner = Runner(
             runner_name="bob-delete-test",
             runner_group_id=1,
             labels='["linux"]',
             ephemeral=True,
-            provisioned_by="bob3@example.com",
-            oidc_sub="auth0|bob3",
+            provisioned_by=bob_db.id,
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -268,9 +264,9 @@ class TestRunnerEndpointsRBAC:
         mock_settings = MagicMock()
         mock_settings.enable_oidc_auth = True
 
-        # Alice tries to delete Bob's runner
+        # Alice tries to delete Bob's runner (identity is now db_user.id)
         alice_user = AuthenticatedUser(
-            identity="alice3@example.com",
+            identity=alice_db.id,
             claims={"sub": "auth0|alice3", "email": "alice3@example.com"},
             db_user=alice_db,
         )
