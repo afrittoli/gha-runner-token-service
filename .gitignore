@@ -232,8 +232,6 @@ __marimo__/
 *.db
 runner_service.db.*
 *.pem
-.claude
-.bob
 audit.json
 .cli.env*
 !.cli.env.example
@@ -248,8 +246,6 @@ helm/*/charts/
 
 # AI Assistants
 .assistant
-.bob
-.claude
 .zencoder
 .zenflow
 
