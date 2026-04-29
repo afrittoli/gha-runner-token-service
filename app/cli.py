@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import SessionLocal, init_db
 from app.github.client import GitHubClient
-from app.models import AuditLog, Runner, User
+from app.models import AuditLog, Runner, User, resolve_user_display
 from app.services.user_service import UserService
 
 
@@ -115,7 +115,19 @@ def list_runners_cmd(status: str, user: str):
         if status:
             query = query.filter(Runner.status == status)
         if user:
-            query = query.filter(Runner.provisioned_by == user)
+            # Accept user_id UUID, email, or oidc_sub
+            target_user = (
+                db.query(User)
+                .filter(
+                    (User.id == user) | (User.email == user) | (User.oidc_sub == user)
+                )
+                .first()
+            )
+            if target_user:
+                query = query.filter(Runner.provisioned_by == target_user.id)
+            else:
+                click.echo(f"No user found matching: {user}")
+                return
 
         runners = query.order_by(Runner.created_at.desc()).all()
 
@@ -134,7 +146,9 @@ def list_runners_cmd(status: str, user: str):
             click.echo(f"GitHub ID:      {runner.github_runner_id or 'N/A'}")
             click.echo(f"Labels:         {labels_str}")
             click.echo(f"Ephemeral:      {runner.ephemeral}")
-            click.echo(f"Provisioned by: {runner.provisioned_by}")
+            click.echo(
+                f"Provisioned by: {resolve_user_display(runner.provisioned_by, db)}"
+            )
             click.echo(f"Created:        {runner.created_at}")
 
             if runner.registered_at:
@@ -169,7 +183,19 @@ def export_audit_log(since: str, event_type: str, user: str, limit: int, output:
         if event_type:
             query = query.filter(AuditLog.event_type == event_type)
         if user:
-            query = query.filter(AuditLog.user_identity == user)
+            # Accept user_id UUID, email, or oidc_sub
+            target_user = (
+                db.query(User)
+                .filter(
+                    (User.id == user) | (User.email == user) | (User.oidc_sub == user)
+                )
+                .first()
+            )
+            if target_user:
+                query = query.filter(AuditLog.user_id == target_user.id)
+            else:
+                click.echo(f"No user found matching: {user}")
+                return
 
         events = query.order_by(AuditLog.timestamp.desc()).limit(limit).all()
 
@@ -186,7 +212,7 @@ def export_audit_log(since: str, event_type: str, user: str, limit: int, output:
                     "timestamp": event.timestamp.isoformat(),
                     "event_type": event.event_type,
                     "runner_name": event.runner_name,
-                    "user_identity": event.user_identity,
+                    "user_identity": resolve_user_display(event.user_id, db),
                     "success": event.success,
                     "error_message": event.error_message,
                     "event_data": json.loads(event.event_data)

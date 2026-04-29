@@ -74,7 +74,7 @@ class TestSecurityEventsEndpoints:
         event = SecurityEvent(
             event_type="label_policy_violation",
             severity="medium",
-            user_identity="violator@example.com",
+            user_id="m2m:test-team",
             violation_data=json.dumps({"reason": "test violation"}),
         )
         test_db.add(event)
@@ -95,7 +95,7 @@ class TestSecurityEventsEndpoints:
             event = SecurityEvent(
                 event_type="test_event",
                 severity=severity,
-                user_identity="test@example.com",
+                user_id="m2m:test-team",
                 violation_data=json.dumps({}),
             )
             test_db.add(event)

@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 
-from app.models import Runner, SecurityEvent
+from app.models import Runner, SecurityEvent, User
 from app.services.team_service import TeamService
 from app.services.user_service import UserService
 
@@ -355,13 +355,21 @@ class TestBatchDeleteRunners:
         self, client, admin_auth_override, test_db: Session
     ):
         """Test deleting all runners for a specific user."""
+        # Create users and use their UUIDs as provisioned_by
+        user1 = User(email="user1@example.com", is_active=True)
+        user2 = User(email="user2@example.com", is_active=True)
+        test_db.add_all([user1, user2])
+        test_db.commit()
+        test_db.refresh(user1)
+        test_db.refresh(user2)
+
         # Create runners for different users
         runner1 = Runner(
             runner_name="user1-runner-1",
             runner_group_id=1,
             labels="[]",
             ephemeral=True,
-            provisioned_by="user1@example.com",
+            provisioned_by=user1.id,
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -370,7 +378,7 @@ class TestBatchDeleteRunners:
             runner_group_id=1,
             labels="[]",
             ephemeral=True,
-            provisioned_by="user1@example.com",
+            provisioned_by=user1.id,
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -379,7 +387,7 @@ class TestBatchDeleteRunners:
             runner_group_id=1,
             labels="[]",
             ephemeral=True,
-            provisioned_by="user2@example.com",
+            provisioned_by=user2.id,
             status="active",
             github_url="https://github.com/test-org",
         )
@@ -456,12 +464,17 @@ class TestBatchDeleteRunners:
     def test_batch_delete_empty_result(
         self, client, admin_auth_override, test_db: Session
     ):
-        """Test batch delete with no matching runners."""
+        """Test batch delete for a user with no runners returns 200 with affected_count=0."""
+        # Create a user with no runners
+        user = User(email="no-runners@example.com", is_active=True)
+        test_db.add(user)
+        test_db.commit()
+
         response = client.post(
             "/api/v1/admin/batch/delete-runners",
             json={
                 "comment": "No runners to delete - testing empty case",
-                "user_identity": "nonexistent@example.com",
+                "user_identity": "no-runners@example.com",
             },
         )
 
@@ -469,6 +482,18 @@ class TestBatchDeleteRunners:
         data = response.json()
         assert data["success"] is True
         assert data["affected_count"] == 0
+
+    def test_batch_delete_user_not_found(self, client, admin_auth_override):
+        """Test batch delete for a nonexistent user returns 404."""
+        response = client.post(
+            "/api/v1/admin/batch/delete-runners",
+            json={
+                "comment": "No runners to delete - testing not found case",
+                "user_identity": "nonexistent@example.com",
+            },
+        )
+
+        assert response.status_code == 404
 
 
 class TestBatchDeactivateTeams:

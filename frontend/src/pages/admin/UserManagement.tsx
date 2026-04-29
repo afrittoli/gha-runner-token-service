@@ -9,6 +9,7 @@ export default function UserManagement() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newUser, setNewUser] = useState({
     email: '',
+    oidc_sub: '',
     display_name: '',
     is_admin: false,
     team_ids: [] as string[],
@@ -126,11 +127,19 @@ export default function UserManagement() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!newUser.email.trim() && !newUser.oidc_sub.trim()) return
     try {
-      await createUser.mutateAsync(newUser)
+      await createUser.mutateAsync({
+        email: newUser.email.trim() || undefined,
+        oidc_sub: newUser.oidc_sub.trim() || undefined,
+        display_name: newUser.display_name.trim() || undefined,
+        is_admin: newUser.is_admin,
+        team_ids: newUser.team_ids,
+      })
       setShowAddForm(false)
       setNewUser({
         email: '',
+        oidc_sub: '',
         display_name: '',
         is_admin: false,
         team_ids: [],
@@ -266,10 +275,11 @@ export default function UserManagement() {
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email <span className="text-xs text-gray-400">(or OIDC Subject below)</span>
+                </label>
                 <input
                   type="email"
-                  required
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
@@ -277,10 +287,26 @@ export default function UserManagement() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  OIDC Subject <span className="text-xs text-gray-400">(or Email above)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newUser.oidc_sub}
+                  onChange={(e) => setNewUser({ ...newUser, oidc_sub: e.target.value })}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
+                  placeholder="auth0|abc123"
+                />
+              </div>
+            </div>
+            {!newUser.email.trim() && !newUser.oidc_sub.trim() && (
+              <p className="text-sm text-red-600">At least one of Email or OIDC Subject is required.</p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Display Name</label>
                 <input
                   type="text"
-                  required
                   value={newUser.display_name}
                   onChange={(e) => setNewUser({ ...newUser, display_name: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-gh-blue focus:border-gh-blue"
@@ -389,7 +415,11 @@ export default function UserManagement() {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={createUser.isPending || (!newUser.is_admin && newUser.team_ids.length === 0)}
+                disabled={
+                  createUser.isPending ||
+                  (!newUser.email.trim() && !newUser.oidc_sub.trim()) ||
+                  (!newUser.is_admin && newUser.team_ids.length === 0)
+                }
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gh-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {createUser.isPending ? 'Creating...' : 'Create User'}

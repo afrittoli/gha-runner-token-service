@@ -9,7 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.database import get_db
-from app.models import AuditLog, Runner, SecurityEvent, Team, User, UserTeamMembership
+from app.models import (
+    AuditLog,
+    Runner,
+    SecurityEvent,
+    Team,
+    User,
+    UserTeamMembership,
+    resolve_user_display,
+)
 from app.schemas import (
     AddTeamMemberRequest,
     SecurityEventResponse,
@@ -542,6 +550,7 @@ async def get_team_members(
             TeamMemberResponse(
                 user_id=u.id,
                 email=u.email,
+                oidc_sub=u.oidc_sub,
                 display_name=u.display_name,
                 joined_at=u.created_at,
                 added_by="system",
@@ -591,6 +600,7 @@ async def get_team_members(
             TeamMemberResponse(
                 user_id=member.id,
                 email=member.email,
+                oidc_sub=member.oidc_sub,
                 display_name=member.display_name,
                 joined_at=membership.joined_at if membership else member.created_at,
                 added_by=membership.added_by if membership else None,
@@ -654,6 +664,7 @@ async def add_team_member(
         return TeamMemberResponse(
             user_id=membership.user_id,
             email=user_obj.email if user_obj else None,
+            oidc_sub=user_obj.oidc_sub if user_obj else None,
             display_name=user_obj.display_name if user_obj else None,
             joined_at=membership.joined_at,
             added_by=membership.added_by,
@@ -874,8 +885,7 @@ async def get_team_audit_logs(
                 runner_name=log.runner_name,
                 team_id=team.id,
                 team_name=team.name,
-                user_identity=log.user_identity,
-                oidc_sub=log.oidc_sub,
+                user_identity=resolve_user_display(log.user_id, db),
                 request_ip=log.request_ip,
                 user_agent=log.user_agent,
                 event_data=event_data,
@@ -966,7 +976,7 @@ async def get_team_security_events(
                 github_runner_id=ev.github_runner_id,
                 team_id=team.id,
                 team_name=team.name,
-                user_identity=ev.user_identity,
+                user_identity=resolve_user_display(ev.user_id, db),
                 violation_data=violation_data,
                 action_taken=ev.action_taken,
                 timestamp=ev.timestamp,

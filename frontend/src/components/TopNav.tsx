@@ -13,7 +13,7 @@ export default function TopNav() {
     auth.signoutRedirect()
   }
 
-  const userDisplayName = user?.display_name || user?.email || auth.user?.profile?.email || auth.user?.profile?.name || 'User'
+  const userDisplayName = user?.display_name || user?.email || user?.oidc_sub || auth.user?.profile?.email || auth.user?.profile?.name || 'User'
 
   return (
     <header className="h-16 bg-gh-gray-800 text-white flex items-center justify-between px-4 md:px-6 sticky top-0 z-20">

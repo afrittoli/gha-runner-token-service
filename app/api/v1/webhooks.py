@@ -312,7 +312,7 @@ async def handle_workflow_job(
     label_policy_service.log_security_event(
         event_type="label_policy_violation_workflow",
         severity="high",
-        user_identity=runner.provisioned_by,
+        user_id=runner.provisioned_by,
         runner_id=str(runner.id),
         runner_name=runner_name,
         github_runner_id=runner_id,

@@ -120,7 +120,6 @@ def _find_team_by_name(db: Session, team_name: str) -> Optional["Team"]:
 async def _get_authenticated_user(
     payload: dict,
     db: Session,
-    validator: OIDCValidator,
 ) -> AuthenticatedUser:
     """Resolve a verified JWT payload into an AuthenticatedUser.
 
@@ -130,7 +129,6 @@ async def _get_authenticated_user(
     Args:
         payload: Decoded, verified JWT claims.
         db: Database session.
-        validator: OIDCValidator instance (used for identity extraction).
 
     Returns:
         AuthenticatedUser object with database-backed authorization.
@@ -230,13 +228,11 @@ async def _get_authenticated_user(
         )
 
     # --- Individual path ---
-    identity = validator.get_user_identity(payload)
     db_user = _find_user_by_claims(db, payload)
 
     if db_user is None:
         logger.warning(
             "user_not_authorized",
-            identity=identity,
             email=payload.get("email"),
             sub=payload.get("sub"),
         )
@@ -248,7 +244,6 @@ async def _get_authenticated_user(
     if not db_user.is_active:
         logger.warning(
             "user_deactivated",
-            identity=identity,
             user_id=db_user.id,
         )
         raise HTTPException(
@@ -261,7 +256,7 @@ async def _get_authenticated_user(
     db.commit()
 
     return AuthenticatedUser(
-        identity=identity,
+        identity=db_user.id,
         claims=payload,
         token_type=token_type,
         db_user=db_user,
@@ -312,7 +307,7 @@ async def get_current_user(
     token = credentials.credentials
     validator = OIDCValidator(settings)
     payload = await validator.validate_token(token)
-    return await _get_authenticated_user(payload, db, validator)
+    return await _get_authenticated_user(payload, db)
 
 
 async def get_current_user_optional(

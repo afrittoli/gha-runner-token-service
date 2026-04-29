@@ -21,6 +21,7 @@ from app.schemas import (
     RunnerListResponse,
     RunnerStatus,
 )
+from app.models import resolve_user_display
 from app.services.label_policy_service import LabelPolicyViolation
 from app.services.runner_service import RunnerService
 
@@ -151,7 +152,7 @@ async def list_runners(
                 runner_group_id=runner.runner_group_id,
                 labels=json.loads(runner.labels),
                 ephemeral=runner.ephemeral,
-                provisioned_by=runner.provisioned_by,
+                provisioned_by=resolve_user_display(runner.provisioned_by, db),
                 created_at=runner.created_at,
                 updated_at=runner.updated_at,
                 registered_at=runner.registered_at,
@@ -196,7 +197,7 @@ async def get_runner(
         runner_group_id=runner.runner_group_id,
         labels=json.loads(runner.labels) if runner.labels else [],
         ephemeral=runner.ephemeral,
-        provisioned_by=runner.provisioned_by,
+        provisioned_by=resolve_user_display(runner.provisioned_by, db),
         created_at=runner.created_at,
         updated_at=runner.updated_at,
         registered_at=runner.registered_at,
@@ -241,7 +242,7 @@ async def refresh_runner_status(
         runner_group_id=runner.runner_group_id,
         labels=json.loads(runner.labels),
         ephemeral=runner.ephemeral,
-        provisioned_by=runner.provisioned_by,
+        provisioned_by=resolve_user_display(runner.provisioned_by, db),
         created_at=runner.created_at,
         updated_at=runner.updated_at,
         registered_at=runner.registered_at,

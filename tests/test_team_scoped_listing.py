@@ -55,16 +55,16 @@ def _add_to_team(db: Session, user: User, team: Team) -> None:
 def _make_runner(
     db: Session,
     name: str,
-    provisioned_by: str,
+    provisioned_by: "str | User",
     team: Team,
-    oidc_sub: str = "",
 ) -> Runner:
+    # Accept either a User object (use its id) or a plain string
+    pb = provisioned_by.id if isinstance(provisioned_by, User) else provisioned_by
     runner = Runner(
         runner_name=name,
         runner_group_id=1,
         labels=json.dumps(["self-hosted"]),
-        provisioned_by=provisioned_by,
-        oidc_sub=oidc_sub or None,
+        provisioned_by=pb,
         team_id=team.id,
         team_name=team.name,
         github_url="https://github.com/test-org",
@@ -90,7 +90,7 @@ def _individual_user(
     claims: dict | None = None,
 ) -> AuthenticatedUser:
     return AuthenticatedUser(
-        identity=db_user.email,
+        identity=db_user.id,
         claims=claims or {"email": db_user.email, "sub": f"sub|{db_user.id}"},
         token_type=TokenType.INDIVIDUAL,
         db_user=db_user,
@@ -108,7 +108,7 @@ def _m2m_user(team: Team) -> AuthenticatedUser:
 
 def _admin_user(db_user: User) -> AuthenticatedUser:
     u = AuthenticatedUser(
-        identity=db_user.email,
+        identity=db_user.id,
         claims={"email": db_user.email},
         token_type=TokenType.INDIVIDUAL,
         db_user=db_user,
@@ -130,7 +130,7 @@ class TestListRunnersVisibility:
         team = _make_team(test_db, "team-a")
         alice_db = _make_user(test_db, "alice@example.com")
         _add_to_team(test_db, alice_db, team)
-        _make_runner(test_db, "alice-runner", "alice@example.com", team)
+        _make_runner(test_db, "alice-runner", alice_db, team)
         _make_runner(test_db, "other-runner", "bob@example.com", team)
 
         alice = _individual_user(alice_db)
@@ -221,7 +221,7 @@ class TestListRunnersVisibility:
         team = _make_team(test_db, "deleted-team")
         alice_db = _make_user(test_db, "alice4@example.com")
         _add_to_team(test_db, alice_db, team)
-        r = _make_runner(test_db, "dead-runner", "alice4@example.com", team)
+        r = _make_runner(test_db, "dead-runner", alice_db, team)
         r.status = "deleted"
         test_db.commit()
 

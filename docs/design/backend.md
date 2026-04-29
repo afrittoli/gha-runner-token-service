@@ -181,7 +181,7 @@ Two authentication paths are supported, distinguished by the `gty` claim in the 
 **Runner:**
 - Identity: `id`, `runner_name`, `github_runner_id`
 - Configuration: `labels`, `ephemeral` (always true for JIT), `runner_group_id`, `disable_update`
-- Ownership: `provisioned_by`, `oidc_sub`
+- Ownership: `provisioned_by` (stores `User.id` UUID, or `m2m:<team>` for machine tokens)
 - Team: `team_id`, `team_name` (denormalized)
 - State: `status` (pending/active/offline/deleted)
 - URL: `github_url`
@@ -189,7 +189,7 @@ Two authentication paths are supported, distinguished by the `gty` claim in the 
 
 **AuditLog:**
 - Event: `event_type`, `runner_id`, `runner_name`, `team_id`
-- User: `user_identity`, `oidc_sub`
+- User: `user_id` (stores `User.id` UUID; resolved to display string in API responses)
 - Context: `request_ip`, `user_agent`
 - Result: `success`, `error_message`
 - Data: `event_data` (JSON)
