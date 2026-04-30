@@ -1,7 +1,7 @@
 # Web Framework
 fastapi==0.135.2
 uvicorn[standard]==0.46.0
-pydantic==2.13.1
+pydantic==2.13.3
 pydantic-settings==2.13.1
 
 # GitHub API
