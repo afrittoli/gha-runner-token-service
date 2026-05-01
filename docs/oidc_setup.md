@@ -2,6 +2,9 @@
 
 This guide explains the OIDC architecture, configuration, and setup for the Runner Token Service.
 
+
+> **Note**: For Keycloak deployments as the M2M OIDC provider, see the [Keycloak Setup Guide](keycloak_setup.md). This guide focuses on Auth0 configuration for user authentication flows.
+
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
