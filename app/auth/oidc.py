@@ -1,28 +1,39 @@
 """OIDC token validation."""
 
-from typing import Optional
+import time
+
 
 import httpx
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from jose.backends.base import Key
 
-from app.config import Settings
+# Module-level JWKS cache: {jwks_url: (jwks_dict, fetch_timestamp)}
+_jwks_cache: dict[str, tuple[dict, float]] = {}
+_JWKS_TTL = 300.0  # 5 minutes
 
 
 class OIDCValidator:
     """Validates OIDC tokens."""
 
-    def __init__(self, settings: Settings):
-        self.settings = settings
-        self.issuer = settings.oidc_issuer
-        self.audience = settings.oidc_audience
-        self.jwks_url = settings.oidc_jwks_url
-        self._jwks_cache: Optional[dict] = None
+    def __init__(self, issuer: str, audience: str, jwks_url: str):
+        """Initialize OIDC validator with explicit parameters.
 
-    async def _fetch_jwks(self) -> dict:
+        Args:
+            issuer: Expected token issuer (iss claim)
+            audience: Expected token audience (aud claim)
+            jwks_url: URL to fetch JWKS from
         """
-        Fetch JWKS from the OIDC provider.
+        self.issuer = issuer
+        self.audience = audience
+        self.jwks_url = jwks_url
+
+    async def _fetch_jwks(self, force_refresh: bool = False) -> dict:
+        """
+        Fetch JWKS from the OIDC provider with module-level caching.
+
+        Args:
+            force_refresh: If True, bypass cache and fetch fresh JWKS
 
         Returns:
             JWKS dictionary
@@ -30,15 +41,22 @@ class OIDCValidator:
         Raises:
             HTTPException: If JWKS cannot be fetched
         """
-        if self._jwks_cache:
-            return self._jwks_cache
+        now = time.monotonic()
 
+        # Check module-level cache (unless force refresh)
+        if not force_refresh and self.jwks_url in _jwks_cache:
+            jwks, fetch_time = _jwks_cache[self.jwks_url]
+            if now - fetch_time < _JWKS_TTL:
+                return jwks
+
+        # Cache miss or expired - fetch fresh JWKS
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(self.jwks_url, timeout=10.0)
                 response.raise_for_status()
-                self._jwks_cache = response.json()
-                return self._jwks_cache
+                jwks = response.json()
+                _jwks_cache[self.jwks_url] = (jwks, now)
+                return jwks
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -98,11 +116,19 @@ class OIDCValidator:
             HTTPException: If token validation fails
         """
         try:
-            # Fetch JWKS
+            # Fetch JWKS (uses module-level cache)
             jwks = await self._fetch_jwks()
 
             # Get signing key
-            signing_key = self._get_signing_key(token, jwks)
+            try:
+                signing_key = self._get_signing_key(token, jwks)
+            except HTTPException as e:
+                # If kid not found, invalidate cache and retry once (handles key rotation)
+                if "Unable to find matching key" in str(e.detail):
+                    jwks = await self._fetch_jwks(force_refresh=True)
+                    signing_key = self._get_signing_key(token, jwks)
+                else:
+                    raise
 
             # Validate and decode token
             payload = jwt.decode(

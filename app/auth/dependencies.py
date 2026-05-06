@@ -310,7 +310,11 @@ async def get_current_user(
         )
 
     token = credentials.credentials
-    validator = OIDCValidator(settings)
+    validator = OIDCValidator(
+        issuer=settings.oidc_issuer,
+        audience=settings.oidc_audience,
+        jwks_url=settings.oidc_jwks_url,
+    )
     payload = await validator.validate_token(token)
     return await _get_authenticated_user(payload, db, validator)
 
