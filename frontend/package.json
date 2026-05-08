@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.0",
-    "axios": "^1.15.0",
+    "axios": "^1.15.2",
     "oidc-client-ts": "^3.0.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
