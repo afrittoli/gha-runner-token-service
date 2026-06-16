@@ -5,13 +5,13 @@ pydantic==2.13.1
 pydantic-settings==2.13.1
 
 # GitHub API
-PyJWT==2.12.1
+PyJWT==2.13.0
 cryptography==46.0.7
 httpx==0.28.1
 
 # OIDC Authentication
 python-jose[cryptography]==3.5.0
-python-multipart==0.0.26
+python-multipart==0.0.31
 passlib[bcrypt]==1.7.4
 
 # Database
